@@ -5,6 +5,7 @@ import com.kativa.reader.data.remote.dto.ProgressDto
 import com.kativa.reader.data.remote.dto.VolumeDto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -98,11 +99,27 @@ class ContentMapperTest {
     }
 
     @Test
-    fun `chapter title falls back to chapter number`() {
-        val c = ContentMapper.chapter(
-            ChapterDto(id = 1, number = "7", sortOrder = 7f, pages = 10, title = "", titleName = ""),
+    fun `chapter number is exposed for formatting but sentinels are dropped`() {
+        val numbered = ContentMapper.chapter(
+            ChapterDto(id = 1, number = "7", minNumber = 7f, sortOrder = 7f, pages = 10, title = ""),
         )
-        assertEquals("Ch. 7", c.displayTitle)
+        assertEquals("7", numbered.displayNumber)
+
+        // Kavita's "no number parsed" sentinel must never reach the UI.
+        val unnumbered = ContentMapper.chapter(
+            ChapterDto(id = 2, number = "-100000", minNumber = -100_000f, sortOrder = 1f, pages = 10),
+        )
+        assertNull(unnumbered.displayNumber)
+        assertTrue(unnumbered.isUnnumbered)
+    }
+
+    @Test
+    fun `sentinel numbers survive dto mapping`() {
+        val volume = ContentMapper.volume(
+            VolumeDto(id = 9, number = -100000, minNumber = -100_000f, maxNumber = -100_000f),
+        )
+        assertTrue(volume.isLooseLeaf)
+        assertFalse(volume.isRegular)
     }
 
     private fun chapter(

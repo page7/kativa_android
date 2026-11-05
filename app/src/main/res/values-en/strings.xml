@@ -53,6 +53,8 @@
     <string name="setup_allow_cleartext_warning">With a plain connection, anyone on the same network can see your credentials and reading activity.</string>
     <string name="setup_auto_login">Sign in to this server at startup</string>
     <string name="setup_save_and_login">Save and sign in</string>
+    <string name="setup_switched_to_http">This server only accepts unencrypted HTTP, so http:// was used automatically.</string>
+    <string name="setup_next_step">Next you will enter a username and password, or an API key. Kavita accepts both: the username and password are the same ones you use on the web UI; API keys are created under User Settings → Auth Keys.</string>
     <string name="setup_version_ok">Connected · Kavita %1$s</string>
     <string name="setup_version_ok_unknown">Connected</string>
     <string name="setup_trust_title">Untrusted certificate</string>
@@ -144,6 +146,12 @@
     <string name="error_unknown">Something went wrong</string>
     <string name="error_cleartext_blocked">The system blocks unencrypted connections</string>
 
+    <string name="entity_chapter_num">Chapter %1$s</string>
+    <string name="entity_volume_num">Volume %1$s</string>
+    <string name="entity_single_volume">Single Volume</string>
+    <string name="entity_loose_leaf">Loose Leaf Chapters</string>
+    <string name="entity_specials">Specials</string>
+
     <!-- Reader -->
     <string name="reader_preparing">Preparing…</string>
     <string name="reader_no_network">A network connection is required to read</string>
@@ -153,6 +161,26 @@
     <string name="reader_next_chapter">Next chapter</string>
     <string name="reader_unsupported_format">EPUB/PDF readers are not available in this version yet</string>
     <string name="reader_prev_chapter">Previous chapter</string>
+    <string name="reader_settings">Reading settings</string>
+    <string name="reader_setting_direction">Reading direction</string>
+    <string name="reader_direction_ltr">Left to right</string>
+    <string name="reader_direction_rtl">Right to left</string>
+    <string name="reader_setting_mode">Paging mode</string>
+    <string name="reader_mode_horizontal">Horizontal</string>
+    <string name="reader_mode_vertical">Vertical</string>
+    <string name="reader_mode_webtoon">Webtoon (scroll)</string>
+    <string name="reader_setting_layout">Page layout</string>
+    <string name="reader_layout_single">Single</string>
+    <string name="reader_layout_double">Double</string>
+    <string name="reader_layout_double_manga">Double (manga)</string>
+    <string name="reader_setting_scale">Image scaling</string>
+    <string name="reader_scale_height">Fit height</string>
+    <string name="reader_scale_width">Fit width</string>
+    <string name="reader_scale_original">Original</string>
+    <string name="reader_setting_cover_offset">Show the cover alone</string>
+    <string name="reader_setting_cover_offset_desc">Keeps page 1 out of the pairing so the rest of the spreads line up</string>
+    <string name="reader_setting_brightness">Brightness (this session only)</string>
+    <string name="reader_setting_page_number">Show page number</string>
 
     <!-- Series detail -->
     <string name="series_continue">Continue reading</string>

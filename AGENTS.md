@@ -187,6 +187,7 @@ com.kativa.reader
 | Pdf(4) | `GET /api/Reader/pdf` → 系统 `PdfRenderer`（本地缓存文件）分页渲染 |
 
 - 格式判断以 `ChapterInfoDto.seriesFormat` 为准，**不信文件扩展名**。
+- **编号展示铁律**：`VolumeDto`/`ChapterDto` 的 `minNumber` 带哨兵值 —— `-100000` = **无编号**，`100000` = **番外容器卷**，`0` = 真实第 0 卷。这些值**绝不允许直接渲染**；所有卷/章标题必须走 `ui/common/EntityTitles.kt`，判定用 `domain/model/KavitaNumbering.kt`。番外与散章必须从常规卷列表拆出单独成区块。（曾有线上 bug 把 `Vol. -100000` 显示给用户；详见 `docs/API.md` §2「哨兵编号」。）
 - 进度保存：**页面变化 800ms 防抖** + `ON_PAUSE`/`ON_STOP` 立即提交 + 排队失败重试；退出阅读器必须已落盘。
 - 预取：当前页 ±2 页；Webtoon 向下 5 页；滚动到 `pages-3` 时预热下一章第 1 页（`prefetchStartOfChapter`）。
 - 翻页方向 `ReadingDirection`(0=LTR/1=RTL)、布局 `LayoutMode`(1 单页/2 双页/3 双页漫画)、分页模式 `ReaderMode`(0 左右/1 上下/2 Webtoon)、图片适配 `ScalingOption`(0 高/1 宽/2 原图/3 自动)、切分 `PageSplitOption`(0..3) 必须与服务端阅读配置模型一致。
@@ -235,9 +236,12 @@ com.kativa.reader
 
 ## 8. 测试与质量门禁
 
+> **铁律：编译通过 ≠ 能启动。** 见 §8.1。
+
 | 层 | 要求 |
 | --- | --- |
 | 单元测试 | 每个 Mapper、进度换算、自然排序、URL 构造、过滤器编码必须有测试 |
+| **启动冒烟（强制）** | 任何影响启动的改动，必须真机或模拟器**冷启动**验证，见 §8.1 |
 | 网络契约 | MockWebServer 回放真实响应（含 `Pagination` 头、纯文本错误、401→刷新） |
 | UI | 关键屏幕 Compose 测试（服务器选择、登录、首页、系列详情、阅读器翻页/进度、隐私模式） |
 | 截图 | Roborazzi 覆盖 暗/亮 + 手机/平板 + 隐私模式开关两态 |
@@ -246,7 +250,77 @@ com.kativa.reader
 | CI | `./gradlew ktlintCheck detekt testDebugUnitTest assembleDebug` 必须绿 |
 | 覆盖率 | 新代码行覆盖 ≥ 70%（domain/data 层优先） |
 
-提交前自检：
+### 8.1 启动冒烟（M0/M1 血的教训）
+
+**背景**：M0 交付的 APK 安装后**启动即闪退**。原因是 `MainActivity : AppCompatActivity`
+（为了应用内语言切换），但 `themes.xml` 的父主题写成了系统主题
+`android:Theme.Material.NoActionBar`。AppCompat 在 `setContentView` 时强制校验主题，
+不匹配就抛：
+
+```
+java.lang.IllegalStateException: You need to use a Theme.AppCompat theme
+  (or descendant) with this activity.
+  at androidx.appcompat.app.AppCompatDelegateImpl.createSubDecor
+```
+
+当时只跑了 `assembleDebug` + 单测，都是绿的，**没有任何自动化环节会发现它**。教训是：
+**运行时契约类问题（主题、Manifest、基类、Hilt 绑定、Room schema、资源 id）只有真启动才能暴露。**
+
+#### 必须做启动冒烟的改动清单
+
+只要碰到以下任意一项，**提交前必须冷启动一次**（真机或模拟器都行）：
+
+| 类别 | 具体项 |
+| --- | --- |
+| 主题 / 样式 | `themes.xml`、`styles.xml`、`AndroidManifest` 的 `android:theme`、夜间/横屏变体 |
+| Activity / Application | 基类变更（`Activity`↔`AppCompatActivity`↔`ComponentActivity`）、`android:name`、`configChanges` |
+| Manifest | 新增 `<activity>`/`<service>`/`<provider>`、权限、`android:exported`、`networkSecurityConfig`、`allowBackup` |
+| DI | Hilt 模块增删、`@Inject` 构造变化、`@HiltAndroidApp`/`@AndroidEntryPoint` 迁移 |
+| 数据库 | Room `entities`/`version`/`Migration` 变化（首次安装与升级两条路径都要试） |
+| 资源 | 新增 `values-*` 目录、`drawable` 引用改名、字符串格式化占位符（`%1$d` 与参数不匹配会在运行期抛） |
+| 依赖 | 新增/移除 AAR、`appcompat`/`material`/`compose` 大版本变动、`minSdk`/`targetSdk` 变动 |
+| 启动路径 | `SplashViewModel`/`StartupRouter`/导航起点、`MainActivity.onCreate` 里的任何逻辑 |
+
+#### 判定标准
+
+1. 冷启动后进程**存活**（`adb shell pidof <pkg>` 非空），且 logcat **无 `FATAL EXCEPTION`**。
+2. 首屏 UI 实际渲染出来（用 `adb shell uiautomator dump` 校验关键文案存在，不能只看截图）。
+3. **异常路径不崩**：例如地址非法时点“测试连接”，应显示错误文案而不是退出。
+4. 深链/参数异常不崩：`adb shell am start -n <pkg>/<Activity>`（无参）与带参数各一次。
+
+#### 一次性命令（本地模拟器）
+
+```bash
+# 1. 启动模拟器（本机 AVD：KativaTest，android-36，WHPX 加速）
+"D:\Program\Android SDK\emulator\emulator.exe" -avd KativaTest -no-snapshot -gpu swiftshader_indirect -no-audio &
+
+# 2. 等启动完成
+adb wait-for-device
+adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
+
+# 3. 装 + 冷启动 + 看是否存活
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb logcat -c
+adb shell am force-stop com.kativa.reader.debug
+adb shell am start -n com.kativa.reader.debug/com.kativa.reader.MainActivity
+sleep 8
+adb shell pidof com.kativa.reader.debug        # 必须非空
+adb logcat -d | grep "FATAL EXCEPTION"         # 必须为空
+
+# 4. 校验首屏真的渲染了
+adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head -c 3000
+```
+
+#### 已知主题约束（别再踩）
+
+- `MainActivity` 是 `AppCompatActivity`，**主题必须是 `Theme.AppCompat.*` 的后代**。
+  当前为 `Theme.AppCompat.DayNight.NoActionBar`。
+- Compose 负责全部视觉，XML 主题只提供窗口背景与系统栏透明——但那一点点也**足以导致启动崩溃**。
+- 如果将来要改成 `ComponentActivity`（放弃 AppCompat），必须同时迁移掉
+  `AppCompatDelegate.setApplicationLocales`，改用 `LocaleManager`（API 33+）或自建
+  `attachBaseContext` 包装，并重跑本节全部检查。
+
+#### 提交前自检
 
 1. 没有硬编码字符串/颜色/尺寸（走 tokens 与 strings）。
 2. 没有新增未使用依赖。
@@ -254,6 +328,8 @@ com.kativa.reader
 4. 新增 API 调用已在 `docs/API.md` 登记（接口 + 用到的字段 + 陷阱）。
 5. 三态（Loading/Empty/Error）齐全。
 6. 横屏/平板/大字号手动验证过。
+7. **碰过 §8.1 清单里的任何一项？→ 已做冷启动冒烟，并贴出 `pidof` + 无 FATAL 的证据。**
+8. 新增/修改了带占位符的字符串？→ 参数个数与类型已核对（`%1$d` 不能传给 String）。
 
 ---
 
@@ -301,7 +377,7 @@ com.kativa.reader
 | --- | --- | --- | --- |
 | **M0 骨架** | ✅ 已完成 | 工程搭建、设计系统（#4AC694/#2D7A56）、多服务器添加/选择、登录（密码 + API Key）、网络层（分页/错误/明文门禁）、首页三流 + 继续阅读大卡、隐私模式开关、四语言、素材管线 | 构建通过、32 个单测通过、多服务器可添加/选择/登录、首页展示 On Deck、隐私模式可开关 |
 | **M1 可读** | ✅ 已完成 | 库内系列网格（排序 + 无限滚动）、系列详情（卷折叠/章节/标记已读）、漫画阅读器（单页翻页/分区点击/页码跳转/书签/章节切换）、进度同步（防抖 + Room 写后队列 + 断网补传）、图片 URL 按会话生成 | 构建通过、54 个单测通过、可完整读完一卷并跨设备续读 |
-| **M2 好用** | ⬜ 进行中 | 搜索、筛选排序、合集/阅读清单、想读、双页/Webtoon 阅读模式、阅读设置 | 主要路径四语言可用；封面受隐私模式控制 |
+| **M2 好用** | 🟨 进行中 | ✅ 双页/上下/Webtoon 三种模式 + 阅读设置抽屉（方向/模式/布局/缩放/封面单独/亮度）；✅ 哨兵编号修复（`-100000`/`100000` 不再外泄）；⬜ 搜索、筛选面板、合集、阅读清单、想读 | 阅读器补齐后四语言可用；封面受隐私模式控制 |
 | **M3 完善** | ⬜ | EPUB/PDF 阅读器、阅读配置（Reading Profiles）、统计、批注/评分、平板双栏、素材正式替换 | 功能对齐 Web 端读者主路径；占位素材替换完成 |
 | **M4 打磨** | ⬜ | 性能、无障碍、截图测试、Play 上架物料 | 冷启动 < 2s，滚动 60fps |
 

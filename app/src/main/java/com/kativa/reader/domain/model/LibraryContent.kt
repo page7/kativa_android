@@ -16,14 +16,22 @@ data class Chapter(
     val wordCount: Long,
     val minHoursToRead: Int,
     val maxHoursToRead: Int,
+    /** Raw `minNumber`; carries Kavita's sentinel values (-100000 / 100000). */
+    val minNumber: Float = 0f,
+    val maxNumber: Float = 0f,
 ) {
     val isRead: Boolean get() = pages > 0 && pagesRead >= pages
 
-    val displayTitle: String
+    /** True when Kavita could not parse a chapter number for this file. */
+    val isUnnumbered: Boolean get() = KavitaNumbering.isUnnumbered(minNumber)
+
+    /** Regular chapter numbers only; never a sentinel. */
+    val displayNumber: String?
         get() = when {
-            title.isNotBlank() -> title
-            range != null -> "Ch. $range"
-            else -> "Ch. $number"
+            isUnnumbered -> null
+            range != null && range.isNotBlank() && !range.startsWith("-") -> range
+            number.isNotBlank() && !number.startsWith("-") -> number
+            else -> null
         }
 }
 
@@ -34,14 +42,23 @@ data class Volume(
     val pages: Int,
     val pagesRead: Int,
     val chapters: List<Chapter>,
+    /** Raw `minNumber`; carries Kavita's sentinel values (-100000 / 100000). */
+    val minNumber: Float = 0f,
+    val maxNumber: Float = 0f,
 ) {
     val isRead: Boolean get() = pages > 0 && pagesRead >= pages
 
     val progress: Float
         get() = if (pages <= 0) 0f else (pagesRead.toFloat() / pages).coerceIn(0f, 1f)
 
-    val displayTitle: String
-        get() = name.ifBlank { "Vol. $number" }
+    /** Loose-leaf volume: holds chapters whose own file had no volume (or chapter) number. */
+    val isLooseLeaf: Boolean get() = KavitaNumbering.isUnnumbered(minNumber)
+
+    /** Synthetic volume that only exists to group specials. */
+    val isSpecials: Boolean get() = KavitaNumbering.isSpecialsVolume(minNumber)
+
+    /** Regular volumes are numbered; loose-leaf/specials are rendered as their own sections. */
+    val isRegular: Boolean get() = !KavitaNumbering.isSyntheticVolume(minNumber)
 }
 
 /** Series detail aggregate. */
@@ -61,6 +78,19 @@ data class SeriesDetail(
     val secondaryColor: String? = null,
 ) {
     val chapters: List<Chapter> get() = volumes.flatMap { it.chapters }.sortedBy { it.sortOrder }
+
+    /** Numbered volumes, in reading order. The synthetic loose-leaf/specials volumes are excluded. */
+    val regularVolumes: List<Volume> get() = volumes.filter { it.isRegular }.sortedBy { it.minNumber }
+
+    /** Chapters that belong to the loose-leaf volume ("no volume number parsed"). */
+    val looseLeafChapters: List<Chapter>
+        get() = volumes.filter { it.isLooseLeaf }.flatMap { it.chapters }.sortedBy { it.sortOrder }
+
+    /** Specials, from both `isSpecial` flags and the synthetic specials volume. */
+    val specialChapters: List<Chapter>
+        get() = volumes.filter { it.isSpecials }.flatMap { it.chapters }
+            .ifEmpty { chapters.filter { it.isSpecial } }
+            .sortedBy { it.sortOrder }
 
     val totalChapters: Int get() = chapters.size
 

@@ -48,6 +48,9 @@ object ContentMapper {
         wordCount = dto.wordCount,
         minHoursToRead = dto.minHoursToRead,
         maxHoursToRead = dto.maxHoursToRead,
+        // Sentinels (-100000 / 100000) live in these numeric fields, not in `number`.
+        minNumber = dto.minNumber,
+        maxNumber = dto.maxNumber,
     )
 
     fun volume(dto: VolumeDto): Volume = Volume(
@@ -58,6 +61,8 @@ object ContentMapper {
         pagesRead = dto.pagesRead,
         // sortOrder is authoritative; never sort by the string `number` (AGENTS.md §4.6).
         chapters = dto.chapters.map(::chapter).sortedBy { it.sortOrder },
+        minNumber = dto.minNumber,
+        maxNumber = dto.maxNumber,
     )
 
     fun seriesDetail(dto: SeriesDto, volumes: List<VolumeDto>): SeriesDetail = SeriesDetail(

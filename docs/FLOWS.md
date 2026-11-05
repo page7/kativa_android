@@ -378,3 +378,29 @@ PDF
 | 年龄限制拦截 | 「此内容受年龄限制」 | 隐藏详情，不缓存封面 |
 | 只读账号 | 写操作按钮隐藏 + 提示「演示账号只读」 | 禁用写 API |
 | App 版本过旧 | 「请更新以继续使用」 | 阻断非读取操作 |
+
+---
+
+## F15 启动失败（开发/验收视角）
+
+> 这类问题**用户只能看到闪退**，所以必须由我们在交付前拦住。判定与流程见 `AGENTS.md §8.1`。
+
+```
+安装后点图标 → 立即退回桌面（无任何界面）
+ └─ 抓日志：adb logcat -d | findstr "FATAL EXCEPTION"
+     ├─ IllegalStateException: You need to use a Theme.AppCompat theme
+     │    → 主题父类不是 Theme.AppCompat.*（MainActivity 是 AppCompatActivity）
+     │      修 themes.xml；改完必须重跑冷启动
+     ├─ ClassNotFoundException / NoClassDefFoundError
+     │    → Manifest 的 android:name 与实际类不符，或依赖被裁掉（R8/ProGuard）
+     ├─ IllegalArgumentException: … has already been added / Hilt 相关
+     │    → DI 模块重复绑定或 @AndroidEntryPoint 缺失
+     ├─ Resources$NotFoundException
+     │    → 资源 id 引用错误或 values-* 缺串
+     └─ SQLiteException / IllegalStateException: Room
+          → schema/version 变更未写 Migration（禁止破坏性迁移）
+ └─ 无论哪一类：修完 → 冷启动 → pidof 非空 → 无 FATAL → 首屏 UI dump 有内容 → 才算完
+```
+
+**交付前固定动作**（不能省）：`assembleDebug` 绿 + 单测绿 + **冷启动冒烟绿**。前两项在 M0 都通过了，
+但闪退依然发生——所以第三项是必要的。

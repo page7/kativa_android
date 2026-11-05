@@ -53,6 +53,8 @@
     <string name="setup_allow_cleartext_warning">Avec une connexion en clair, toute personne sur le même réseau peut voir vos identifiants et votre activité de lecture.</string>
     <string name="setup_auto_login">Se connecter à ce serveur au démarrage</string>
     <string name="setup_save_and_login">Enregistrer et se connecter</string>
+    <string name="setup_switched_to_http">Ce serveur n\'accepte que le HTTP non chiffré ; http:// a donc été utilisé automatiquement.</string>
+    <string name="setup_next_step">Vous saisirez ensuite un identifiant et un mot de passe, ou une clé API. Kavita accepte les deux : l\'identifiant et le mot de passe sont ceux de l\'interface web ; les clés API se créent dans Paramètres utilisateur → Auth Keys.</string>
     <string name="setup_version_ok">Connecté · Kavita %1$s</string>
     <string name="setup_version_ok_unknown">Connecté</string>
     <string name="setup_trust_title">Certificat non approuvé</string>
@@ -144,6 +146,12 @@
     <string name="error_unknown">Une erreur est survenue</string>
     <string name="error_cleartext_blocked">Le système bloque les connexions non chiffrées</string>
 
+    <string name="entity_chapter_num">Chapitre %1$s</string>
+    <string name="entity_volume_num">Tome %1$s</string>
+    <string name="entity_single_volume">Tome unique</string>
+    <string name="entity_loose_leaf">Chapitres isolés</string>
+    <string name="entity_specials">Bonus</string>
+
     <!-- Reader -->
     <string name="reader_preparing">Préparation…</string>
     <string name="reader_no_network">Une connexion réseau est nécessaire pour lire</string>
@@ -153,6 +161,26 @@
     <string name="reader_next_chapter">Chapitre suivant</string>
     <string name="reader_unsupported_format">Les lecteurs EPUB/PDF ne sont pas encore disponibles dans cette version</string>
     <string name="reader_prev_chapter">Chapitre précédent</string>
+    <string name="reader_settings">Réglages de lecture</string>
+    <string name="reader_setting_direction">Sens de lecture</string>
+    <string name="reader_direction_ltr">De gauche à droite</string>
+    <string name="reader_direction_rtl">De droite à gauche</string>
+    <string name="reader_setting_mode">Mode de pagination</string>
+    <string name="reader_mode_horizontal">Horizontal</string>
+    <string name="reader_mode_vertical">Vertical</string>
+    <string name="reader_mode_webtoon">Webtoon (défilement)</string>
+    <string name="reader_setting_layout">Mise en page</string>
+    <string name="reader_layout_single">Une page</string>
+    <string name="reader_layout_double">Double page</string>
+    <string name="reader_layout_double_manga">Double page (manga)</string>
+    <string name="reader_setting_scale">Mise à l\'échelle</string>
+    <string name="reader_scale_height">Ajuster en hauteur</string>
+    <string name="reader_scale_width">Ajuster en largeur</string>
+    <string name="reader_scale_original">Taille originale</string>
+    <string name="reader_setting_cover_offset">Afficher la couverture seule</string>
+    <string name="reader_setting_cover_offset_desc">La page 1 n\'est pas appairée, pour que les doubles pages suivantes s\'alignent</string>
+    <string name="reader_setting_brightness">Luminosité (cette session uniquement)</string>
+    <string name="reader_setting_page_number">Afficher le numéro de page</string>
 
     <!-- Series detail -->
     <string name="series_continue">Reprendre la lecture</string>

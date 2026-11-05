@@ -1,11 +1,14 @@
 package com.kativa.reader.core.network
 
 import com.kativa.reader.core.auth.ActiveServerStore
+import com.kativa.reader.core.network.CleartextGateInterceptor.Companion.HEADER_PROBE_CLEARTEXT
+import com.kativa.reader.data.remote.api.ServerApi
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Interceptor
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -31,12 +34,19 @@ class ApiFactory @Inject constructor(
         coerceInputValues = true
     }
 
-    private val client: OkHttpClient by lazy {
+    /**
+     * Builds the shared OkHttp client.
+     *
+     * Interceptor order matters: application interceptors run in the order they were added, so
+     * anything that must influence the cleartext gate has to come *before* it.
+     */
+    private fun buildClient(leading: List<Interceptor> = emptyList()): OkHttpClient =
         OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            .apply { leading.forEach { interceptor -> addInterceptor(interceptor) } }
             .addInterceptor(AuthInterceptor(activeServerStore))
             .addInterceptor(cleartextGate)
             .addInterceptor(paginationInterceptor)
@@ -54,7 +64,8 @@ class ApiFactory @Inject constructor(
                 }
             }
             .build()
-    }
+
+    private val client: OkHttpClient by lazy { buildClient() }
 
     private val cache = java.util.concurrent.ConcurrentHashMap<String, Retrofit>()
 
@@ -96,6 +107,31 @@ class ApiFactory @Inject constructor(
     /** Builds an anonymous client for an arbitrary URL, used by "test connection". */
     fun anonymousServerApi(rawBaseUrl: String): com.kativa.reader.data.remote.api.ServerApi =
         retrofitFor(rawBaseUrl).create(com.kativa.reader.data.remote.api.ServerApi::class.java)
+
+    /**
+     * Probe client that may target a cleartext URL before any server is active.
+     *
+     * The per-request header is consumed by [CleartextGateInterceptor]; it is scoped to this
+     * probe client so ordinary API traffic can never bypass the gate.
+     */
+    fun probeServerApi(rawBaseUrl: String): com.kativa.reader.data.remote.api.ServerApi {
+        // Leading interceptor: it must run BEFORE the cleartext gate, otherwise the gate sees a
+        // request without the opt-in header and rejects the http retry.
+        val optIn = Interceptor { chain ->
+            chain.proceed(
+                chain.request().newBuilder()
+                    .header(HEADER_PROBE_CLEARTEXT, "1")
+                    .build(),
+            )
+        }
+
+        return Retrofit.Builder()
+            .baseUrl(rawBaseUrl)
+            .client(buildClient(leading = listOf(optIn)))
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(com.kativa.reader.data.remote.api.ServerApi::class.java)
+    }
 
     fun invalidate(baseUrl: String) {
         cache.remove(baseUrl)

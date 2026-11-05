@@ -24,7 +24,7 @@ class ThemeViewModel @Inject constructor(
     private val privacyModeState: PrivacyModeState,
 ) : ViewModel() {
 
-    private val _themeMode = MutableStateFlow(ThemeMode.System)
+    private val _themeMode = MutableStateFlow(ThemeMode.Dark)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
     private val _privacyMode = MutableStateFlow(false)

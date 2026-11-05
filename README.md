@@ -32,13 +32,28 @@ Kotlin · Jetpack Compose · Material 3 · Hilt · Retrofit/OkHttp · kotlinx.se
 ## 快速开始
 
 ```bash
-# 需要 JDK 17 + Android SDK 35
+# 需要 JDK 17（本机已装：D:\tools\jdk-17.0.21+9）
 ./gradlew :app:assembleDebug
 ./gradlew :app:testDebugUnitTest
 ```
 
 首次运行：选择/添加服务器（如 `https://kavita.example.com`），使用账号密码或
 「用户设置 → Auth Keys」生成的 API Key 登录。
+
+## 交付前必做：启动冒烟
+
+编译通过不等于能启动。改过主题、Manifest、Activity 基类、DI、Room、资源目录中的任意一项后，
+必须先冷启动验证（详细清单与命令见 [`AGENTS.md` §8.1](AGENTS.md)）：
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb logcat -c
+adb shell am force-stop com.kativa.reader.debug
+adb shell am start -n com.kativa.reader.debug/com.kativa.reader.MainActivity
+sleep 8
+adb shell pidof com.kativa.reader.debug          # 必须非空
+adb logcat -d | grep "FATAL EXCEPTION"           # 必须为空
+```
 
 ## 参考
 

@@ -27,7 +27,12 @@ object ServerUrl {
 
     enum class Reason { Empty, Malformed, UnsupportedScheme, MissingHost, BlockedLoopback }
 
-    fun normalize(rawInput: String): Result {
+    /**
+     * @param defaultScheme scheme used when the user omits one. Pass "http" when the
+     *   "allow unencrypted" switch is on, so a plain-HTTP-only server is reachable without
+     *   the user having to type the scheme.
+     */
+    fun normalize(rawInput: String, defaultScheme: String = "https"): Result {
         val raw = rawInput.trim()
         if (raw.isEmpty()) return Result.Invalid(Reason.Empty)
 
@@ -37,7 +42,7 @@ object ServerUrl {
             withoutQuery.startsWith("http://", ignoreCase = true) -> withoutQuery
             withoutQuery.startsWith("https://", ignoreCase = true) -> withoutQuery
             withoutQuery.contains("://") -> return Result.Invalid(Reason.UnsupportedScheme)
-            else -> "https://$withoutQuery"
+            else -> "$defaultScheme://$withoutQuery"
         }
 
         val uri = try {

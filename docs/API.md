@@ -37,7 +37,9 @@
 ## 1. 认证与账户
 
 ### `GET /api/Health` ✅ 匿名
-- 响应：`"Ok"`（text）。用于服务器连通性检测。
+- 响应：**纯文本 `Ok`**（`Content-Type: text/plain`），用于服务器连通性检测。
+- ⚠️ 不是 JSON（连 `"Ok"` 这种 JSON 字符串都不是）。用 JSON 反序列化会抛异常，必须读原始 body 再 `trim()` 比较。
+- 若是 `http://` 服务器而请求了 `https://`，会得到 `SSLException: Unable to parse TLS packet header`（见 §13.21）。
 
 ### `GET /api/Server/server-info-slim` 🔒
 - 响应 `ServerInfoSlimDto`：`installId, isDocker, kavitaVersion, firstInstallDate, firstInstallVersion`。
@@ -135,6 +137,41 @@ query：`pageNumber, pageSize`
 ### `GET /api/Series/volumes?seriesId=` 🔒
 - `VolumeDto[]`：`id, number, minNumber, maxNumber, name, pages, pagesRead, coverImage, chapters[]`
 - `ChapterDto`：`id, number, range, minNumber, maxNumber, title, titleName, pages, isSpecial, pagesRead, volumeId, sortOrder, releaseDate, summary, wordCount, writers[], genres[], tags[], ...`
+- ⚠️ **`number` 是 `[Obsolete]` 字段**（服务端标注 `Use MinNumber`）。`MinNumber`/`MaxNumber` 才是权威数值，且**带哨兵值**，见 §12.1。
+
+### 哨兵编号（必读，否则一定会显示成 `-100000`）
+
+Kavita 用**负数/超大数**编码「没有编号」和「番外容器」，它们不是真实卷号/话数：
+
+| 字段值 | 含义 | 常量（`Kavita.Models/Constants/ParserConstants.cs`） |
+| --- | --- | --- |
+| `-100000` | **无编号**：文件名/ComicInfo 里没解析出章节号（或卷号） | `DefaultChapter` / `LooseLeafVolume` / `DefaultChapterNumber` |
+| `100000` | **番外容器卷**：specials 都挂在这个合成卷下 | `SpecialVolumeNumber` / `SpecialVolume` |
+| `0` | **真实**的第 0 卷/第 0 话（v0.8.0 起不再是「无编号」） | — |
+
+**来源**（v0.8.0 发行说明原文）：
+
+> Loose Leaf volumes are now encoded with the number **-100000** instead of 0. This now means users can have a Volume 0 without issue.
+>
+> Encoding: Special (**100000**), Loose Leaf Volume (**-100000**).
+
+**客户端必须做三件事**：
+
+1. **绝不把 `-100000` / `100000` 当数字渲染**。官方 Web UI 直接隐藏编号，改显示标题或「单卷 / 散章 / 番外」。
+2. **把 `100000` 卷与 `-100000` 卷从常规卷列表里拆出来**，单独成「番外」「散章」区块。
+3. **`0` 必须当普通编号处理**，不要因为「0 像空值」而过滤掉。
+
+官方 Web 端对应实现：`UI/Web/src/app/_services/entity-title.service.ts`；
+服务端甚至直接把这些章节从 Chapters 标签页剔除：
+
+```csharp
+// Kavita.Services/SeriesService.cs
+private static bool ShouldIncludeChapter(ChapterDto chapter)
+    => !chapter.IsSpecial && chapter.MinNumber.IsNot(Parser.DefaultChapterNumber);
+```
+
+本仓库实现：`domain/model/KavitaNumbering.kt`（常量与判定）+ `ui/common/EntityTitles.kt`（唯一格式化出口），
+并有 `KavitaNumberingTest` 覆盖。**新增任何展示卷/章编号的地方都必须走 `EntityTitles`。**
 
 ### `GET /api/Series/volume?volumeId=` / `GET /api/Series/chapter?chapterId=` 🔒
 - 单卷/单章详情（`VolumeDto` / `ChapterDto`）。
@@ -532,10 +569,14 @@ PDF：`pdfTheme(0 Dark/1 Light)`、`pdfScrollMode(0/1/3)`、`pdfSpreadMode(0 Non
 9. **错误体多为纯文本**，不能假设 JSON。
 10. **`Read Only` 角色**：创建 Auth Key/写偏好/评分/进度都会 403——UI 层先行隐藏。
 11. **`Series/series-detail` 不稳定**，失败降级。
-12. **章节列表顺序**用 `sortOrder`/`number` 数值排序，不用字符串。
+12. **章节列表顺序**用 `sortOrder` 数值排序，不用字符串 `number`（后者可能带 `-100000`）。
 13. **EPUB 进度**用 `bookScrollId` 锚点，不能只用页码。
 14. **`AuthKey` 长度 8-32**，`image-only` 名称是 Web 端约定；改名会导致取不到 key。
 15. **服务端可能开启 OIDC 且禁用密码**：登录 401 `password-authentication-disabled` → 引导用户用 API Key。
 16. **`libraryId` 在 `progress` 请求里是必填**，从 `chapterInfo.libraryId` 取，别用系列里的猜测。
 17. **年龄限制**：服务端已做过滤，客户端不要自行推断；被拦截内容返回 404/空列表。
 18. **`includeDimensions=true` 会显著变慢**（首次解包），只在阅读器首屏与双页判定时使用。
+19. **`minNumber == -100000` 表示「无编号」，`== 100000` 表示番外容器卷**，都不能当数字显示；`0` 是真实编号。见 §2「哨兵编号」。这是把 `Vol. -100000` 显示给用户的直接原因。
+20. **`GET /api/Health` 返回纯文本 `Ok`**，不是 JSON 字符串；用 JSON 转换器反序列化会抛 `SerializationException`，必须按原始 body 读。
+21. **只支持明文 HTTP 的自建服务器很常见**：`https://` 探测会得到 `SSLException: Unable to parse TLS packet header`。此时应回退 `http://` 重试并提示用户，不要让用户自己猜协议。
+22. **网络层拦截器的注册顺序即执行顺序**：任何需要影响鉴权/明文门禁的 header，必须注册在门禁之前，否则门禁先跑就看不到它。

@@ -24,11 +24,15 @@ class ServerProbe @Inject constructor(
     private val apiFactory: ApiFactory,
 ) {
     suspend fun probe(normalized: ServerUrl.Normalized): Outcome<ProbeResult> = try {
-        val api = apiFactory.anonymousServerApi(normalized.baseUrl)
-        val health = api.health()
-        if (!health.trim().equals("Ok", ignoreCase = true)) {
+        val api = apiFactory.probeServerApi(normalized.baseUrl)
+
+        // Kavita's /Health returns the plain text `Ok`, so read the body directly instead of
+        // letting a JSON converter parse it.
+        val health = api.health().use { it.string().trim() }
+        if (!health.equals("Ok", ignoreCase = true)) {
             Outcome.Failure(KativaFailure(KativaError.NotKavita))
         } else {
+            // Version is a nice-to-have badge; never fail the probe because of it.
             val version = runCatching { api.serverInfo().kavitaVersion }.getOrNull()
             Outcome.Success(ProbeResult(version = version, displayUrl = normalized.displayUrl))
         }

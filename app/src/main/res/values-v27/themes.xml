@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      API 27+ overlay. `windowLightNavigationBar` does not exist on API 26, so it lives here rather
+      than in values/themes.xml (lint error NewApi otherwise).
+    -->
+    <style name="Theme.Kativa" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/kativa_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

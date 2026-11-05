@@ -58,6 +58,7 @@ import com.kativa.reader.domain.model.ContentFormat
 import com.kativa.reader.domain.model.PublicationStatus
 import com.kativa.reader.domain.model.SeriesDetail
 import com.kativa.reader.domain.model.Volume
+import com.kativa.reader.ui.common.EntityTitles
 import com.kativa.reader.ui.common.message
 
 /** P06 — series detail with collapsible volumes and a single, obvious primary action. */
@@ -151,7 +152,7 @@ fun SeriesDetailScreen(
                             )
                         }
 
-                        items(detail.volumes, key = { "vol-${it.id}" }) { volume ->
+                        items(detail.regularVolumes, key = { "vol-${it.id}" }) { volume ->
                             VolumeSection(
                                 volume = volume,
                                 expanded = volume.id in state.expandedVolumeIds,
@@ -161,11 +162,55 @@ fun SeriesDetailScreen(
                                 onMarkVolume = { viewModel.markVolumeRead(volume.id) },
                             )
                         }
+
+                        // Kavita filters these out of its own "Chapters" tab; we surface them as
+                        // dedicated sections instead of leaking `Vol. -100000` (AGENTS.md §4.6-adjacent).
+                        if (detail.looseLeafChapters.isNotEmpty()) {
+                            item("loose-leaf-header") {
+                                SectionLabel(
+                                    text = stringResource(R.string.entity_loose_leaf),
+                                    count = detail.looseLeafChapters.size,
+                                )
+                            }
+                            items(detail.looseLeafChapters, key = { "loose-${it.id}" }) { chapter ->
+                                ChapterRow(
+                                    chapter = chapter,
+                                    onClick = { onOpenChapter(chapter.id) },
+                                    onToggleRead = { viewModel.markChapterRead(chapter, !chapter.isRead) },
+                                )
+                            }
+                        }
+
+                        if (detail.specialChapters.isNotEmpty()) {
+                            item("specials-header") {
+                                SectionLabel(
+                                    text = stringResource(R.string.entity_specials),
+                                    count = detail.specialChapters.size,
+                                )
+                            }
+                            items(detail.specialChapters, key = { "special-${it.id}" }) { chapter ->
+                                ChapterRow(
+                                    chapter = chapter,
+                                    onClick = { onOpenChapter(chapter.id) },
+                                    onToggleRead = { viewModel.markChapterRead(chapter, !chapter.isRead) },
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String, count: Int) {
+    Text(
+        text = "$text  ·  $count",
+        style = MaterialTheme.typography.titleSmall,
+        color = KativaColors.BrandPrimary,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+    )
 }
 
 @Composable
@@ -272,7 +317,7 @@ private fun VolumeSection(
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = volume.displayTitle,
+                    text = EntityTitles.volume(volume),
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -330,7 +375,7 @@ private fun ChapterRow(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = chapter.displayTitle,
+                    text = EntityTitles.chapter(chapter),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

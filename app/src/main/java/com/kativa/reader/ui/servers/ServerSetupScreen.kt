@@ -49,7 +49,7 @@ import com.kativa.reader.ui.common.message
 @Composable
 fun ServerSetupScreen(
     onBack: () -> Unit,
-    onSaved: (serverId: String, autoLogin: Boolean) -> Unit,
+    onSaved: (serverId: String, autoLogin: Boolean, probed: Boolean) -> Unit,
     viewModel: ServerSetupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -138,6 +138,15 @@ fun ServerSetupScreen(
                 )
             }
 
+            // Explain an automatic scheme downgrade instead of silently changing the user's input.
+            if (state.autoSwitchedToCleartext) {
+                Text(
+                    text = stringResource(R.string.setup_switched_to_http),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = KativaColors.Warning,
+                )
+            }
+
             Spacer(Modifier.height(4.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -185,6 +194,16 @@ fun ServerSetupScreen(
                 enabled = state.canSave,
                 loading = state.testing,
                 modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            // Make the next step explicit: the previous build left users on this screen with no
+            // visible way to enter credentials (docs/PAGES.md P00B).
+            Text(
+                text = stringResource(R.string.setup_next_step),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Spacer(Modifier.height(24.dp))

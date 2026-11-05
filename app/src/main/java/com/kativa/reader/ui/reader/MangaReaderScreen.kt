@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -23,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -97,57 +102,109 @@ fun MangaReaderScreen(
             state.session != null -> {
                 val session = state.session!!
                 val pageUrls = state.pageUrls
+                val settings = state.settings
+
+                // Webtoon is a completely different composition (continuous scroll), not a pager
+                // variant, so it branches here rather than inside the pager (AGENTS.md §5).
+                if (settings.isWebtoon) {
+                    WebtoonReader(
+                        pageUrls = pageUrls,
+                        totalPages = session.totalPages,
+                        onPageVisible = viewModel::onPageChanged,
+                        onTap = viewModel::toggleControls,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    if (state.controlsVisible) {
+                        ReaderControls(
+                            state = state,
+                            onBack = onBack,
+                            onSeek = viewModel::goToPage,
+                            onToggleBookmark = viewModel::toggleBookmark,
+                            onPrevChapter = viewModel::requestPrevChapter,
+                            onNextChapter = viewModel::requestNextChapter,
+                            onOpenSettings = viewModel::openSettings,
+                        )
+                    }
+                    ReaderNavigationEffect(state, viewModel, onOpenChapter)
+                    return@Box
+                }
+
                 val pagerState = rememberPagerState(
-                    initialPage = state.pageIndex,
-                    pageCount = { session.totalPages },
+                    initialPage = state.currentSlot,
+                    pageCount = { state.slotCount },
                 )
 
                 // Keep the pager and the VM in sync in both directions.
                 LaunchedEffect(pagerState.currentPage) {
-                    viewModel.onPageChanged(pagerState.currentPage)
+                    val slotPages = state.slotPages(pagerState.currentPage)
+                    // Persist the leading page of a double spread; that is what the user sees first.
+                    slotPages.firstOrNull()?.let { page -> viewModel.onPageChanged(page - 1) }
                 }
-                LaunchedEffect(state.pageIndex) {
-                    if (pagerState.currentPage != state.pageIndex && !pagerState.isScrollInProgress) {
-                        pagerState.scrollToPage(state.pageIndex)
+                LaunchedEffect(state.currentSlot) {
+                    if (pagerState.currentPage != state.currentSlot && !pagerState.isScrollInProgress) {
+                        pagerState.scrollToPage(state.currentSlot)
                     }
                 }
 
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = { offset ->
-                                    val third = size.width / 3f
-                                    when {
-                                        offset.x < third -> {
-                                            if (pagerState.currentPage > 0) {
-                                                viewModel.goToPage(pagerState.currentPage - 1)
-                                            }
-                                        }
+                val goNext = {
+                    if (pagerState.currentPage < state.slotCount - 1) {
+                        viewModel.goToPage(state.slotPages(pagerState.currentPage + 1).firstOrNull()?.minus(1) ?: 0)
+                    }
+                }
+                val goPrev = {
+                    if (pagerState.currentPage > 0) {
+                        viewModel.goToPage(state.slotPages(pagerState.currentPage - 1).firstOrNull()?.minus(1) ?: 0)
+                    }
+                }
 
-                                        offset.x > third * 2 -> {
-                                            if (pagerState.currentPage < session.totalPages - 1) {
-                                                viewModel.goToPage(pagerState.currentPage + 1)
-                                            }
-                                        }
-
-                                        else -> viewModel.toggleControls()
-                                    }
-                                },
-                                onDoubleTap = { viewModel.toggleBookmark() },
-                            )
-                        },
-                ) { index ->
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(pageUrls.getOrNull(index))
-                            .build(),
-                        contentDescription = stringResource(R.string.reader_page, index + 1, session.totalPages),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
+                val pagerModifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (settings.isVerticalPaging) Modifier else Modifier,
                     )
+                    .pointerInput(state.settings.readerMode, state.settings.layoutMode, state.settings.readingDirection) {
+                        detectTapGestures(
+                            onTap = { offset ->
+                                val third = size.width / 3f
+                                // Tap zones follow the reading direction: in RTL the left third
+                                // advances, mirroring how manga is read.
+                                val forwardOnLeft = settings.isRightToLeft
+                                when {
+                                    offset.x < third -> if (forwardOnLeft) goNext() else goPrev()
+                                    offset.x > third * 2 -> if (forwardOnLeft) goPrev() else goNext()
+                                    else -> viewModel.toggleControls()
+                                }
+                            },
+                            onDoubleTap = { viewModel.toggleBookmark() },
+                        )
+                    }
+
+                if (settings.isVerticalPaging) {
+                    VerticalPager(
+                        state = pagerState,
+                        modifier = pagerModifier,
+                        reverseLayout = false,
+                    ) { index ->
+                        PagerSlotContent(
+                            state = state,
+                            slotIndex = index,
+                            pageUrls = pageUrls,
+                            context = context,
+                        )
+                    }
+                } else {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = pagerModifier,
+                        reverseLayout = settings.isRightToLeft,
+                    ) { index ->
+                        PagerSlotContent(
+                            state = state,
+                            slotIndex = index,
+                            pageUrls = pageUrls,
+                            context = context,
+                        )
+                    }
                 }
 
                 if (state.controlsVisible) {
@@ -158,6 +215,7 @@ fun MangaReaderScreen(
                         onToggleBookmark = viewModel::toggleBookmark,
                         onPrevChapter = viewModel::requestPrevChapter,
                         onNextChapter = viewModel::requestNextChapter,
+                        onOpenSettings = viewModel::openSettings,
                     )
                 }
 
@@ -168,14 +226,113 @@ fun MangaReaderScreen(
                     )
                 }
 
-                // Navigate once the VM resolved a target chapter id.
-                LaunchedEffect(state.pendingChapterNavigation) {
-                    state.pendingChapterNavigation?.let { target ->
-                        viewModel.consumeNavigationTarget()
-                        onOpenChapter(target)
-                    }
-                }
+                ReaderNavigationEffect(state, viewModel, onOpenChapter)
             }
+        }
+
+        if (state.settingsSheetVisible) {
+            ReaderSettingsSheet(
+                settings = state.settings,
+                onDismiss = viewModel::closeSettings,
+                onReadingDirection = viewModel::setReadingDirection,
+                onReaderMode = viewModel::setReaderMode,
+                onPageLayout = viewModel::setPageLayout,
+                onScaling = viewModel::setScaling,
+                onCoverOffset = viewModel::setCoverOffset,
+                onBrightness = viewModel::setBrightness,
+                onShowPageNumber = viewModel::setShowPageNumber,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReaderNavigationEffect(
+    state: ReaderUiState,
+    viewModel: ReaderViewModel,
+    onOpenChapter: (Int) -> Unit,
+) {
+    LaunchedEffect(state.pendingChapterNavigation) {
+        state.pendingChapterNavigation?.let { target ->
+            viewModel.consumeNavigationTarget()
+            onOpenChapter(target)
+        }
+    }
+}
+
+/** One pager slot: a single page, or a facing pair in double-page mode. */
+@Composable
+private fun PagerSlotContent(
+    state: ReaderUiState,
+    slotIndex: Int,
+    pageUrls: List<String>,
+    context: android.content.Context,
+) {
+    val pages = state.slotPages(slotIndex)
+    val total = state.totalPages
+
+    if (pages.size <= 1) {
+        AsyncImage(
+            model = ImageRequest.Builder(context).data(pageUrls.getOrNull((pages.firstOrNull() ?: 1) - 1)).build(),
+            contentDescription = stringResource(
+                R.string.reader_page,
+                pages.firstOrNull() ?: 1,
+                total,
+            ),
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
+
+    Row(Modifier.fillMaxSize()) {
+        // RTL puts the later page on the left, which is how right-to-left spreads read.
+        val ordered = if (state.settings.isRightToLeft) pages.reversed() else pages
+        ordered.forEach { page ->
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(pageUrls.getOrNull(page - 1)).build(),
+                contentDescription = stringResource(R.string.reader_page, page, total),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier.weight(1f).fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** Continuous vertical scroll used by Webtoon mode. */
+@Composable
+private fun WebtoonReader(
+    pageUrls: List<String>,
+    totalPages: Int,
+    onPageVisible: (Int) -> Unit,
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val listState = rememberLazyListState()
+
+    // Report the first mostly-visible page so progress matches what the user is looking at.
+    val visiblePage by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo.visibleItemsInfo
+            info.firstOrNull { item ->
+                item.offset + item.size / 2 >= 0
+            }?.index?.plus(1) ?: 1
+        }
+    }
+    LaunchedEffect(visiblePage) { onPageVisible(visiblePage - 1) }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier.pointerInput(Unit) { detectTapGestures(onTap = { onTap() }) },
+    ) {
+        items(totalPages) { index ->
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(pageUrls.getOrNull(index)).build(),
+                contentDescription = stringResource(R.string.reader_page, index + 1, totalPages),
+                contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -230,6 +387,7 @@ private fun ReaderControls(
     onToggleBookmark: () -> Unit,
     onPrevChapter: () -> Unit,
     onNextChapter: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val session = state.session ?: return
     Box(Modifier.fillMaxSize()) {
@@ -254,7 +412,7 @@ private fun ReaderControls(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = session.chapterTitle.ifBlank { "Ch. ${session.chapterNumber}" },
+                        text = com.kativa.reader.ui.common.EntityTitles.chapterCompact(session),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.7f),
                         maxLines = 1,
@@ -272,6 +430,13 @@ private fun ReaderControls(
                         } else {
                             Color.White
                         },
+                    )
+                }
+                IconButton(onClick = onOpenSettings) {
+                    KativaIcon(
+                        icon = KativaIcons.Settings,
+                        contentDescription = stringResource(R.string.reader_settings),
+                        tint = Color.White,
                     )
                 }
             }

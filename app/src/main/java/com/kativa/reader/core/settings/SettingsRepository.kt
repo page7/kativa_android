@@ -30,7 +30,9 @@ class SettingsRepository @Inject constructor(
     private val keyPrivacyPrefix = "privacy_"
 
     val themeMode: Flow<ThemeMode> = context.settingsDataStore.data.map { prefs ->
-        prefs[keyTheme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.System
+        // Dark by default: this is a reading app and the brand palette is designed dark-first
+        // (AGENTS.md §6). "Follow system" remains an explicit user choice.
+        prefs[keyTheme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.Dark
     }
 
     val language: Flow<String?> = context.settingsDataStore.data.map { it[keyLanguage] }

@@ -100,7 +100,9 @@ fun KativaNavHost(
         ) {
             ServerSetupScreen(
                 onBack = { navController.popBackStack() },
-                onSaved = { serverId, _ ->
+                onSaved = { serverId, _, _ ->
+                    // Always continue to sign-in: the credentials step is what actually authorises
+                    // the app, and it is reachable even when the health probe was skipped.
                     navController.navigate(Routes.login(serverId)) {
                         popUpTo(Routes.SERVER_PICKER)
                     }

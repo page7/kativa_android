@@ -10,6 +10,7 @@ import com.kativa.reader.data.remote.dto.SeriesFilterV2Dto
 import com.kativa.reader.data.remote.dto.ServerInfoSlimDto
 import com.kativa.reader.data.remote.dto.TokenRequestDto
 import com.kativa.reader.data.remote.dto.UserDto
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -36,9 +37,15 @@ interface AccountApi {
 
 interface ServerApi {
 
-    /** Anonymous health probe used by the "test connection" button. Returns the text "Ok". */
+    /**
+     * Anonymous health probe used by the "test connection" button.
+     *
+     * Returns the raw body on purpose: Kavita answers with the plain text `Ok` (not a JSON
+     * string), so a JSON converter would fail to parse it. Retrofit handles [ResponseBody]
+     * natively, bypassing content negotiation.
+     */
     @GET("Health")
-    suspend fun health(): String
+    suspend fun health(): ResponseBody
 
     @GET("Server/server-info-slim")
     suspend fun serverInfo(): ServerInfoSlimDto

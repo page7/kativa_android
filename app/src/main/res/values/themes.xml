@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Kativa" parent="android:Theme.Material.NoActionBar">
+    <!--
+      Must descend from an AppCompat theme: MainActivity extends AppCompatActivity (needed for
+      per-app locales), and AppCompat throws at startup when the theme is not AppCompat-derived.
+
+      Deliberately NOT DayNight: this is a dark-first reading app, and Compose owns all colours.
+      Using a DayNight parent would flash a white window on devices set to light mode before
+      Compose draws its first frame. See AGENTS.md §6/§8.1.
+    -->
+    <style name="Theme.Kativa" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/kativa_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

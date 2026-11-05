@@ -10,6 +10,7 @@ import com.kativa.reader.data.repository.LibraryRepository
 import com.kativa.reader.data.repository.ProgressRepository
 import com.kativa.reader.domain.model.ReaderKind
 import com.kativa.reader.domain.model.ReaderSession
+import com.kativa.reader.domain.model.PageSlot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
@@ -31,12 +32,16 @@ data class ReaderUiState(
     /** 0-based page index, matching the `page` query parameter. */
     val pageIndex: Int = 0,
     val controlsVisible: Boolean = false,
+    val settingsSheetVisible: Boolean = false,
     val bookmarkedPages: Set<Int> = emptySet(),
     val error: KativaError? = null,
     val blockReason: ReaderBlockReason? = null,
     val paused: Boolean = false,
     /** Set when the reader resolved a next/previous chapter; the screen consumes it once. */
     val pendingChapterNavigation: Int? = null,
+    val settings: ReaderSettings = ReaderSettings.Default,
+    /** Double-page slots, recomputed whenever the chapter or layout changes. */
+    val slots: List<com.kativa.reader.domain.model.PageSlot> = emptyList(),
 ) {
     val totalPages: Int get() = session?.totalPages ?: 0
 
@@ -48,6 +53,26 @@ data class ReaderUiState(
     val isLastPage: Boolean get() = totalPages > 0 && pageIndex >= totalPages - 1
 
     val isFirstPage: Boolean get() = pageIndex <= 0
+
+    /** How many slots the pager renders; single-page mode is one slot per page. */
+    val slotCount: Int
+        get() = if (settings.isDoublePage) slots.size.coerceAtLeast(1) else totalPages
+
+    /** Slot index that currently contains the reading position. */
+    val currentSlot: Int
+        get() = if (settings.isDoublePage) {
+            com.kativa.reader.domain.model.PagePairing.slotIndexOf(slots, displayPage) ?: 0
+        } else {
+            pageIndex
+        }
+
+    fun slotPages(slotIndex: Int): List<Int> {
+        if (!settings.isDoublePage) {
+            return listOf(slotIndex + 1)
+        }
+        val slot = slots.getOrNull(slotIndex) ?: return emptyList()
+        return listOfNotNull(slot.first, slot.second)
+    }
 }
 
 /**
@@ -109,6 +134,7 @@ class ReaderViewModel @Inject constructor(
                             session = session,
                             pageUrls = buildPageUrls(session),
                             pageIndex = session.startPageIndex,
+                            slots = buildSlots(session, it.settings),
                         )
                     }
                     loadBookmarks()
@@ -136,6 +162,67 @@ class ReaderViewModel @Inject constructor(
         val encoded = java.net.URLEncoder.encode(key, "UTF-8")
         return List(session.totalPages) { index ->
             "$base/Reader/image?chapterId=${session.chapterId}&page=$index&apiKey=$encoded"
+        }
+    }
+
+    /** Wide pages come from `chapter-info.doublePairs`/`pageDimensions`; 1-based. */
+    private fun buildSlots(session: ReaderSession, settings: ReaderSettings): List<PageSlot> {
+        if (!settings.isDoublePage) return emptyList()
+        val wide = session.pageDimensions.filter { it.isWide }.map { it.pageNumber }.toSet()
+        return com.kativa.reader.domain.model.PagePairing.doubleSlots(
+            totalPages = session.totalPages,
+            widePages = wide,
+            startOffset = if (settings.coverOffset) 0 else 1,
+        )
+    }
+
+    // --- settings -------------------------------------------------------
+
+    fun openSettings() = _state.update { it.copy(settingsSheetVisible = true, controlsVisible = true) }
+
+    fun closeSettings() = _state.update { it.copy(settingsSheetVisible = false) }
+
+    fun setReadingDirection(direction: com.kativa.reader.domain.model.ReadingDirection) =
+        updateSettings { it.copy(readingDirection = direction) }
+
+    fun setReaderMode(mode: com.kativa.reader.domain.model.ReaderMode) =
+        updateSettings { it.copy(readerMode = mode) }
+
+    fun setPageLayout(mode: com.kativa.reader.domain.model.PageLayout) =
+        updateSettings { it.copy(layoutMode = mode) }
+
+    fun setScaling(option: com.kativa.reader.domain.model.ScalingOption) =
+        updateSettings { it.copy(scalingOption = option) }
+
+    fun setCoverOffset(enabled: Boolean) = updateSettings { it.copy(coverOffset = enabled) }
+
+    fun setBrightness(value: Float) = updateSettings { it.copy(brightness = value.coerceIn(0.2f, 1f)) }
+
+    fun setShowPageNumber(enabled: Boolean) = updateSettings { it.copy(showPageNumber = enabled) }
+
+    /**
+     * Settings that change the page→slot mapping must rebuild slots *and* remap the reading
+     * position so the user stays on the page they were looking at.
+     */
+    private fun updateSettings(transform: (ReaderSettings) -> ReaderSettings) {
+        _state.update { current ->
+            val next = transform(current.settings)
+            val session = current.session
+            if (session == null) {
+                current.copy(settings = next)
+            } else {
+                val slots = buildSlots(session, next)
+                val leading = if (next.isDoublePage && slots.isNotEmpty()) {
+                    com.kativa.reader.domain.model.PagePairing.leadingPageOf(slots, current.displayPage)
+                } else {
+                    current.displayPage
+                }
+                current.copy(
+                    settings = next,
+                    slots = slots,
+                    pageIndex = (leading - 1).coerceIn(0, (session.totalPages - 1).coerceAtLeast(0)),
+                )
+            }
         }
     }
 

@@ -53,6 +53,8 @@
     <string name="setup_allow_cleartext_warning">平文接続では、同じネットワーク上の誰でもログイン情報や読書状況を見ることができます。</string>
     <string name="setup_auto_login">起動時にこのサーバーへ自動ログイン</string>
     <string name="setup_save_and_login">保存してログイン</string>
+    <string name="setup_switched_to_http">このサーバーは暗号化されていない HTTP のみ対応のため、自動的に http:// を使用しました。</string>
+    <string name="setup_next_step">次にユーザー名とパスワード、または API キーを入力します。Kavita は両方に対応しています。ユーザー名とパスワードは Web UI と同じもの、API キーは「ユーザー設定 → Auth Keys」で作成できます。</string>
     <string name="setup_version_ok">接続済み · Kavita %1$s</string>
     <string name="setup_version_ok_unknown">接続済み</string>
     <string name="setup_trust_title">信頼できない証明書</string>
@@ -144,6 +146,12 @@
     <string name="error_unknown">不明なエラーが発生しました</string>
     <string name="error_cleartext_blocked">システムが暗号化されていない接続をブロックしています</string>
 
+    <string name="entity_chapter_num">第 %1$s 話</string>
+    <string name="entity_volume_num">第 %1$s 巻</string>
+    <string name="entity_single_volume">単巻</string>
+    <string name="entity_loose_leaf">単話（番号なし）</string>
+    <string name="entity_specials">番外編</string>
+
     <!-- Reader -->
     <string name="reader_preparing">準備中…</string>
     <string name="reader_no_network">読むにはネットワーク接続が必要です</string>
@@ -153,6 +161,26 @@
     <string name="reader_next_chapter">次の章</string>
     <string name="reader_unsupported_format">このバージョンでは EPUB/PDF リーダーは利用できません</string>
     <string name="reader_prev_chapter">前の章</string>
+    <string name="reader_settings">読書設定</string>
+    <string name="reader_setting_direction">読む方向</string>
+    <string name="reader_direction_ltr">左から右</string>
+    <string name="reader_direction_rtl">右から左</string>
+    <string name="reader_setting_mode">ページ送り</string>
+    <string name="reader_mode_horizontal">左右</string>
+    <string name="reader_mode_vertical">上下</string>
+    <string name="reader_mode_webtoon">縦スクロール</string>
+    <string name="reader_setting_layout">レイアウト</string>
+    <string name="reader_layout_single">単ページ</string>
+    <string name="reader_layout_double">見開き</string>
+    <string name="reader_layout_double_manga">見開き（漫画）</string>
+    <string name="reader_setting_scale">画像の合わせ方</string>
+    <string name="reader_scale_height">高さに合わせる</string>
+    <string name="reader_scale_width">幅に合わせる</string>
+    <string name="reader_scale_original">原寸</string>
+    <string name="reader_setting_cover_offset">表紙を単独表示</string>
+    <string name="reader_setting_cover_offset_desc">1 ページ目を見開きの組み合わせから外し、以降のページを揃えます</string>
+    <string name="reader_setting_brightness">明るさ（今回の読書のみ）</string>
+    <string name="reader_setting_page_number">ページ番号を表示</string>
 
     <!-- Series detail -->
     <string name="series_continue">続きを読む</string>

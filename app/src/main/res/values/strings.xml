@@ -52,6 +52,8 @@
     <string name="setup_allow_cleartext_warning">明文连接会让同一网络中的其他人看到你的登录信息与阅读内容。</string>
     <string name="setup_auto_login">启动时自动登录此服务器</string>
     <string name="setup_save_and_login">保存并登录</string>
+    <string name="setup_switched_to_http">该服务器只支持未加密的 HTTP，已自动切换为 http://。</string>
+    <string name="setup_next_step">下一步会让你输入账号密码或 API 密钥。Kavita 支持两者：账号密码即 Web 端登录用的凭据；API 密钥在 Web 端「用户设置 → Auth Keys」生成。</string>
     <string name="setup_version_ok">已连接 · Kavita %1$s</string>
     <string name="setup_version_ok_unknown">已连接</string>
     <string name="setup_trust_title">证书不受信任</string>
@@ -143,6 +145,12 @@
     <string name="error_unknown">发生未知错误</string>
     <string name="error_cleartext_blocked">系统不允许未加密连接</string>
 
+    <string name="entity_chapter_num">第 %1$s 话</string>
+    <string name="entity_volume_num">第 %1$s 卷</string>
+    <string name="entity_single_volume">单卷</string>
+    <string name="entity_loose_leaf">散章（无编号）</string>
+    <string name="entity_specials">番外</string>
+
     <!-- Reader (M1 placeholder) -->
     <string name="reader_preparing">正在准备…</string>
     <string name="reader_no_network">需要联网才能阅读</string>
@@ -152,6 +160,26 @@
     <string name="reader_next_chapter">下一章</string>
     <string name="reader_unsupported_format">当前版本暂不支持该格式，EPUB/PDF 阅读器将在后续版本提供</string>
     <string name="reader_prev_chapter">上一章</string>
+    <string name="reader_settings">阅读设置</string>
+    <string name="reader_setting_direction">阅读方向</string>
+    <string name="reader_direction_ltr">从左到右</string>
+    <string name="reader_direction_rtl">从右到左</string>
+    <string name="reader_setting_mode">翻页模式</string>
+    <string name="reader_mode_horizontal">左右翻页</string>
+    <string name="reader_mode_vertical">上下翻页</string>
+    <string name="reader_mode_webtoon">条漫（连续滚动）</string>
+    <string name="reader_setting_layout">页面布局</string>
+    <string name="reader_layout_single">单页</string>
+    <string name="reader_layout_double">双页</string>
+    <string name="reader_layout_double_manga">双页（漫画）</string>
+    <string name="reader_setting_scale">图片适配</string>
+    <string name="reader_scale_height">适应高度</string>
+    <string name="reader_scale_width">适应宽度</string>
+    <string name="reader_scale_original">原始尺寸</string>
+    <string name="reader_setting_cover_offset">封面单独显示</string>
+    <string name="reader_setting_cover_offset_desc">第一页不参与双页配对，让其余页面配对整齐</string>
+    <string name="reader_setting_brightness">亮度（仅本次阅读）</string>
+    <string name="reader_setting_page_number">显示页码</string>
 
     <!-- Series detail -->
     <string name="series_continue">继续阅读</string>
