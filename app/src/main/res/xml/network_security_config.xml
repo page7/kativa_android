@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      Platform-level cleartext is permitted so that a user can opt in per server
+      (ServerProfile.allowCleartext). The real gate lives in CleartextGateInterceptor,
+      which rejects http:// for any server that has not explicitly enabled it.
+      See AGENTS.md §4.1.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

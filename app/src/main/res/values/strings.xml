@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kativa</string>
+
+    <!-- Common -->
+    <string name="common_retry">重试</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_save">保存</string>
+    <string name="common_delete">删除</string>
+    <string name="common_edit">编辑</string>
+    <string name="common_back">返回</string>
+    <string name="common_close">关闭</string>
+    <string name="common_continue">继续</string>
+    <string name="common_add">添加</string>
+    <string name="common_loading">加载中…</string>
+    <string name="common_more">更多</string>
+    <string name="common_optional">可选</string>
+    <string name="common_required">必填</string>
+    <string name="common_test_connection">测试连接</string>
+    <string name="common_switch_server">切换服务器</string>
+
+    <string name="nav_home">首页</string>
+    <string name="nav_library">书架</string>
+    <string name="nav_discover">发现</string>
+    <string name="nav_me">我的</string>
+
+    <!-- Servers -->
+    <string name="servers_title">选择服务器</string>
+    <string name="servers_subtitle">连接到你的 Kavita 服务器</string>
+    <string name="servers_empty_title">还没有服务器</string>
+    <string name="servers_empty_body">添加一台 Kavita 服务器开始阅读</string>
+    <string name="servers_add">添加服务器</string>
+    <string name="servers_state_logged_in">已登录</string>
+    <string name="servers_state_needs_login">需要登录</string>
+    <string name="servers_state_unreachable">无法连接</string>
+    <string name="servers_set_auto_login">启动时自动登录</string>
+    <string name="servers_set_auto_login_on">已设为启动时自动登录</string>
+    <string name="servers_auto_login_none">不自动登录</string>
+    <string name="servers_delete_title">删除服务器？</string>
+    <string name="servers_delete_body">只删除本机保存的记录与登录状态，不会影响服务器上的任何数据。</string>
+    <string name="servers_last_used">最近使用：%1$s</string>
+    <string name="servers_never_used">从未使用</string>
+
+    <!-- Server setup -->
+    <string name="setup_title">添加服务器</string>
+    <string name="setup_title_edit">编辑服务器</string>
+    <string name="setup_name_label">名称（可选）</string>
+    <string name="setup_name_hint">家里的服务器</string>
+    <string name="setup_url_label">服务器地址</string>
+    <string name="setup_url_hint">https://kavita.example.com</string>
+    <string name="setup_allow_cleartext">允许未加密的 HTTP 连接</string>
+    <string name="setup_allow_cleartext_warning">明文连接会让同一网络中的其他人看到你的登录信息与阅读内容。</string>
+    <string name="setup_auto_login">启动时自动登录此服务器</string>
+    <string name="setup_save_and_login">保存并登录</string>
+    <string name="setup_version_ok">已连接 · Kavita %1$s</string>
+    <string name="setup_version_ok_unknown">已连接</string>
+    <string name="setup_trust_title">证书不受信任</string>
+    <string name="setup_trust_body">该服务器的 HTTPS 证书无法验证。请确认你信任它，然后再继续。</string>
+    <string name="setup_trust_sha">SHA-256 指纹</string>
+    <string name="setup_trust_accept">信任并继续</string>
+    <string name="setup_trust_cancel">取消</string>
+
+    <!-- Login -->
+    <string name="login_title">登录</string>
+    <string name="login_tab_password">账号密码</string>
+    <string name="login_tab_api_key">API 密钥</string>
+    <string name="login_username">用户名</string>
+    <string name="login_password">密码</string>
+    <string name="login_api_key">API 密钥</string>
+    <string name="login_api_key_help">在 Web 端「用户设置 → Auth Keys」生成</string>
+    <string name="login_submit">登录</string>
+    <string name="login_paste">粘贴</string>
+    <string name="login_error_credentials">用户名或密码不正确</string>
+    <string name="login_error_disabled">该账号已被禁用，请联系服务器管理员</string>
+    <string name="login_error_locked">尝试次数过多，请稍后再试</string>
+    <string name="login_error_password_disabled">服务器已禁用密码登录，请使用 API 密钥</string>
+    <string name="login_error_key_expired">该 API 密钥已过期</string>
+    <string name="login_server_version">服务器版本 %1$s</string>
+
+    <!-- Home -->
+    <string name="home_greeting">你好，%1$s</string>
+    <string name="home_greeting_anonymous">欢迎回来</string>
+    <string name="home_continue_title">继续阅读</string>
+    <string name="home_continue_page">继续第 %1$d 页</string>
+    <string name="home_continue_page_of">第 %1$d / %2$d 页</string>
+    <string name="home_continue_finished">已读完</string>
+    <string name="home_continue_reread">重新阅读</string>
+    <string name="home_stream_on_deck">继续阅读</string>
+    <string name="home_stream_recently_updated">最近更新</string>
+    <string name="home_stream_recently_added">最近添加</string>
+    <string name="home_stream_smart_filter">智能筛选</string>
+    <string name="home_view_all">查看全部</string>
+    <string name="home_empty_title">书库还是空的</string>
+    <string name="home_empty_body">请先在 Kavita Web 端添加内容并扫描</string>
+    <string name="home_chapter_new">第 %1$s 章 新增</string>
+    <string name="home_progress_percent">%1$d%%</string>
+
+    <!-- Privacy -->
+    <string name="privacy_on">已开启隐私模式</string>
+    <string name="privacy_off">已关闭隐私模式</string>
+    <string name="privacy_toggle_desc">隐私模式</string>
+    <string name="privacy_cover_desc">封面已隐藏</string>
+
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="settings_group_startup">启动</string>
+    <string name="settings_auto_login">自动登录的服务器</string>
+    <string name="settings_auto_login_desc">默认不自动登录，启动时显示服务器选择</string>
+    <string name="settings_group_servers">服务器</string>
+    <string name="settings_manage_servers">管理服务器</string>
+    <string name="settings_group_appearance">外观</string>
+    <string name="settings_theme">主题</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_privacy_mode">隐私模式</string>
+    <string name="settings_privacy_mode_desc">隐藏所有封面，不加载网络图片</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_group_about">关于</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_logout">退出登录</string>
+    <string name="settings_logout_title">退出登录？</string>
+    <string name="settings_logout_body">将清除本机保存的登录状态，服务器地址与你已添加的其它服务器会保留。</string>
+
+    <!-- Me -->
+    <string name="me_title">我的</string>
+    <string name="me_role_admin">管理员</string>
+    <string name="me_role_read_only">只读账号</string>
+    <string name="me_role_reader">读者</string>
+    <string name="me_current_server">当前服务器：%1$s</string>
+
+    <!-- Errors -->
+    <string name="error_network">网络连接失败，请检查网络后重试</string>
+    <string name="error_timeout">连接超时</string>
+    <string name="error_dns">找不到服务器，请检查地址</string>
+    <string name="error_not_kavita">该地址不是 Kavita 服务器</string>
+    <string name="error_server">服务器出错了（%1$d）</string>
+    <string name="error_unauthorized">登录已过期，请重新登录</string>
+    <string name="error_forbidden">没有访问权限</string>
+    <string name="error_not_found">内容已不存在</string>
+    <string name="error_parse">服务器返回了无法识别的内容</string>
+    <string name="error_unknown">发生未知错误</string>
+    <string name="error_cleartext_blocked">系统不允许未加密连接</string>
+
+    <!-- Reader (M1 placeholder) -->
+    <string name="reader_preparing">正在准备…</string>
+    <string name="reader_no_network">需要联网才能阅读</string>
+    <string name="reader_page">第 %1$d / %2$d 页</string>
+    <string name="reader_bookmark">书签</string>
+    <string name="reader_chapter_finished">本章已读完</string>
+    <string name="reader_next_chapter">下一章</string>
+    <string name="reader_unsupported_format">当前版本暂不支持该格式，EPUB/PDF 阅读器将在后续版本提供</string>
+    <string name="reader_prev_chapter">上一章</string>
+
+    <!-- Series detail -->
+    <string name="series_continue">继续阅读</string>
+    <string name="series_start">开始阅读</string>
+    <string name="series_reread">重新阅读</string>
+    <string name="series_read_progress">已读 %1$d / %2$d 章</string>
+    <string name="series_volumes">卷与章节</string>
+    <string name="series_mark_read">标记全部已读</string>
+    <string name="series_mark_chapter_read">标记已读</string>
+    <string name="series_mark_chapter_unread">标记未读</string>
+    <string name="series_read">已读</string>
+    <string name="series_special">番外</string>
+    <string name="series_chapter_pages">%1$d 页</string>
+    <string name="series_volume_progress">%1$d / %2$d 页</string>
+    <string name="library_series_count">共 %1$d 部</string>
+    <string name="library_detail_empty">这个库还没有内容</string>
+
+    <!-- Region / format labels -->
+    <string name="format_manga">漫画</string>
+    <string name="format_comic">美漫</string>
+    <string name="format_book">电子书</string>
+    <string name="format_pdf">PDF</string>
+    <string name="status_ongoing">连载中</string>
+    <string name="status_completed">已完结</string>
+    <string name="status_hiatus">休刊</string>
+    <string name="status_cancelled">已腰斩</string>
+    <string name="status_ended">已完结</string>
+</resources>

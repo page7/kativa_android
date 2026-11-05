@@ -300,10 +300,24 @@ com.kativa.reader
 | 阶段 | 状态 | 范围 | 出口标准 |
 | --- | --- | --- | --- |
 | **M0 骨架** | ✅ 已完成 | 工程搭建、设计系统（#4AC694/#2D7A56）、多服务器添加/选择、登录（密码 + API Key）、网络层（分页/错误/明文门禁）、首页三流 + 继续阅读大卡、隐私模式开关、四语言、素材管线 | 构建通过、32 个单测通过、多服务器可添加/选择/登录、首页展示 On Deck、隐私模式可开关 |
-| **M1 可读** | ⬜ 进行中 | 库内系列网格、系列详情、漫画阅读器、进度同步、章节切换 | 可完整读完一卷并跨设备续读 |
-| **M2 好用** | ⬜ | 搜索、筛选排序、合集/阅读清单、想读、书签、素材登记齐全 | 主要路径四语言可用；封面受隐私模式控制 |
-| **M3 完善** | ⬜ | EPUB/PDF 阅读器、阅读配置、统计、批注/评分、平板双栏、素材正式替换 | 功能对齐 Web 端读者主路径；占位素材替换完成 |
+| **M1 可读** | ✅ 已完成 | 库内系列网格（排序 + 无限滚动）、系列详情（卷折叠/章节/标记已读）、漫画阅读器（单页翻页/分区点击/页码跳转/书签/章节切换）、进度同步（防抖 + Room 写后队列 + 断网补传）、图片 URL 按会话生成 | 构建通过、54 个单测通过、可完整读完一卷并跨设备续读 |
+| **M2 好用** | ⬜ 进行中 | 搜索、筛选排序、合集/阅读清单、想读、双页/Webtoon 阅读模式、阅读设置 | 主要路径四语言可用；封面受隐私模式控制 |
+| **M3 完善** | ⬜ | EPUB/PDF 阅读器、阅读配置（Reading Profiles）、统计、批注/评分、平板双栏、素材正式替换 | 功能对齐 Web 端读者主路径；占位素材替换完成 |
 | **M4 打磨** | ⬜ | 性能、无障碍、截图测试、Play 上架物料 | 冷启动 < 2s，滚动 60fps |
+
+### M1 落地记录
+
+- 新增数据层：`VolumeDto/ChapterDto/ChapterInfoDto/SaveProgressRequest/BookmarkDto`、`ReaderApi`、`SeriesDetailApi`、
+  `ContentMapper`（**唯一的 pageNum↔pageIndex 换算点**）、`LibraryRepository`、`ProgressRepository`、Room 队列
+  `pending_progress`（主键 `serverId+chapterId`，新值覆盖旧值）。
+- 新增页面：`LibraryGridScreen`（自适应网格 + 触底加载 + 排序）、`SeriesDetailScreen`（Hero/整体进度/卷折叠/
+  章节行/标记已读）、`MangaReaderScreen`（`HorizontalPager` + 三分区点击 + 双击书签 + 底部滑块 +
+  章末"下一章"条）。
+- 导航：`library/{id}`、`series/{id}`、`reader/{chapterId}`；章间跳转用 `popUpTo` 替换栈顶，避免无限堆叠。
+- **图标合规**：移除 `material-icons-extended` 依赖，全部图标改由 `KativaIcon` + `KativaIcons` 从
+  素材清单（新增 `ic_expand_less/more`、`ic_sort`、`ic_visibility/off`、`ic_read/unread`）生成，
+  清单现为 **50 项 / 218 个 PNG**。
+- 已知待办（M2）：双页/Webtoon 模式、阅读设置抽屉、卷详情页、`SessionStore` 的 Keystore 加密。
 
 ### M0 落地记录（供后续参考）
 

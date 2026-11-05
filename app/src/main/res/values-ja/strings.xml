@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kativa</string>
+
+    <!-- Common -->
+    <string name="common_retry">再試行</string>
+    <string name="common_cancel">キャンセル</string>
+    <string name="common_save">保存</string>
+    <string name="common_delete">削除</string>
+    <string name="common_edit">編集</string>
+    <string name="common_back">戻る</string>
+    <string name="common_close">閉じる</string>
+    <string name="common_continue">続ける</string>
+    <string name="common_add">追加</string>
+    <string name="common_loading">読み込み中…</string>
+    <string name="common_more">その他</string>
+    <string name="common_optional">任意</string>
+    <string name="common_required">必須</string>
+    <string name="common_test_connection">接続をテスト</string>
+    <string name="common_switch_server">サーバーを切り替え</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">ホーム</string>
+    <string name="nav_library">ライブラリ</string>
+    <string name="nav_discover">見つける</string>
+    <string name="nav_me">マイページ</string>
+
+    <!-- Servers -->
+    <string name="servers_title">サーバーを選択</string>
+    <string name="servers_subtitle">Kavita サーバーに接続します</string>
+    <string name="servers_empty_title">サーバーがありません</string>
+    <string name="servers_empty_body">Kavita サーバーを追加して読書を始めましょう</string>
+    <string name="servers_add">サーバーを追加</string>
+    <string name="servers_state_logged_in">ログイン済み</string>
+    <string name="servers_state_needs_login">ログインが必要</string>
+    <string name="servers_state_unreachable">接続できません</string>
+    <string name="servers_set_auto_login">起動時に自動ログイン</string>
+    <string name="servers_set_auto_login_on">起動時のサーバー</string>
+    <string name="servers_auto_login_none">自動ログインしない</string>
+    <string name="servers_delete_title">サーバーを削除しますか？</string>
+    <string name="servers_delete_body">この端末に保存された記録とログイン状態のみを削除します。サーバー上のデータには影響しません。</string>
+    <string name="servers_last_used">最終使用：%1$s</string>
+    <string name="servers_never_used">未使用</string>
+
+    <!-- Server setup -->
+    <string name="setup_title">サーバーを追加</string>
+    <string name="setup_title_edit">サーバーを編集</string>
+    <string name="setup_name_label">名前（任意）</string>
+    <string name="setup_name_hint">自宅のサーバー</string>
+    <string name="setup_url_label">サーバーアドレス</string>
+    <string name="setup_url_hint">https://kavita.example.com</string>
+    <string name="setup_allow_cleartext">暗号化されていない HTTP 接続を許可</string>
+    <string name="setup_allow_cleartext_warning">平文接続では、同じネットワーク上の誰でもログイン情報や読書状況を見ることができます。</string>
+    <string name="setup_auto_login">起動時にこのサーバーへ自動ログイン</string>
+    <string name="setup_save_and_login">保存してログイン</string>
+    <string name="setup_version_ok">接続済み · Kavita %1$s</string>
+    <string name="setup_version_ok_unknown">接続済み</string>
+    <string name="setup_trust_title">信頼できない証明書</string>
+    <string name="setup_trust_body">このサーバーの HTTPS 証明書を検証できません。信頼できる場合のみ続行してください。</string>
+    <string name="setup_trust_sha">SHA-256 フィンガープリント</string>
+    <string name="setup_trust_accept">信頼して続行</string>
+    <string name="setup_trust_cancel">キャンセル</string>
+
+    <!-- Login -->
+    <string name="login_title">ログイン</string>
+    <string name="login_tab_password">ユーザー名とパスワード</string>
+    <string name="login_tab_api_key">API キー</string>
+    <string name="login_username">ユーザー名</string>
+    <string name="login_password">パスワード</string>
+    <string name="login_api_key">API キー</string>
+    <string name="login_api_key_help">Web UI の「ユーザー設定 → Auth Keys」で作成できます</string>
+    <string name="login_submit">ログイン</string>
+    <string name="login_paste">貼り付け</string>
+    <string name="login_error_credentials">ユーザー名またはパスワードが違います</string>
+    <string name="login_error_disabled">このアカウントは無効です。サーバー管理者に連絡してください。</string>
+    <string name="login_error_locked">試行回数が多すぎます。しばらくしてから再試行してください。</string>
+    <string name="login_error_password_disabled">このサーバーではパスワードログインが無効です。API キーを使用してください。</string>
+    <string name="login_error_key_expired">この API キーは期限切れです</string>
+    <string name="login_server_version">サーバーバージョン %1$s</string>
+
+    <!-- Home -->
+    <string name="home_greeting">こんにちは、%1$s</string>
+    <string name="home_greeting_anonymous">おかえりなさい</string>
+    <string name="home_continue_title">続きを読む</string>
+    <string name="home_continue_page">%1$d ページから続ける</string>
+    <string name="home_continue_page_of">%1$d / %2$d ページ</string>
+    <string name="home_continue_finished">読み終えました</string>
+    <string name="home_continue_reread">もう一度読む</string>
+    <string name="home_stream_on_deck">続きを読む</string>
+    <string name="home_stream_recently_updated">最近の更新</string>
+    <string name="home_stream_recently_added">最近の追加</string>
+    <string name="home_stream_smart_filter">スマートフィルター</string>
+    <string name="home_view_all">すべて表示</string>
+    <string name="home_empty_title">ライブラリが空です</string>
+    <string name="home_empty_body">先に Kavita の Web UI でコンテンツを追加し、スキャンを実行してください</string>
+    <string name="home_chapter_new">第 %1$s 章 追加</string>
+    <string name="home_progress_percent">%1$d%%</string>
+
+    <!-- Privacy -->
+    <string name="privacy_on">プライバシーモード オン</string>
+    <string name="privacy_off">プライバシーモード オフ</string>
+    <string name="privacy_toggle_desc">プライバシーモード</string>
+    <string name="privacy_cover_desc">表紙は非表示です</string>
+
+    <!-- Settings -->
+    <string name="settings_title">設定</string>
+    <string name="settings_group_startup">起動</string>
+    <string name="settings_auto_login">起動時のサーバー</string>
+    <string name="settings_auto_login_desc">既定では自動ログインせず、起動時にサーバー選択を表示します</string>
+    <string name="settings_group_servers">サーバー</string>
+    <string name="settings_manage_servers">サーバーを管理</string>
+    <string name="settings_group_appearance">外観</string>
+    <string name="settings_theme">テーマ</string>
+    <string name="settings_theme_dark">ダーク</string>
+    <string name="settings_theme_light">ライト</string>
+    <string name="settings_theme_system">システムに従う</string>
+    <string name="settings_privacy_mode">プライバシーモード</string>
+    <string name="settings_privacy_mode_desc">すべての表紙を隠し、リモート画像を読み込みません</string>
+    <string name="settings_language">言語</string>
+    <string name="settings_language_system">システムに従う</string>
+    <string name="settings_group_about">アプリについて</string>
+    <string name="settings_version">バージョン</string>
+    <string name="settings_logout">ログアウト</string>
+    <string name="settings_logout_title">ログアウトしますか？</string>
+    <string name="settings_logout_body">この端末のログイン状態を消去します。サーバーアドレスと他のサーバーは保持されます。</string>
+
+    <!-- Me -->
+    <string name="me_title">マイページ</string>
+    <string name="me_role_admin">管理者</string>
+    <string name="me_role_read_only">読み取り専用</string>
+    <string name="me_role_reader">読者</string>
+    <string name="me_current_server">サーバー：%1$s</string>
+
+    <!-- Errors -->
+    <string name="error_network">ネットワークエラーです。接続を確認して再試行してください。</string>
+    <string name="error_timeout">接続がタイムアウトしました</string>
+    <string name="error_dns">サーバーが見つかりません。アドレスを確認してください。</string>
+    <string name="error_not_kavita">このアドレスは Kavita サーバーではありません</string>
+    <string name="error_server">サーバーエラー（%1$d）</string>
+    <string name="error_unauthorized">セッションが切れました。再度ログインしてください。</string>
+    <string name="error_forbidden">アクセス権がありません</string>
+    <string name="error_not_found">このコンテンツは存在しません</string>
+    <string name="error_parse">サーバーから認識できない応答が返されました</string>
+    <string name="error_unknown">不明なエラーが発生しました</string>
+    <string name="error_cleartext_blocked">システムが暗号化されていない接続をブロックしています</string>
+
+    <!-- Reader -->
+    <string name="reader_preparing">準備中…</string>
+    <string name="reader_no_network">読むにはネットワーク接続が必要です</string>
+    <string name="reader_page">%1$d / %2$d ページ</string>
+    <string name="reader_bookmark">ブックマーク</string>
+    <string name="reader_chapter_finished">この章は読み終えました</string>
+    <string name="reader_next_chapter">次の章</string>
+    <string name="reader_unsupported_format">このバージョンでは EPUB/PDF リーダーは利用できません</string>
+    <string name="reader_prev_chapter">前の章</string>
+
+    <!-- Series detail -->
+    <string name="series_continue">続きを読む</string>
+    <string name="series_start">読み始める</string>
+    <string name="series_reread">もう一度読む</string>
+    <string name="series_read_progress">%1$d / %2$d 章 既読</string>
+    <string name="series_volumes">巻と章</string>
+    <string name="series_mark_read">すべて既読にする</string>
+    <string name="series_mark_chapter_read">既読にする</string>
+    <string name="series_mark_chapter_unread">未読にする</string>
+    <string name="series_read">既読</string>
+    <string name="series_special">番外編</string>
+    <string name="series_chapter_pages">%1$d ページ</string>
+    <string name="series_volume_progress">%1$d / %2$d ページ</string>
+    <string name="library_series_count">%1$d 作品</string>
+    <string name="library_detail_empty">このライブラリは空です</string>
+
+    <!-- Format / status labels -->
+    <string name="format_manga">漫画</string>
+    <string name="format_comic">コミック</string>
+    <string name="format_book">書籍</string>
+    <string name="format_pdf">PDF</string>
+    <string name="status_ongoing">連載中</string>
+    <string name="status_completed">完結</string>
+    <string name="status_hiatus">休載</string>
+    <string name="status_cancelled">打ち切り</string>
+    <string name="status_ended">完結</string>
+</resources>
