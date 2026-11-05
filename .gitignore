@@ -3,6 +3,11 @@
 build/
 .kotlin/
 
+# Generated asset intermediates (PNGs under app/src/main/res ARE tracked)
+assets/generated/
+
+# Gradle wrapper jar is tracked on purpose so the project builds without a local Gradle
+
 # Local configuration file (sdk path, etc)
 local.properties
 
