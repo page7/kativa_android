@@ -77,17 +77,6 @@ fun ReaderSettingsSheet(
                 style = MaterialTheme.typography.titleMedium,
             )
 
-            SettingBlock(stringResource(R.string.reader_setting_direction)) {
-                SegmentedChoice(
-                    options = listOf(
-                        ReadingDirection.LeftToRight to stringResource(R.string.reader_direction_ltr),
-                        ReadingDirection.RightToLeft to stringResource(R.string.reader_direction_rtl),
-                    ),
-                    selected = settings.readingDirection,
-                    onSelect = onReadingDirection,
-                )
-            }
-
             SettingBlock(
                 label = stringResource(R.string.reader_setting_mode),
                 icon = KativaIcons.Webtoon,
@@ -103,7 +92,24 @@ fun ReaderSettingsSheet(
                 )
             }
 
-            if (!settings.isWebtoon) {
+            // Reading direction is a *horizontal* notion: it mirrors tap zones, the pager order
+            // and the order of a facing pair. Vertical paging and Webtoon always run top-to-bottom,
+            // so the control is hidden there instead of pretending to do something.
+            if (settings.readingDirectionApplies) {
+                SettingBlock(stringResource(R.string.reader_setting_direction)) {
+                    SegmentedChoice(
+                        options = listOf(
+                            ReadingDirection.LeftToRight to stringResource(R.string.reader_direction_ltr),
+                            ReadingDirection.RightToLeft to stringResource(R.string.reader_direction_rtl),
+                        ),
+                        selected = settings.readingDirection,
+                        onSelect = onReadingDirection,
+                    )
+                }
+            }
+
+            // A facing pair needs pages side by side, so layout only exists in horizontal paging.
+            if (settings.pageLayoutApplies) {
                 SettingBlock(
                     label = stringResource(R.string.reader_setting_layout),
                     icon = KativaIcons.DoublePage,
@@ -118,7 +124,10 @@ fun ReaderSettingsSheet(
                         onSelect = onPageLayout,
                     )
                 }
+            }
 
+            // Scaling applies to every mode except Webtoon, whose strip is width-bound by design.
+            if (!settings.isWebtoon) {
                 SettingBlock(stringResource(R.string.reader_setting_scale)) {
                     SegmentedChoice(
                         options = listOf(
@@ -130,7 +139,10 @@ fun ReaderSettingsSheet(
                         onSelect = onScaling,
                     )
                 }
+            }
 
+            // Cover offset only shifts the pairing, so it is meaningless without a spread.
+            if (settings.isDoublePage) {
                 SwitchRow(
                     title = stringResource(R.string.reader_setting_cover_offset),
                     subtitle = stringResource(R.string.reader_setting_cover_offset_desc),

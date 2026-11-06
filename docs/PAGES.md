@@ -158,13 +158,15 @@
   - 单页 LTR/RTL、双页（按 `PageSplitOption`/`doublePairs` 配对，宽页独占）。
   - Webtoon：连续滚动，图片宽度撑满，滚动位置映射页码。
   - 双击书签；长按跳页；音量键翻页；屏幕常亮。
-  - 设置抽屉：方向/布局/缩放/切分/背景色/亮度/自动下一章/预取。
+  - 设置抽屉：翻页模式 / 阅读方向 / 页面布局 / 图片适配 / 封面单独显示 / 亮度 / 页码 / 音量键。
+    - **每个控件都必须真正生效**，且只在其有意义的模式下出现：阅读方向与页面布局仅左右翻页可见（纵向/条漫没有水平方向与对开页概念），图片适配在条漫下隐藏（条漫固定按宽度撑满），封面单独显示仅在双页布局下出现。
   - **正文页不受隐私模式影响**（隐私模式只屏蔽封面/缩略图）。
 - **细节**
   - 上下覆盖条为**半透明 scrim（75% 黑）+ 20dp 渐变**，从屏幕边缘一直铺到条内内容；条内内容让出系统栏安全区（状态栏/导航栏/横屏刘海），因此系列名不会与系统时钟重叠。
   - 条带的实心区域挂惰性命中节点：落在内边距上的触摸不再穿透到 pager 触发翻页；按钮与滑块行为不变。
   - 三种翻页模式（左右/上下/Webtoon）**共用同一套覆盖层与设置抽屉**，任何模式下都能随时打开设置；切换模式保留当前阅读位置。
   - 页角显示极淡页码（可关）。
+  - 图片适配：适应高度=`ContentScale.Fit`、适应宽度=`FillWidth`、原始尺寸=`None`（`ReaderScaling` 唯一映射出口）。
   - 首图未加载时显示占位图（隐私模式下用 `privacy_placeholder`，否则用该章封面模糊图）。
   - 双页配对异常（服务端 `doublePairs` 缺失）时降级单页并提示一次。
 - **接口**：`GET /api/Reader/chapter-info`、`/api/Reader/image`、`/api/Reader/get-progress`、`POST /api/Reader/progress`、`/api/Reader/next-chapter|prev-chapter`、`/api/reading-profile/{libraryId}/{seriesId}`、`POST /api/Reader/bookmark`。

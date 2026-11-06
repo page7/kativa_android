@@ -338,6 +338,7 @@ private fun PagedReader(
     // Taps on the chrome bars never reach this node: the bars own a hit-test node of their own
     // (see `readerChromeTouchGuard`), which is what stops a seek drag on the progress slider from
     // being arbitrated into a page swipe.
+    val rtl = settings.readingDirectionApplies && settings.isRightToLeft
     val pagerModifier = Modifier
         .fillMaxSize()
         .pointerInput(settings.readerMode, settings.layoutMode, settings.readingDirection) {
@@ -345,11 +346,11 @@ private fun PagedReader(
                 onTap = { offset ->
                     val third = size.width / 3f
                     // Tap zones follow the reading direction: in RTL the left third advances,
-                    // mirroring how manga is read.
-                    val forwardOnLeft = settings.isRightToLeft
+                    // mirroring how manga is read. Vertical paging has no horizontal direction, so
+                    // it keeps LTR tap zones (`rtl` is false there).
                     when {
-                        offset.x < third -> if (forwardOnLeft) goNext() else goPrev()
-                        offset.x > third * 2 -> if (forwardOnLeft) goPrev() else goNext()
+                        offset.x < third -> if (rtl) goNext() else goPrev()
+                        offset.x > third * 2 -> if (rtl) goPrev() else goNext()
                         else -> onToggleControls()
                     }
                 },
@@ -361,6 +362,7 @@ private fun PagedReader(
         VerticalPager(
             state = pagerState,
             modifier = pagerModifier,
+            // Vertical reading always advances downwards; RTL would be meaningless here.
             reverseLayout = false,
         ) { index ->
             PagerSlotContent(
@@ -374,7 +376,7 @@ private fun PagedReader(
         HorizontalPager(
             state = pagerState,
             modifier = pagerModifier,
-            reverseLayout = settings.isRightToLeft,
+            reverseLayout = rtl,
         ) { index ->
             PagerSlotContent(
                 state = state,
@@ -396,6 +398,9 @@ private fun PagerSlotContent(
 ) {
     val pages = state.slotPages(slotIndex)
     val total = state.totalPages
+    // Honours the sheet's "image scaling" choice; previously every page was hard-coded to Fit and
+    // the control did nothing (AGENTS.md §6 dead-control rule).
+    val scale = ReaderScaling.contentScale(state.settings.scalingOption)
 
     if (pages.size <= 1) {
         AsyncImage(
@@ -405,20 +410,21 @@ private fun PagerSlotContent(
                 pages.firstOrNull() ?: 1,
                 total,
             ),
-            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+            contentScale = scale,
             modifier = Modifier.fillMaxSize(),
         )
         return
     }
 
     Row(Modifier.fillMaxSize()) {
-        // RTL puts the later page on the left, which is how right-to-left spreads read.
+        // RTL puts the later page on the left, which is how right-to-left spreads read. Slots in
+        // double-page mode only exist for horizontal paging, so `isRightToLeft` is meaningful here.
         val ordered = if (state.settings.isRightToLeft) pages.reversed() else pages
         ordered.forEach { page ->
             AsyncImage(
                 model = ImageRequest.Builder(context).data(pageUrls.getOrNull(page - 1)).build(),
                 contentDescription = stringResource(R.string.reader_page, page, total),
-                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                contentScale = scale,
                 modifier = Modifier.weight(1f).fillMaxSize(),
             )
         }
@@ -461,6 +467,9 @@ private fun WebtoonReader(
             AsyncImage(
                 model = ImageRequest.Builder(context).data(pageUrls.getOrNull(index)).build(),
                 contentDescription = stringResource(R.string.reader_page, index + 1, totalPages),
+                // Webtoon strips are width-bound by definition, so this stays FillWidth regardless
+                // of `scalingOption`; that is why the sheet hides the scaling control in this mode
+                // rather than offering a choice the renderer would ignore.
                 contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
                 modifier = Modifier.fillMaxWidth(),
             )
