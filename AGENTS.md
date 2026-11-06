@@ -425,12 +425,16 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | **拖动阅读进度条时页面抖动、进度反复重写** | `onValueChange` 每帧调 `goToPage()`，pager 被动滚动且每帧重置 800ms 保存防抖；`updateSettings` 又对**所有**设置（含 brightness/pageNumber）无条件 `buildSlots` + 重映射阅读位置 | 滑块改为拖动期间只更新本地状态、`onValueChangeFinished` 才跳页一次；`ReaderViewModel` 拆出 `updateVisualSetting`，视觉类设置不再重建槽位 |
 | **阅读器顶部信息压住系统状态栏（时钟/电量与系列名重叠）** | `ReaderControls` 的上下条用 `Surface` 直接贴在 `TopCenter`/`BottomCenter`，阅读器本身是 edge-to-edge（`enableEdgeToEdge`），所以条带画在状态栏/导航栏**下面**，内容没有让出安全区 | 上下条改为 `TopChrome`/`BottomChrome`：**半透明 scrim（`KativaColors.ReaderScrim`，75% 黑）+ 20dp 渐变过渡**从屏幕边缘一直铺到内容，内容再叠 `WindowInsets.systemBars.only(Top/Bottom + Horizontal)` 让出安全区（同时覆盖横屏刘海）。沿用 §6「暗色优先」：阅读器内强制系统图标为浅色，退出时还原 |
 | **拖动进度条偶尔变成翻页** | 上下条只是 `Surface` + 文案/按钮，**本身没有 pointer-input 节点**；落在条带内边距、或滑块拇指与 48dp 触摸区之间的空隙的按压，命中测试直接穿透到下层 pager，横向位移就被判成翻页手势 | 给条带的实心区域挂一个**惰性命中节点**（`readerChromeTouchGuard`：只 `awaitFirstDown` 不消费），让条带成为该区域的命中目标、pager 彻底收不到这些事件；**不能**改成消费事件——那会让 `clickable` 在 Final pass 取消点击，返回/书签/设置按钮全废。`ChapterEndBar` 一并补上安全区内边距 |
+| **切到上下连续滚动（Webtoon）后再也打不开设置** | Webtoon 分支里写了 `return@Box`，提前退出外层 `Box` lambda。而 `ReaderSettingsSheet` 就组合在**同一个 `Box` lambda 的下面**，于是被整体跳过：设置抽屉永远打不开，用户被困在滚动模式无法恢复 | 改为 if/else，两个分支都**落到**共享的 overlay/controls/settings；分页渲染抽成 `PagedReader`。同时把模式判定收敛到 `ReaderChrome`（`showsSettingsSheet`/`usesContinuousScroll`/`webtoonStartIndex`）并加 `ReaderModeSettingsTest` 守卫——已反向验证：把 `showsSettingsSheet` 改回依赖模式，测试立刻失败 |
+| 切模式时进度被重置回第 1 页 | `WebtoonReader` 的 `LazyColumn` 无 `initialFirstVisibleItemIndex`，切换后从列表顶部开始，`LaunchedEffect(visiblePage)` 立刻把"第 1 页"写回，等于把章节进度倒退并落盘 | `startPage` 由 `ReaderChrome.webtoonStartIndex(state.pageIndex, totalPages)` 钳制后传入；实测 `seek=8 → webtoon=7 → horizontal=7`，进度不再倒退 |
 
 ### M2 阅读器 UI 修复（测试反馈，2026-11）
 
 - 验证方式：`adb shell input swipe` 在条带内边距/渐变区（y=2100/2150/2300/2340/2380）横划均**不再翻页**，
   页面区横划仍正常翻页；`Page N of M` 位于 y=2034、`Back/Bookmark/Reading settings` 位于 y=116，均已在
   48px 系统栏之下；返回/书签/设置按钮点击正常，冷启动无 `FATAL EXCEPTION`。
+- 模式切换验证（真机）：进入阅读器 → 拖到第 8 页 → 切 Webtoon（显示第 7 页）→ **在滚动模式下连续打开设置 3 次全部成功**
+  → 切回 Horizontal 仍停在第 7 页。修复前同一路径下设置抽屉完全打不开。
 
 ### M2 首页布局调整（产品反馈）
 

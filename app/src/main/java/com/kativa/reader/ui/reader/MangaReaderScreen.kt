@@ -172,106 +172,33 @@ fun MangaReaderScreen(
 
                 // Webtoon is a completely different composition (continuous scroll), not a pager
                 // variant, so it branches here rather than inside the pager (AGENTS.md §5).
-                if (settings.isWebtoon) {
+                //
+                // Both branches must fall through to the shared overlay/controls/settings below.
+                // An earlier version wrote `return@Box` for the Webtoon case, which skipped the
+                // `ReaderSettingsSheet` composed further down in this same Box lambda: switching to
+                // scroll mode then made the sheet unreachable and trapped the user in it
+                // (ReaderChrome.showsSettingsSheet / ReaderModeSettingsTest).
+                if (ReaderChrome.usesContinuousScroll(settings.readerMode)) {
                     WebtoonReader(
                         pageUrls = pageUrls,
                         totalPages = session.totalPages,
+                        startPage = ReaderChrome.webtoonStartIndex(
+                            pageIndex = state.pageIndex,
+                            totalPages = session.totalPages,
+                        ),
                         onPageVisible = viewModel::onPageChanged,
                         onTap = viewModel::toggleControls,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    ReaderOverlay(state)
-                    if (state.controlsVisible) {
-                        ReaderControls(
-                            state = state,
-                            onBack = onBack,
-                            onSeek = viewModel::goToPage,
-                            onToggleBookmark = viewModel::toggleBookmark,
-                            onPrevChapter = viewModel::requestPrevChapter,
-                            onNextChapter = viewModel::requestNextChapter,
-                            onOpenSettings = viewModel::openSettings,
-                        )
-                    }
-                    ReaderNavigationEffect(state, viewModel, onOpenChapter)
-                    return@Box
-                }
-
-                val pagerState = rememberPagerState(
-                    initialPage = state.currentSlot,
-                    pageCount = { state.slotCount },
-                )
-
-                // Keep the pager and the VM in sync in both directions.
-                LaunchedEffect(pagerState.currentPage) {
-                    val slotPages = state.slotPages(pagerState.currentPage)
-                    // Persist the leading page of a double spread; that is what the user sees first.
-                    slotPages.firstOrNull()?.let { page -> viewModel.onPageChanged(page - 1) }
-                }
-                LaunchedEffect(state.currentSlot) {
-                    if (pagerState.currentPage != state.currentSlot && !pagerState.isScrollInProgress) {
-                        pagerState.scrollToPage(state.currentSlot)
-                    }
-                }
-
-                val goNext = {
-                    if (pagerState.currentPage < state.slotCount - 1) {
-                        viewModel.goToPage(state.slotPages(pagerState.currentPage + 1).firstOrNull()?.minus(1) ?: 0)
-                    }
-                }
-                val goPrev = {
-                    if (pagerState.currentPage > 0) {
-                        viewModel.goToPage(state.slotPages(pagerState.currentPage - 1).firstOrNull()?.minus(1) ?: 0)
-                    }
-                }
-
-                // Taps on the chrome bars never reach this node: the bars consume their own
-                // touches (see `readerChromeTouchGuard`), which is what stops a seek drag on the
-                // progress slider from being arbitrated into a page swipe.
-                val pagerModifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(state.settings.readerMode, state.settings.layoutMode, state.settings.readingDirection) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                val third = size.width / 3f
-                                // Tap zones follow the reading direction: in RTL the left third
-                                // advances, mirroring how manga is read.
-                                val forwardOnLeft = settings.isRightToLeft
-                                when {
-                                    offset.x < third -> if (forwardOnLeft) goNext() else goPrev()
-                                    offset.x > third * 2 -> if (forwardOnLeft) goPrev() else goNext()
-                                    else -> viewModel.toggleControls()
-                                }
-                            },
-                            onDoubleTap = { viewModel.toggleBookmark() },
-                        )
-                    }
-
-                if (settings.isVerticalPaging) {
-                    VerticalPager(
-                        state = pagerState,
-                        modifier = pagerModifier,
-                        reverseLayout = false,
-                    ) { index ->
-                        PagerSlotContent(
-                            state = state,
-                            slotIndex = index,
-                            pageUrls = pageUrls,
-                            context = context,
-                        )
-                    }
                 } else {
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = pagerModifier,
-                        reverseLayout = settings.isRightToLeft,
-                    ) { index ->
-                        PagerSlotContent(
-                            state = state,
-                            slotIndex = index,
-                            pageUrls = pageUrls,
-                            context = context,
-                        )
-                    }
+                    PagedReader(
+                        state = state,
+                        pageUrls = pageUrls,
+                        context = context,
+                        onGoToPage = viewModel::goToPage,
+                        onToggleControls = viewModel::toggleControls,
+                        onToggleBookmark = viewModel::toggleBookmark,
+                    )
                 }
 
                 ReaderOverlay(state)
@@ -288,7 +215,11 @@ fun MangaReaderScreen(
                     )
                 }
 
-                if (state.isLastPage && !state.controlsVisible) {
+                // "Chapter finished" is a pager concept: in continuous scroll the last page is
+                // simply the bottom of the list, and a floating bar there would cover content.
+                if (state.isLastPage && !state.controlsVisible &&
+                    !ReaderChrome.usesContinuousScroll(settings.readerMode)
+                ) {
                     ChapterEndBar(
                         onNextChapter = { viewModel.requestNextChapter() },
                         onBack = onBack,
@@ -299,7 +230,7 @@ fun MangaReaderScreen(
             }
         }
 
-        if (state.settingsSheetVisible) {
+        if (ReaderChrome.showsSettingsSheet(state.settingsSheetVisible, state.settings.readerMode)) {
             ReaderSettingsSheet(
                 settings = state.settings,
                 onDismiss = viewModel::closeSettings,
@@ -365,6 +296,96 @@ private fun ReaderOverlay(state: ReaderUiState) {
     }
 }
 
+/** Paged (single/double page) reading: horizontal or vertical pager plus tap zones. */
+@Composable
+private fun PagedReader(
+    state: ReaderUiState,
+    pageUrls: List<String>,
+    context: android.content.Context,
+    onGoToPage: (Int) -> Unit,
+    onToggleControls: () -> Unit,
+    onToggleBookmark: () -> Unit,
+) {
+    val settings = state.settings
+    val pagerState = rememberPagerState(
+        initialPage = state.currentSlot,
+        pageCount = { state.slotCount },
+    )
+
+    // Keep the pager and the VM in sync in both directions.
+    LaunchedEffect(pagerState.currentPage) {
+        val slotPages = state.slotPages(pagerState.currentPage)
+        // Persist the leading page of a double spread; that is what the user sees first.
+        slotPages.firstOrNull()?.let { page -> onGoToPage(page - 1) }
+    }
+    LaunchedEffect(state.currentSlot) {
+        if (pagerState.currentPage != state.currentSlot && !pagerState.isScrollInProgress) {
+            pagerState.scrollToPage(state.currentSlot)
+        }
+    }
+
+    val goNext = {
+        if (pagerState.currentPage < state.slotCount - 1) {
+            onGoToPage(state.slotPages(pagerState.currentPage + 1).firstOrNull()?.minus(1) ?: 0)
+        }
+    }
+    val goPrev = {
+        if (pagerState.currentPage > 0) {
+            onGoToPage(state.slotPages(pagerState.currentPage - 1).firstOrNull()?.minus(1) ?: 0)
+        }
+    }
+
+    // Taps on the chrome bars never reach this node: the bars own a hit-test node of their own
+    // (see `readerChromeTouchGuard`), which is what stops a seek drag on the progress slider from
+    // being arbitrated into a page swipe.
+    val pagerModifier = Modifier
+        .fillMaxSize()
+        .pointerInput(settings.readerMode, settings.layoutMode, settings.readingDirection) {
+            detectTapGestures(
+                onTap = { offset ->
+                    val third = size.width / 3f
+                    // Tap zones follow the reading direction: in RTL the left third advances,
+                    // mirroring how manga is read.
+                    val forwardOnLeft = settings.isRightToLeft
+                    when {
+                        offset.x < third -> if (forwardOnLeft) goNext() else goPrev()
+                        offset.x > third * 2 -> if (forwardOnLeft) goPrev() else goNext()
+                        else -> onToggleControls()
+                    }
+                },
+                onDoubleTap = { onToggleBookmark() },
+            )
+        }
+
+    if (settings.isVerticalPaging) {
+        VerticalPager(
+            state = pagerState,
+            modifier = pagerModifier,
+            reverseLayout = false,
+        ) { index ->
+            PagerSlotContent(
+                state = state,
+                slotIndex = index,
+                pageUrls = pageUrls,
+                context = context,
+            )
+        }
+    } else {
+        HorizontalPager(
+            state = pagerState,
+            modifier = pagerModifier,
+            reverseLayout = settings.isRightToLeft,
+        ) { index ->
+            PagerSlotContent(
+                state = state,
+                slotIndex = index,
+                pageUrls = pageUrls,
+                context = context,
+            )
+        }
+    }
+}
+
 /** One pager slot: a single page, or a facing pair in double-page mode. */
 @Composable
 private fun PagerSlotContent(
@@ -409,12 +430,17 @@ private fun PagerSlotContent(
 private fun WebtoonReader(
     pageUrls: List<String>,
     totalPages: Int,
+    /** 0-based page to start at, i.e. the reading position carried over when switching modes. */
+    startPage: Int,
     onPageVisible: (Int) -> Unit,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val listState = rememberLazyListState()
+    // Seeded from the current reading position. Without this the list always started at page 1
+    // and immediately wrote that position back, so switching into Webtoon silently rewound the
+    // chapter — and the user's saved progress with it.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = startPage.coerceAtLeast(0))
 
     // Report the first mostly-visible page so progress matches what the user is looking at.
     val visiblePage by remember {
@@ -422,7 +448,7 @@ private fun WebtoonReader(
             val info = listState.layoutInfo.visibleItemsInfo
             info.firstOrNull { item ->
                 item.offset + item.size / 2 >= 0
-            }?.index?.plus(1) ?: 1
+            }?.index?.plus(1) ?: (startPage + 1).coerceAtLeast(1)
         }
     }
     LaunchedEffect(visiblePage) { onPageVisible(visiblePage - 1) }
