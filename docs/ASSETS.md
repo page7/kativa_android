@@ -9,12 +9,14 @@
 ## 1. 管线与目录约定
 
 ```
-assigns/                     维护者临时投放的源素材（当前已有 kavita.svg，作为 launcher 回退）
+assigns/                     维护者临时投放的源素材（logo.svg = 品牌图标，kavita.svg = 旧版兼容回退）
 assets/svg/                  正式 SVG 源，文件名 = 清单 ID（最终交付物，保留可重新生成）
 assets/generated/svg/        生成器解析后的 SVG 快照（gitignore，仅用于排错）
 app/src/main/res/
   drawable-nodpi/            大图（logo、欢迎页、空态插画）→ PNG
   drawable-mdpi|xhdpi|xxhdpi|xxxhdpi/  图标 → PNG（按密度出图，基准 1x = 24dp）
+  mipmap-anydpi-v26/         自适应图标 XML（ic_launcher / ic_launcher_round）
+  mipmap-*/                  传统图标 PNG 与自适应前景层 PNG
   drawable/                  小尺寸单密度 PNG（隐私占位等纯色图，可接受）
 ```
 
@@ -33,12 +35,21 @@ app/src/main/res/
 - 正式素材放进 `assets/svg/<素材ID>.svg`（**文件名 = 清单 ID**），生成器**逐条**按下面的优先级取源：
   1. `assets/svg/<id>.svg` — 正式交付物（推荐）
   2. `assigns/<id>.svg` — 维护者临时投放，命名规则同上
-  3. `assigns/kavita.svg` — 仅 `launcher` / `launcher-foreground` 的兼容回退
-  4. 脚本占位图 — 以上都没有时兜底
+  3. `assigns/logo.svg` — **品牌图标**，仅 `launcher` / `launcher-foreground`
+  4. `assigns/kavita.svg` — 旧版兼容回退，仅 `launcher` / `launcher-foreground`
+  5. 脚本占位图 — 以上都没有时兜底
   每次生成都会逐条打印 `id / kind / 取自哪个文件`，并在末尾列出**仍是占位的条目**，
   所以"放进去没生效"或"忘了替换"都会立刻暴露。
-- **当前已有**：`assigns/kavita.svg`（64×64 圆形底 `#4AC694` + `#424C72` 图形，22 个 path，Illustrator 导出）→ 用于
-  `ic_launcher_foreground` / `ic_launcher` / `ic_launcher_round` 三项；`logo_full` 待维护者确认是否由它放大或另给。
+- **当前应用图标**：`assigns/logo.svg`（1024 viewBox，满幅 `#44D39D` 底 + 白色书页标记）→
+  `ic_launcher_foreground` / `ic_launcher` / `ic_launcher_round` 三项。
+  - 生成器按 **safe 模式**（默认）把整图对齐到 72dp 可见区，**不要**设 `bleed: "full"`：自适应图标画布
+    108dp 只有中间 72dp 会显示，铺满 108dp 等于把标记放大 1.5 倍（实测白色标记从 50% 变成 73.5%）。
+  - `mipmap-anydpi-v26/*.xml` 的 `<background>` 用 `@color/ic_launcher_background`（`#44D39D`），
+    与图内底色一致，遮罩边缘无缝——正因如此才不需要靠 `full` 去"避免露缝"。
+  - 白色标记当前精确为可见区的 **50% × 50%**，靠白色 path 上的
+    `transform="matrix(1.017545 0 0 0.985148 -8.983 8.722)"` 归一得到（原 path 实际是
+    49.138% × 50.754% 且垂直中心偏上 1.1 单位）。**若日后手动改 path 数字，这个 matrix 需要重算**。
+- `logo_full`（欢迎页/启动页大图）仍为占位，待维护者确认是否由品牌图标放大或另给。
 - 图标规格：24dp 基准，线性图标 1.5px 描边，输出 mdpi(24)/xhdpi(48)/xxhdpi(72)/xxxhdpi(96)。
 - 大图规格：logo 按长边 1024 出图（`drawable-nodpi`），运行时由 Coil/Compose 缩放。
 
@@ -76,11 +87,13 @@ app/src/main/res/
 | ID | 用途 | 规格 | PNG 输出 | 状态 |
 | --- | --- | --- | --- | --- |
 | `logo_full` | 欢迎页/启动页居中 logo | 长边 1024，透明底，**全彩** | `drawable-nodpi/logo_full.png` | 占位 |
-| `ic_launcher_foreground` | 自适应图标前景层 | 108dp 画布 + 72dp 安全区 | `mipmap-*/ic_launcher_foreground.png` | 源已有（`assigns/kavita.svg`） |
-| `ic_launcher` | 传统图标（API < 26） | 48dp，**全彩** | `mipmap-*/ic_launcher.png` | 源已有（`assigns/kavita.svg`） |
-| `ic_launcher_round` | 圆形图标 | 48dp，**全彩** | `mipmap-*/ic_launcher_round.png` | 源已有（`assigns/kavita.svg`） |
+| `ic_launcher_foreground` | 自适应图标前景层 | 108dp 画布，safe（72dp 可见区） | `mipmap-*/ic_launcher_foreground.png` | 正式（`assigns/logo.svg`） |
+| `ic_launcher` | 传统图标（API < 26） | 48dp，**全彩** | `mipmap-*/ic_launcher.png` | 正式（`assigns/logo.svg`） |
+| `ic_launcher_round` | 圆形图标 | 48dp，**全彩** | `mipmap-*/ic_launcher_round.png` | 正式（`assigns/logo.svg`） |
 
-> 应用图标背景色烘在图内（`assigns/kavita.svg` 自带 `#4AC694` 圆底），不再单独出 `launcher_background`。
+> 应用图标底色烘在图内（`assigns/logo.svg` 自带满幅 `#44D39D` 底）。自适应图标的
+> `<background>` 用 `@color/ic_launcher_background`（同色 `#44D39D`），只用于被遮罩裁掉的边缘区域，
+> 保证不露出与图内不一致的色边。
 > 旧文档里的 `logo_mark` / `launcher_background` 从未存在于清单，已按实际情况更正。
 
 ### 2.2 导航与顶栏图标（24dp 线性）
@@ -179,3 +192,5 @@ app/src/main/res/
 | 2026-11-06 | 清理零引用素材：移除 `logo_wordmark` 与 8 个无消费方图标（`ic_add`/`ic_arrow_right`/`ic_check`/`ic_lock`/`ic_play`/`ic_refresh`/`ic_server`/`ic_swap`），清单 50 → 41 项、res PNG 218 → 177；`KativaIcons.Add` 一并删除 |
 | 2026-11-06 | **素材接线**：全部保留素材均有消费方——`CoverImage` 改用 `privacy_placeholder`/`cover_fallback` 真实图；`EmptyState`/`ErrorState` 新增 `illustration` 参数并接 `empty_shelf`/`empty_search`/`empty_network`/`error_generic`；阅读器接入 `ic_prev_chapter`/`ic_next_chapter`/`ic_settings_reader`/`ic_toc`/`ic_double_page`/`ic_webtoon`/`ic_brightness`/`ic_volume`；补齐音量键翻页功能（`VolumeKeyPaging` + 设置开关 + 单测）。同时修正 2.4 表中不存在的 `empty_offline`（实现用的是 `empty_network`） |
 | 2026-11-06 | 修复「正式 SVG 放了不生效」：生成器改为逐条按 ID 解析（`assets/svg/<id>.svg` → `assigns/<id>.svg` → `assigns/kavita.svg` → 占位），并打印每条来源与仍占位清单；新增 §1.1 颜色规范（图标单色透明底、由运行期 tint 上色；全彩大图必须透明底） |
+| 2026-11-06 | **应用改名 Kavita Comic + 品牌图标**：`app_name` 四语言改为 `Kavita Comic`；launcher 三项改用 `assigns/logo.svg`。新增清单字段 `bleed`（`launcher-foreground` 专用，默认 `safe`；`full` = 108dp 铺满——**本项目不使用**，因为只有中间 72dp 可见，铺满会把标记放大 1.5 倍）；新增 `mipmap-anydpi-v26/ic_launcher{,_round}.xml` 自适应图标与 `@color/ic_launcher_background`（同色，仅填被裁掉的边缘）。`checkAssetsRegistered` 的白名单加入 `logo.svg`（品牌源被多个条目共享，本就不是清单 ID） |
+| 2026-11-06 | 图标白色标记归一到 50%×50%：原 path 实际 49.138% × 50.754% 且垂直中心偏上，非正方形，靠缩放无法精确命中，故在白色 path 上加 `matrix(1.017545 0 0 0.985148 -8.983 8.722)`（`tx = 512 - sx·cx` 公式保证中心落在 viewBox 中心）。实测 192px PNG = 144/288 = 50%，设备端 168px 圆盘内白色 84px = 50% |

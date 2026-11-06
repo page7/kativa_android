@@ -5,4 +5,10 @@
     <color name="kativa_primary">#FF4AC694</color>
     <color name="kativa_primary_deep">#FF2D7A56</color>
     <color name="kativa_privacy">#FF3A3A3A</color>
+
+    <!--
+      Adaptive launcher icon background. Matches the fill of assigns/logo.svg (#44D39D) so the
+      masked area outside the artwork blends in instead of showing a seam.
+    -->
+    <color name="ic_launcher_background">#FF44D39D</color>
 </resources>

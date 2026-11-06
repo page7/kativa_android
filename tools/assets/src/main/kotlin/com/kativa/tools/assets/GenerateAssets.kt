@@ -72,6 +72,8 @@ internal fun resolveSource(root: File, entry: ManifestEntry): SvgSource {
         add(File(root, "assets/svg/${entry.id}.svg"))
         add(File(root, "assigns/${entry.id}.svg"))
         if (entry.kind == "launcher" || entry.kind == "launcher-foreground") {
+            // Brand mark first, then the older Kareadita-style artwork as a compatibility fallback.
+            add(File(root, "assigns/logo.svg"))
             add(File(root, "assigns/kavita.svg"))
         }
     }
@@ -123,16 +125,25 @@ private fun renderDensity(doc: SVGDocument, id: String, dp: Int, resDir: File, p
 }
 
 /**
- * Adaptive icon foreground: 108dp canvas, artwork scaled into the 72dp safe zone
- * (centered), transparent elsewhere.
+ * Adaptive icon foreground: 108dp canvas.
+ *
+ * `bleed = "safe"` (default) centres the artwork inside the 72dp safe zone with a transparent
+ * surround — the classic "logo on a background colour" setup. `bleed = "full"` draws edge to edge
+ * for artwork that brings its own full-bleed background (the brand mark in `assigns/logo.svg`),
+ * because shrinking a full-bleed square into the safe zone makes the launcher mask cut an
+ * obviously smaller square out of it.
  */
 private fun renderLauncherForeground(doc: SVGDocument, entry: ManifestEntry, resDir: File): Int {
     var n = 0
     for ((bucket, scale) in ICON_DENSITIES) {
         val canvas = (108 * scale).toInt()
-        val art = (72 * scale).toInt()
         val dir = File(resDir, "mipmap-$bucket").apply { mkdirs() }
-        writePngCentered(doc, canvas, art, File(dir, "${entry.id}.png"))
+        if (entry.bleed == "full") {
+            writePng(doc, canvas, canvas, File(dir, "${entry.id}.png"))
+        } else {
+            val art = (72 * scale).toInt()
+            writePngCentered(doc, canvas, art, File(dir, "${entry.id}.png"))
+        }
         n++
     }
     return n

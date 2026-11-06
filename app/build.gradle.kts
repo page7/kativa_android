@@ -24,8 +24,8 @@ android {
          *
          * Bump [versionCode] on every artifact, even for a same-version rebuild that you hand out.
          */
-        versionCode = 13
-        versionName = "0.3.13"
+        versionCode = 15
+        versionName = "0.3.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         @Suppress("UnstableApiUsage")
@@ -199,13 +199,19 @@ tasks.register("checkAssetsRegistered") {
 
         // A delivered SVG whose name is not a manifest id would be silently ignored by the renderer
         // (lookup is by exact id), which looks exactly like "my artwork did not take effect".
+        //
+        // Brand sources are the documented exception: they are deliberately *not* manifest ids
+        // because several entries share them. `resolveSource` wires them up explicitly for the
+        // launcher entries (`assigns/logo.svg` first, then the legacy `assigns/kavita.svg`), so
+        // listing them here keeps the "artwork silently ignored" guard honest for everything else.
+        val brandSources = setOf("logo.svg", "kavita.svg")
         val unknownSources = listOf("assets/svg", "assigns")
             .map { File(repoRoot, it) }
             .filter { it.isDirectory }
             .flatMap { dir ->
                 dir.walkTopDown()
                     .filter { it.isFile && it.extension.lowercase() == "svg" }
-                    .filter { it.nameWithoutExtension !in ids && it.name != "kavita.svg" }
+                    .filter { it.nameWithoutExtension !in ids && it.name !in brandSources }
                     .map { it.relativeTo(repoRoot).invariantSeparatorsPath }
                     .toList()
             }

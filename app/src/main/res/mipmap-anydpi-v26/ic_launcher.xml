@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive launcher icon (API 26+, which is this app's minSdk).
+
+  The foreground PNG is generated full-bleed from assigns/logo.svg (manifest entry
+  ic_launcher_foreground with "bleed": "full"): the artwork already carries its own solid
+  #44D39D background, so it must not be scaled into the 72dp safe zone or the launcher mask
+  would cut a visibly smaller square out of it.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

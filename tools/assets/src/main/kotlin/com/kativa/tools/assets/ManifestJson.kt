@@ -18,6 +18,15 @@ data class ManifestEntry(
     val height: Int = 24,
     val code: String = "",
     @SerialName("status") val status: String = "placeholder",
+    /**
+     * For `launcher-foreground` only: how the artwork fills the 108dp adaptive canvas.
+     *
+     * `safe` (default) centres the artwork inside the 72dp safe zone, which is right for a mark on
+     * a transparent background. `full` draws it edge to edge, which is right for artwork that
+     * carries its own full-bleed background — shrinking that into the safe zone would leave a
+     * visible square floating inside the launcher's mask.
+     */
+    val bleed: String = "safe",
 )
 
 object ManifestJson {

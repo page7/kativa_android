@@ -79,6 +79,38 @@ class AssetSourceResolutionTest {
     }
 
     @Test
+    fun `brand logo wins over the legacy kavita source`() {
+        // The app icon is the brand mark; kavita.svg is only kept so older checkouts still render.
+        write("assigns/logo.svg", "<svg><!--logo--></svg>")
+        write("assigns/kavita.svg", "<svg><!--kavita--></svg>")
+
+        val foreground = resolveSource(root, ManifestEntry(id = "ic_launcher_foreground", kind = "launcher-foreground"))
+        val legacy = resolveSource(root, ManifestEntry(id = "ic_launcher", kind = "launcher"))
+        val round = resolveSource(root, ManifestEntry(id = "ic_launcher_round", kind = "launcher"))
+
+        assertTrue("foreground should use the brand mark", foreground.svg.contains("logo"))
+        assertTrue("legacy icon should use the brand mark", legacy.svg.contains("logo"))
+        assertTrue("round icon should use the brand mark", round.svg.contains("logo"))
+    }
+
+    @Test
+    fun `id specific source wins over the brand logo`() {
+        write("assets/svg/ic_launcher_foreground.svg", "<svg><!--explicit--></svg>")
+        write("assigns/logo.svg", "<svg><!--logo--></svg>")
+
+        val source = resolveSource(root, ManifestEntry(id = "ic_launcher_foreground", kind = "launcher-foreground"))
+
+        assertTrue(source.svg.contains("explicit"))
+    }
+
+    @Test
+    fun `icons never pick up the brand logo`() {
+        write("assigns/logo.svg", "<svg><!--logo--></svg>")
+
+        assertNull(resolveSource(root, icon("ic_home")).file)
+    }
+
+    @Test
     fun `id specific source wins over the legacy launcher fallback`() {
         write("assets/svg/ic_launcher_foreground.svg", "<svg><!--brand--></svg>")
         write("assigns/kavita.svg", "<svg><!--kavita--></svg>")
