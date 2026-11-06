@@ -41,9 +41,10 @@ import com.kativa.reader.core.designsystem.EmptyState
 import com.kativa.reader.core.designsystem.ErrorState
 import com.kativa.reader.core.designsystem.KativaDimens
 import com.kativa.reader.ui.common.PrivacyToggle
+import com.kativa.reader.ui.common.illustration
 import com.kativa.reader.ui.common.message
 
-/** P04 â€” library list. */
+/** P04 â€?library list. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -73,6 +74,7 @@ fun LibraryScreen(
                     message = state.error!!.message(),
                     retryLabel = stringResource(R.string.common_retry),
                     onRetry = viewModel::load,
+                    illustration = state.error!!.illustration,
                 )
 
                 state.isEmpty -> EmptyState(
@@ -80,6 +82,7 @@ fun LibraryScreen(
                     body = stringResource(R.string.home_empty_body),
                     actionLabel = stringResource(R.string.common_retry),
                     onAction = viewModel::load,
+                    illustration = R.drawable.empty_shelf,
                 )
 
                 else -> LazyColumn(
@@ -102,7 +105,6 @@ fun LibraryScreen(
                                         url = library.coverUrl,
                                         contentDescription = library.name,
                                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                                        privacyMode = state.privacyMode,
                                     )
                                 }
                                 Spacer(Modifier.width(14.dp))

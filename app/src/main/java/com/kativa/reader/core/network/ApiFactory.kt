@@ -5,7 +5,6 @@ import com.kativa.reader.core.network.CleartextGateInterceptor.Companion.HEADER_
 import com.kativa.reader.data.remote.api.ServerApi
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Interceptor
@@ -28,11 +27,11 @@ class ApiFactory @Inject constructor(
     private val cleartextGate: CleartextGateInterceptor,
     @param:com.kativa.reader.core.di.DebugBuild private val isDebug: Boolean,
 ) {
-    private val json = Json {
-        ignoreUnknownKeys = true
-        explicitNulls = false
-        coerceInputValues = true
-    }
+    /**
+     * Single source of truth for wire serialisation. See [com.kativa.reader.data.remote.dto.WireJson]
+     * for why `encodeDefaults` is mandatory.
+     */
+    private val json = com.kativa.reader.data.remote.dto.WireJson.instance
 
     /**
      * Builds the shared OkHttp client.
@@ -83,6 +82,15 @@ class ApiFactory @Inject constructor(
         activeServerStore.active.value?.baseUrl
             ?: throw IllegalStateException("No active server selected")
 
+    /**
+     * Shared client for Coil.
+     *
+     * Cover/reader URLs already carry `?apiKey=`, so no extra auth work is needed here — but the
+     * cleartext gate must still apply, otherwise an http-only server's images would be blocked
+     * while its API worked.
+     */
+    fun imageHttpClient(): okhttp3.OkHttpClient = client
+
     fun account(): com.kativa.reader.data.remote.api.AccountApi =
         retrofitFor(requireBaseUrl()).create(com.kativa.reader.data.remote.api.AccountApi::class.java)
 
@@ -103,6 +111,18 @@ class ApiFactory @Inject constructor(
 
     fun reader(): com.kativa.reader.data.remote.api.ReaderApi =
         retrofitFor(requireBaseUrl()).create(com.kativa.reader.data.remote.api.ReaderApi::class.java)
+
+    fun search(): com.kativa.reader.data.remote.api.SearchApi =
+        retrofitFor(requireBaseUrl()).create(com.kativa.reader.data.remote.api.SearchApi::class.java)
+
+    fun collections(): com.kativa.reader.data.remote.api.CollectionApi =
+        retrofitFor(requireBaseUrl()).create(com.kativa.reader.data.remote.api.CollectionApi::class.java)
+
+    fun readingLists(): com.kativa.reader.data.remote.api.ReadingListApi =
+        retrofitFor(requireBaseUrl()).create(com.kativa.reader.data.remote.api.ReadingListApi::class.java)
+
+    fun wantToRead(): com.kativa.reader.data.remote.api.WantToReadApi =
+        retrofitFor(requireBaseUrl()).create(com.kativa.reader.data.remote.api.WantToReadApi::class.java)
 
     /** Builds an anonymous client for an arbitrary URL, used by "test connection". */
     fun anonymousServerApi(rawBaseUrl: String): com.kativa.reader.data.remote.api.ServerApi =

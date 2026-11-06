@@ -72,10 +72,31 @@ fun KativaNavHost(
             )
         }
 
-        composable(Routes.SERVER_PICKER) {
+        composable(
+            route = "${Routes.SERVER_PICKER}?${Routes.ARG_SHOW_BACK}={${Routes.ARG_SHOW_BACK}}",
+            arguments = listOf(
+                navArgument(Routes.ARG_SHOW_BACK) {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+            ),
+        ) { entry ->
+            val showBack = entry.arguments?.getBoolean(Routes.ARG_SHOW_BACK) == true
             ServerPickerScreen(
                 onAddServer = { navController.navigate(Routes.SERVER_SETUP) },
                 onEditServer = { id -> navController.navigate(Routes.serverSetup(id)) },
+                // Only offer "back" when this screen was explicitly pushed on top of another.
+                // As the app's startup destination there is no previous entry, and a back button
+                // (or a pop) would just exit the app.
+                onBack = if (!showBack) {
+                    null
+                } else {
+                    {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(TopDestination.Home.route) { launchSingleTop = true }
+                        }
+                    }
+                },
                 onOpenServer = { serverId, signedIn ->
                     if (signedIn) {
                         navController.navigate(TopDestination.Home.route) {
@@ -129,8 +150,16 @@ fun KativaNavHost(
         composable(TopDestination.Home.route) {
             HomeScreen(
                 onOpenSeries = { id -> navController.navigate(Routes.series(id)) },
-                onOpenSearch = { /* search lands in M2 */ },
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                // The user-centre icon pushes Me on top of Home, so both the toolbar back button
+                // and the system back gesture return here (docs/PAGES.md P03/P09).
+                onOpenMe = {
+                    navController.navigate(TopDestination.Me.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenLibrary = { id -> navController.navigate(Routes.library(id)) },
+                onOpenStream = { key -> navController.navigate(Routes.stream(key)) },
             )
         }
 
@@ -176,20 +205,81 @@ fun KativaNavHost(
         }
 
         composable(TopDestination.Discover.route) {
-            com.kativa.reader.ui.discover.DiscoverPlaceholder()
+            com.kativa.reader.ui.discover.DiscoverPlaceholder(
+                onOpenSearch = { navController.navigate(Routes.SEARCH) },
+                onOpenCollections = { navController.navigate(Routes.shelf("collections")) },
+                onOpenReadingLists = { navController.navigate(Routes.shelf("lists")) },
+                onOpenWantToRead = { navController.navigate(Routes.shelf("want-to-read")) },
+            )
         }
 
         composable(TopDestination.Me.route) {
             MeScreen(
+                // Return to Home rather than popBackStack(): Me is also a top-level tab route, so
+                // it may be the graph's start destination on some paths and popping would exit
+                // the app. Navigating Home is deterministic.
+                onBack = {
+                    // Prefer the real back stack: this preserves whatever the user came from.
+                    // Fall back to Home only when Me is the first entry (deep link / process
+                    // restore), where popping would exit the app instead of returning anywhere.
+                    if (!navController.popBackStack()) {
+                        navController.navigate(TopDestination.Home.route) {
+                            popUpTo(TopDestination.Me.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                onManageServers = { navController.navigate(Routes.SERVER_PICKER) },
+                onManageServers = { navController.navigate(Routes.serverPicker(showBack = true)) },
+            )
+        }
+
+        composable(Routes.SEARCH) {
+            com.kativa.reader.ui.search.SearchScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSeries = { id -> navController.navigate(Routes.series(id)) },
+            )
+        }
+
+        composable(
+            route = "${Routes.SHELF}/{kind}",
+            arguments = listOf(navArgument("kind") { type = NavType.StringType }),
+        ) { entry ->
+            val kind = entry.arguments?.getString("kind").orEmpty()
+            com.kativa.reader.ui.shelf.ShelfScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSeries = { id -> navController.navigate(Routes.series(id)) },
+                onOpenShelf = { shelfId -> navController.navigate(Routes.shelfDetail(kind, shelfId)) },
+            )
+        }
+
+        composable(
+            route = "${Routes.SHELF}/{kind}/{shelfId}",
+            arguments = listOf(
+                navArgument("kind") { type = NavType.StringType },
+                navArgument("shelfId") { type = NavType.StringType },
+            ),
+        ) {
+            com.kativa.reader.ui.shelf.ShelfScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSeries = { id -> navController.navigate(Routes.series(id)) },
+                onOpenShelf = { /* already inside a shelf */ },
+            )
+        }
+
+        composable(
+            route = "${Routes.STREAM}/{streamKey}",
+            arguments = listOf(navArgument("streamKey") { type = NavType.StringType }),
+        ) {
+            com.kativa.reader.ui.stream.StreamScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSeries = { id -> navController.navigate(Routes.series(id)) },
             )
         }
 
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 onBack = { navController.popBackStack() },
-                onManageServers = { navController.navigate(Routes.SERVER_PICKER) },
                 onSignedOut = {
                     navController.navigate(Routes.SERVER_PICKER) {
                         popUpTo(navController.graph.findStartDestination().id) { inclusive = true }

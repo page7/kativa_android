@@ -2,17 +2,21 @@ package com.kativa.reader.core.image
 
 import com.kativa.reader.core.auth.ActiveServerStore
 import com.kativa.reader.core.designsystem.KativaColors
+import com.kativa.reader.core.di.ApplicationScope
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 
 /**
  * Builds cover/thumbnail URLs for the active server.
  *
  * `?apiKey=` is mandatory for media endpoints; the header alone does not authorise <img>-style
- * fetches on Kavita (AGENTS.md 搂4.2).
+ * fetches on Kavita (AGENTS.md §4.2).
  */
 @Singleton
 class CoverUrlBuilder @Inject constructor(
@@ -58,19 +62,69 @@ class CoverUrlBuilder @Inject constructor(
 }
 
 /**
- * Process-wide image loader configuration.
+ * Process-wide privacy-mode flag, and the only place that decides its value.
  *
- * Privacy mode is enforced in two places: this loader refuses to build a request at all, and
- * composables render [PrivacyPlaceholder] without even calling into Coil. That double guard makes
- * "no network request" an invariant rather than a convention (AGENTS.md 搂6).
+ * It owns the observation itself instead of relying on a ViewModel. That matters because privacy
+ * mode has to be correct on *every* screen, including the ones pushed on top of home (series
+ * detail, search, stream list): those never read a screen-level `privacyMode` field, they fall back
+ * to [com.kativa.reader.core.designsystem.LocalPrivacyMode], which is fed from here.
+ *
+ * The previous implementation nested two `collect` calls inside a ViewModel:
+ *
+ *     activeServerStore.active.collect { server ->
+ *         settingsRepository.isPrivacyMode(server.id).collect { ... }   // never returns
+ *     }
+ *
+ * The inner flow never completes, so the outer collector never saw a second emission. At startup
+ * the active server is still `null`, the flag resolved to `false`, and selecting a server was
+ * never observed — leaving privacy mode permanently off. It only *looked* right on the home
+ * screen, because home passes `coverUrl = null` explicitly; level 2-3 screens ask
+ * [com.kativa.reader.core.designsystem.CoverImage] to use the composition default, which stayed
+ * `false`. [combine] (rather than nesting) is what keeps the two sources in sync.
  */
 @Singleton
-class PrivacyModeState @Inject constructor() {
+class PrivacyModeState @Inject constructor(
+    private val activeServerStore: ActiveServerStore,
+    private val settings: PrivacySettings,
+    /** The process-lifetime scope, so the observation outlives every screen. */
+    @ApplicationScope private val scope: CoroutineScope,
+) {
     private val _enabled = MutableStateFlow(false)
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
 
+    init {
+        scope.launch {
+            combine(
+                activeServerStore.active,
+                settings.privacyModeByServer,
+            ) { server, stored ->
+                val serverId = server?.id
+                if (serverId == null) false else stored[serverId] == true
+            }.collect { value -> _enabled.value = value }
+        }
+    }
+
+    /**
+     * Optimistic local update so the toggle feels instant; the DataStore write issued by the
+     * caller is what makes it durable and re-emits through [enabled].
+     */
     fun set(value: Boolean) {
         _enabled.value = value
+    }
+
+    /**
+     * Single entry point for the UI privacy toggles.
+     *
+     * Updates the in-memory flag first (every already-composed list re-renders immediately) and
+     * then persists it for the active server, which re-emits through [enabled] on confirmation.
+     * Centralising this is what keeps the toggle icon, the composition local and the image layer
+     * from disagreeing — the previous per-screen copies of this logic each had their own
+     * subscription and could drift.
+     */
+    fun toggleForActiveServer(enabled: Boolean) {
+        set(enabled)
+        val serverId = activeServerStore.activeId ?: return
+        scope.launch { settings.setPrivacyMode(serverId, enabled) }
     }
 }
 

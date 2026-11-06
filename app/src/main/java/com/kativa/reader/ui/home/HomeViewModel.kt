@@ -2,19 +2,19 @@ package com.kativa.reader.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kativa.reader.core.auth.ActiveServerStore
 import com.kativa.reader.core.image.CoverUrlBuilder
+import com.kativa.reader.core.image.PrivacyModeState
 import com.kativa.reader.core.network.KativaError
 import com.kativa.reader.core.network.Outcome
-import com.kativa.reader.core.settings.SettingsRepository
-import com.kativa.reader.data.remote.dto.DashboardStreamDto
 import com.kativa.reader.data.remote.dto.GroupedSeriesDto
 import com.kativa.reader.data.remote.dto.SeriesDto
+import com.kativa.reader.data.repository.LibraryRepository
 import com.kativa.reader.data.repository.SeriesRepository
+import com.kativa.reader.domain.model.SeriesFilter
+import com.kativa.reader.domain.model.SeriesSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,11 +26,6 @@ import kotlinx.coroutines.launch
 sealed interface HomeStream {
     val key: String
     val titleRes: Int
-
-    data class ContinueReading(val series: SeriesDto) : HomeStream {
-        override val key = "continue"
-        override val titleRes = com.kativa.reader.R.string.home_continue_title
-    }
 
     data class OnDeck(val items: List<SeriesDto>) : HomeStream {
         override val key = "on-deck"
@@ -48,67 +43,59 @@ sealed interface HomeStream {
     }
 }
 
-data class HomeItem(
-    val seriesId: Int,
-    val title: String,
-    val coverUrl: String?,
-    val subtitle: String? = null,
-    val progress: Float? = null,
-    val badge: String? = null,
+/**
+ * A library rendered as a folder tile on the home screen.
+ *
+ * [previewCovers] holds up to 4 covers in the library's default sort order, which is what makes
+ * the tile recognisable at a glance without opening it.
+ */
+data class HomeLibraryFolder(
+    val libraryId: Int,
+    val name: String,
+    val seriesCount: Int,
+    val previewCovers: List<String?>,
+    val libraryType: Int = 0,
 )
 
 data class HomeUiState(
     val loading: Boolean = true,
-    val username: String = "",
     val privacyMode: Boolean = false,
     val streams: List<HomeStream> = emptyList(),
+    val folders: List<HomeLibraryFolder> = emptyList(),
     val error: KativaError? = null,
     val onDeckCount: Int = 0,
-    val totalSeries: Int = 0,
 ) {
-    val isEmpty: Boolean get() = !loading && error == null && streams.isEmpty()
-    val continueItem: HomeStream.ContinueReading?
-        get() = streams.filterIsInstance<HomeStream.ContinueReading>().firstOrNull()
+    val isEmpty: Boolean
+        get() = !loading && error == null && streams.isEmpty() && folders.isEmpty()
 }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val seriesRepository: SeriesRepository,
+    private val libraryRepository: LibraryRepository,
     private val coverUrlBuilder: CoverUrlBuilder,
-    private val activeServerStore: ActiveServerStore,
-    private val settingsRepository: SettingsRepository,
+    private val privacyModeState: PrivacyModeState,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
-    private val serverId: String? get() = activeServerStore.activeId
-
     init {
-        _state.update { it.copy(username = activeServerStore.session.value?.username.orEmpty()) }
         observePrivacy()
         load()
     }
 
     private fun observePrivacy() {
         viewModelScope.launch {
-            val id = serverId
-            if (id == null) {
-                settingsRepository.isPrivacyMode(null).collect { enabled ->
-                    _state.update { it.copy(privacyMode = enabled) }
-                }
-            } else {
-                settingsRepository.isPrivacyMode(id).collect { enabled ->
-                    _state.update { it.copy(privacyMode = enabled) }
-                }
+            privacyModeState.enabled.collect { enabled ->
+                _state.update { it.copy(privacyMode = enabled) }
             }
         }
     }
 
     fun setPrivacyMode(enabled: Boolean) {
-        val id = serverId ?: return
+        privacyModeState.toggleForActiveServer(enabled)
         _state.update { it.copy(privacyMode = enabled) }
-        viewModelScope.launch { settingsRepository.setPrivacyMode(id, enabled) }
     }
 
     fun load() {
@@ -116,20 +103,21 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             coroutineScope {
-                // The three provided streams are fetched in parallel so one slow stream
-                // cannot block the others (docs/FEATURES.md F-03).
+                // Streams and folders are independent: one slow call must not blank the page.
                 val onDeck = async { seriesRepository.onDeck(pageSize = 20) }
                 val updated = async { seriesRepository.recentlyUpdated(pageSize = 20) }
                 val added = async { seriesRepository.recentlyAdded(pageSize = 20) }
+                val libraries = async { seriesRepository.libraries() }
 
                 val onDeckResult = onDeck.await()
                 val updatedResult = updated.await()
                 val addedResult = added.await()
+                val libraryResult = libraries.await()
 
                 val streams = buildList {
-                    (onDeckResult as? Outcome.Success)?.value?.firstOrNull()?.let {
-                        add(HomeStream.ContinueReading(it))
-                    }
+                    // The "continue reading" hero was removed by product decision: the top of the
+                    // home screen must start with the streams (docs/PAGES.md P03). On Deck already
+                    // carries the continue-reading entries inside its own row.
                     (onDeckResult as? Outcome.Success)?.value?.takeIf { it.isNotEmpty() }?.let {
                         add(HomeStream.OnDeck(it))
                     }
@@ -141,14 +129,45 @@ class HomeViewModel @Inject constructor(
                     }
                 }
 
-                val failures = listOf(onDeckResult, updatedResult, addedResult)
+                val folders = (libraryResult as? Outcome.Success)?.value
+                    ?.map { dto: com.kativa.reader.data.remote.api.LibraryDto ->
+                        // Preview covers come from the library's own default ordering. The tile's
+                        // count must be the server's grand total, NOT the number of previews:
+                        // `series.size` is capped at PREVIEW_COVER_COUNT, which made every folder
+                        // claim "4 series".
+                        val preview = libraryRepository.seriesPageInLibrary(
+                            libraryId = dto.id,
+                            page = 1,
+                            pageSize = PREVIEW_COVER_COUNT,
+                            filter = SeriesFilter.Default,
+                        )
+                        val page = (preview as? Outcome.Success)?.value
+                        val series = page?.items.orEmpty()
+                        HomeLibraryFolder(
+                            libraryId = dto.id,
+                            name = dto.name,
+                            seriesCount = page?.totalOrPageSize ?: 0,
+                            previewCovers = series.take(PREVIEW_COVER_COUNT)
+                                .map { coverUrlBuilder.series(it.id) },
+                            libraryType = dto.type,
+                        )
+                    }
+                    .orEmpty()
+
+                val failures = listOf(onDeckResult, updatedResult, addedResult, libraryResult)
                     .filterIsInstance<Outcome.Failure>()
 
                 _state.update {
                     it.copy(
                         loading = false,
                         streams = streams,
-                        error = if (streams.isEmpty()) failures.firstOrNull()?.failure?.error else null,
+                        folders = folders,
+                        // Only report an error when there is nothing at all to show.
+                        error = if (streams.isEmpty() && folders.isEmpty()) {
+                            failures.firstOrNull()?.failure?.error
+                        } else {
+                            null
+                        },
                         onDeckCount = (onDeckResult as? Outcome.Success)?.value?.size ?: 0,
                     )
                 }
@@ -156,6 +175,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun seriesCover(seriesId: Int): String? =
-        if (_state.value.privacyMode) null else coverUrlBuilder.series(seriesId)
+    /**
+     * Cover URL for a series row.
+     *
+     * Deliberately returns the URL even in privacy mode: [com.kativa.reader.core.designsystem.CoverImage]
+     * is what decides whether a request is built, so there is exactly one place to get this right.
+     * Blanking the URL here instead was the source of the "home is protected but nothing below it
+     * is" bug — the two halves disagreed and only home was covered.
+     */
+    fun seriesCover(seriesId: Int): String? = coverUrlBuilder.series(seriesId)
+
+    private companion object {
+        const val PREVIEW_COVER_COUNT = 4
+    }
 }

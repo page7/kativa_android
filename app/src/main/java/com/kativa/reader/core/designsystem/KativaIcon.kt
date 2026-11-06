@@ -40,7 +40,7 @@ object KativaIcons {
     val More = R.drawable.ic_more
     val Search = R.drawable.ic_search
     val Settings = R.drawable.ic_settings
-    val Add = R.drawable.ic_add
+    val SettingsReader = R.drawable.ic_settings_reader
     val Edit = R.drawable.ic_edit
     val Delete = R.drawable.ic_delete
     val Sort = R.drawable.ic_sort
@@ -55,6 +55,14 @@ object KativaIcons {
     val Read = R.drawable.ic_read
     val Unread = R.drawable.ic_unread
     val CoverFallback = R.drawable.ic_cover_fallback_mark
+
+    val PrevChapter = R.drawable.ic_prev_chapter
+    val NextChapter = R.drawable.ic_next_chapter
+    val Toc = R.drawable.ic_toc
+    val DoublePage = R.drawable.ic_double_page
+    val Webtoon = R.drawable.ic_webtoon
+    val Brightness = R.drawable.ic_brightness
+    val Volume = R.drawable.ic_volume
 
     val Home = R.drawable.ic_home
     val Library = R.drawable.ic_library

@@ -52,7 +52,7 @@
     <string name="setup_allow_cleartext_warning">明文连接会让同一网络中的其他人看到你的登录信息与阅读内容。</string>
     <string name="setup_auto_login">启动时自动登录此服务器</string>
     <string name="setup_save_and_login">保存并登录</string>
-    <string name="setup_switched_to_http">该服务器只支持未加密的 HTTP，已自动切换为 http://。</string>
+    <string name="setup_switched_to_http">该服务器只支持未加密的 HTTP。已填入 http:// 并开启明文连接，请再点一次「保存并登录」确认。</string>
     <string name="setup_next_step">下一步会让你输入账号密码或 API 密钥。Kavita 支持两者：账号密码即 Web 端登录用的凭据；API 密钥在 Web 端「用户设置 → Auth Keys」生成。</string>
     <string name="setup_version_ok">已连接 · Kavita %1$s</string>
     <string name="setup_version_ok_unknown">已连接</string>
@@ -147,6 +147,8 @@
 
     <string name="entity_chapter_num">第 %1$s 话</string>
     <string name="entity_volume_num">第 %1$s 卷</string>
+    <string name="entity_full_chapter">全一章</string>
+    <string name="entity_unnumbered_chapter">单话</string>
     <string name="entity_single_volume">单卷</string>
     <string name="entity_loose_leaf">散章（无编号）</string>
     <string name="entity_specials">番外</string>
@@ -179,7 +181,10 @@
     <string name="reader_setting_cover_offset">封面单独显示</string>
     <string name="reader_setting_cover_offset_desc">第一页不参与双页配对，让其余页面配对整齐</string>
     <string name="reader_setting_brightness">亮度（仅本次阅读）</string>
+    <string name="reader_brightness_percent">%1$d%%</string>
     <string name="reader_setting_page_number">显示页码</string>
+    <string name="reader_setting_volume_keys">音量键翻页</string>
+    <string name="reader_setting_volume_keys_desc">开启后音量上/下键翻上/下一页，不再调节媒体音量</string>
 
     <!-- Series detail -->
     <string name="series_continue">继续阅读</string>
@@ -207,4 +212,90 @@
     <string name="status_hiatus">休刊</string>
     <string name="status_cancelled">已腰斩</string>
     <string name="status_ended">已完结</string>
+    <!-- Search -->
+    <string name="search_title">搜索</string>
+    <string name="search_hint">搜索</string>
+    <string name="search_empty_title">没有找到「%1$s」</string>
+    <string name="search_empty_body">换个关键词试试，或检查拼写</string>
+    <string name="search_min_length">至少输入 %1$d 个字符</string>
+    <string name="search_history_empty">还没有搜索记录</string>
+    <string name="search_history_empty_body">输入关键词开始搜索</string>
+    <string name="search_history">搜索记录</string>
+    <string name="search_history_clear">清空</string>
+    <string name="search_group_series">系列</string>
+    <string name="search_group_collections">合集</string>
+    <string name="search_group_lists">阅读清单</string>
+    <string name="search_group_people">人物</string>
+    <string name="search_group_genres">类型</string>
+    <string name="search_group_tags">标签</string>
+    <string name="search_group_libraries">资料库</string>
+    <string name="discover_search_section">搜索</string>
+    <string name="discover_more_section">更多</string>
+    <string name="discover_upcoming_hint">搜索、合集、阅读清单等功能将在后续版本提供</string>
+    <!-- Filter & sort -->
+    <string name="filter_title">筛选与排序</string>
+    <string name="filter_sort">排序</string>
+    <string name="filter_sort_asc">升序</string>
+    <string name="filter_sort_desc">降序</string>
+    <string name="filter_match">匹配方式</string>
+    <string name="filter_match_all">全部条件都满足</string>
+    <string name="filter_match_any">任一条件满足</string>
+    <string name="filter_active">已添加的条件</string>
+    <string name="filter_add_condition">添加条件</string>
+    <string name="filter_value">值</string>
+    <string name="filter_add">添加</string>
+    <string name="filter_reset">重置</string>
+    <string name="filter_apply">应用</string>
+    <string name="filter_sort_name">名称</string>
+    <string name="filter_sort_added">添加时间</string>
+    <string name="filter_sort_modified">修改时间</string>
+    <string name="filter_sort_chapter_added">章节更新时间</string>
+    <string name="filter_sort_time">阅读时长</string>
+    <string name="filter_sort_year">出版年份</string>
+    <string name="filter_sort_progress">阅读进度</string>
+    <string name="filter_sort_rating">我的评分</string>
+    <string name="filter_sort_unread">未读章节</string>
+    <string name="filter_sort_random">随机</string>
+    <string name="filter_field_name">系列名</string>
+    <string name="filter_field_writer">作者</string>
+    <string name="filter_field_genre">类型</string>
+    <string name="filter_field_tag">标签</string>
+    <string name="filter_field_status">出版状态</string>
+    <string name="filter_field_age">年龄分级</string>
+    <string name="filter_field_format">格式</string>
+    <string name="filter_field_language">语言</string>
+    <string name="filter_field_want_to_read">想读</string>
+    <string name="filter_field_rating">我的评分</string>
+    <string name="filter_field_progress">阅读进度</string>
+    <string name="filter_field_year">出版年份</string>
+    <string name="filter_no_match">没有符合条件的系列</string>
+    <string name="filter_no_match_body">试试放宽或清除筛选条件</string>
+    <string name="filter_clear">清除筛选</string>
+    <string name="filter_cmp_is">是</string>
+    <string name="filter_cmp_is_not">不是</string>
+    <string name="filter_cmp_contains">包含</string>
+    <string name="filter_cmp_not_contains">不包含</string>
+    <string name="filter_cmp_starts">开头是</string>
+    <string name="filter_cmp_ends">结尾是</string>
+    <string name="filter_cmp_empty">为空</string>
+    <string name="filter_cmp_not_empty">不为空</string>
+    <string name="filter_cmp_recent">最近 N 天</string>
+    <!-- shelf -->
+    <string name="shelf_collections">合集</string>
+    <string name="shelf_reading_lists">阅读清单</string>
+    <string name="shelf_want_to_read">想读</string>
+    <string name="shelf_collection_detail">合集内容</string>
+    <string name="shelf_collections_empty">还没有合集</string>
+    <string name="shelf_lists_empty">还没有阅读清单</string>
+    <string name="shelf_want_to_read_empty">想读列表是空的</string>
+    <string name="shelf_empty_body">可以在 Kavita Web 端创建，或长按系列加入</string>
+    <string name="shelf_promoted">公开</string>
+    <string name="shelf_item_count">%1$d 项</string>
+    <string name="series_add_to_want_to_read">加入想读</string>
+    <string name="series_remove_from_want_to_read">移出想读</string>
+    <!-- Home folders / stream view -->
+    <string name="home_libraries">资料库</string>
+    <string name="home_folder_series_count">%1$d 部系列</string>
+    <string name="stream_empty_title">这里还没有内容</string>
+    <string name="stream_empty_body">先去书架添加或扫描内容吧</string>
 </resources>

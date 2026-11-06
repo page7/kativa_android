@@ -34,6 +34,25 @@ object KativaColors {
     /** Deep grey used behind every cover when privacy mode is on. */
     val PrivacyFill = Color(0xFF3A3A3A)
 
+    /**
+     * Reader chrome scrim (AGENTS.md §5/§6).
+     *
+     * The reader is edge-to-edge, so the top/bottom bars sit on top of the artwork *and* the
+     * system status/navigation bar strips. A translucent black scrim (75%, close to the 72% the
+     * bars used before they were extended over the system bars) keeps the page faintly visible
+     * while still giving the system icons and the bar content enough contrast.
+     */
+    val ReaderScrim = Color(0xC0000000)
+
+    /**
+     * Folder tile background: a translucent grey veil rather than a solid fill.
+     *
+     * Dark theme needs a *white* veil to lift the tile off the near-black background; light theme
+     * needs a *black* one. Both stay genuinely translucent, so the page shows through.
+     */
+    val FolderSurfaceDark = Color(0x1FFFFFFF)
+    val FolderSurfaceLight = Color(0x14000000)
+
     val TextPrimaryDark = Color(0xFFF2F3F5)
     val TextSecondaryDark = Color(0xFF9AA0AA)
     val TextPrimaryLight = Color(0xFF15161A)

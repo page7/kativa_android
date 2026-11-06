@@ -47,7 +47,6 @@ import com.kativa.reader.core.designsystem.ThemeMode
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onManageServers: () -> Unit,
     onSignedOut: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -75,21 +74,8 @@ fun SettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            GroupTitle(stringResource(R.string.settings_group_startup))
-            SettingRow(
-                title = stringResource(R.string.settings_auto_login),
-                subtitle = state.autoLoginName ?: stringResource(R.string.settings_auto_login_desc),
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            GroupTitle(stringResource(R.string.settings_group_servers))
-            SettingRow(
-                title = stringResource(R.string.settings_manage_servers),
-                subtitle = stringResource(R.string.common_switch_server),
-                onClick = onManageServers,
-            )
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            // Startup and server management deliberately live on the Me screen: duplicating them
+            // here created two entry points for the same actions with different wording.
             GroupTitle(stringResource(R.string.settings_group_appearance))
 
             SettingRow(

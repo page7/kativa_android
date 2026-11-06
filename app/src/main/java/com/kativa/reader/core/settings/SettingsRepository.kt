@@ -24,7 +24,7 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 @Singleton
 class SettingsRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : com.kativa.reader.core.image.PrivacySettings {
     private val keyTheme = stringPreferencesKey("theme_mode")
     private val keyLanguage = stringPreferencesKey("language")
     private val keyPrivacyPrefix = "privacy_"
@@ -37,12 +37,30 @@ class SettingsRepository @Inject constructor(
 
     val language: Flow<String?> = context.settingsDataStore.data.map { it[keyLanguage] }
 
+    /**
+     * Every stored privacy flag, keyed by server id.
+     *
+     * A single map rather than one flow per server: the active-server observer needs to react to
+     * *any* server's flag changing while the active id itself is stable, and per-server flows
+     * cannot express that without re-subscribing (which is exactly the bug this replaced — see
+     * [com.kativa.reader.core.image.PrivacyModeState]).
+     */
+    override val privacyModeByServer: Flow<Map<String, Boolean>> = context.settingsDataStore.data.map { prefs ->
+        prefs.asMap()
+            .filterKeys { key -> key.name.startsWith(keyPrivacyPrefix) }
+            .mapNotNull { (key, value) ->
+                val enabled = value as? Boolean ?: return@mapNotNull null
+                key.name.removePrefix(keyPrivacyPrefix) to enabled
+            }
+            .toMap()
+    }
+
     fun isPrivacyMode(serverId: String?): Flow<Boolean> =
         context.settingsDataStore.data.map { prefs ->
             serverId != null && (prefs[booleanPreferencesKey(keyPrivacyPrefix + serverId)] ?: false)
         }
 
-    suspend fun setPrivacyMode(serverId: String, enabled: Boolean) {
+    override suspend fun setPrivacyMode(serverId: String, enabled: Boolean) {
         context.settingsDataStore.edit { prefs ->
             prefs[booleanPreferencesKey(keyPrivacyPrefix + serverId)] = enabled
         }

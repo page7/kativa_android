@@ -53,7 +53,7 @@
     <string name="setup_allow_cleartext_warning">Avec une connexion en clair, toute personne sur le même réseau peut voir vos identifiants et votre activité de lecture.</string>
     <string name="setup_auto_login">Se connecter à ce serveur au démarrage</string>
     <string name="setup_save_and_login">Enregistrer et se connecter</string>
-    <string name="setup_switched_to_http">Ce serveur n\'accepte que le HTTP non chiffré ; http:// a donc été utilisé automatiquement.</string>
+    <string name="setup_switched_to_http">Ce serveur n\'accepte que le HTTP non chiffré. http:// a été renseigné et le mode non chiffré activé ; appuyez de nouveau sur Enregistrer et se connecter pour confirmer.</string>
     <string name="setup_next_step">Vous saisirez ensuite un identifiant et un mot de passe, ou une clé API. Kavita accepte les deux : l\'identifiant et le mot de passe sont ceux de l\'interface web ; les clés API se créent dans Paramètres utilisateur → Auth Keys.</string>
     <string name="setup_version_ok">Connecté · Kavita %1$s</string>
     <string name="setup_version_ok_unknown">Connecté</string>
@@ -148,6 +148,8 @@
 
     <string name="entity_chapter_num">Chapitre %1$s</string>
     <string name="entity_volume_num">Tome %1$s</string>
+    <string name="entity_full_chapter">Chapitre complet</string>
+    <string name="entity_unnumbered_chapter">Sans numéro</string>
     <string name="entity_single_volume">Tome unique</string>
     <string name="entity_loose_leaf">Chapitres isolés</string>
     <string name="entity_specials">Bonus</string>
@@ -180,7 +182,10 @@
     <string name="reader_setting_cover_offset">Afficher la couverture seule</string>
     <string name="reader_setting_cover_offset_desc">La page 1 n\'est pas appairée, pour que les doubles pages suivantes s\'alignent</string>
     <string name="reader_setting_brightness">Luminosité (cette session uniquement)</string>
+    <string name="reader_brightness_percent">%1$d%%</string>
     <string name="reader_setting_page_number">Afficher le numéro de page</string>
+    <string name="reader_setting_volume_keys">Pages avec les touches de volume</string>
+    <string name="reader_setting_volume_keys_desc">Utilise volume haut/bas pour tourner les pages au lieu de régler le son</string>
 
     <!-- Series detail -->
     <string name="series_continue">Reprendre la lecture</string>
@@ -208,4 +213,90 @@
     <string name="status_hiatus">En pause</string>
     <string name="status_cancelled">Annulé</string>
     <string name="status_ended">Terminé</string>
+    <!-- Search -->
+    <string name="search_title">Rechercher</string>
+    <string name="search_hint">Rechercher</string>
+    <string name="search_empty_title">Aucun résultat pour « %1$s »</string>
+    <string name="search_empty_body">Essayez un autre mot-clé ou vérifiez l\'orthographe</string>
+    <string name="search_min_length">Saisissez au moins %1$d caractères</string>
+    <string name="search_history_empty">Aucune recherche récente</string>
+    <string name="search_history_empty_body">Commencez à taper pour rechercher</string>
+    <string name="search_history">Recherches récentes</string>
+    <string name="search_history_clear">Effacer</string>
+    <string name="search_group_series">Séries</string>
+    <string name="search_group_collections">Collections</string>
+    <string name="search_group_lists">Listes de lecture</string>
+    <string name="search_group_people">Personnes</string>
+    <string name="search_group_genres">Genres</string>
+    <string name="search_group_tags">Tags</string>
+    <string name="search_group_libraries">Bibliothèques</string>
+    <string name="discover_search_section">Rechercher</string>
+    <string name="discover_more_section">Plus</string>
+    <string name="discover_upcoming_hint">Les collections, listes de lecture et plus arrivent dans une version ultérieure</string>
+    <!-- Filter & sort -->
+    <string name="filter_title">Filtrer et trier</string>
+    <string name="filter_sort">Trier par</string>
+    <string name="filter_sort_asc">Croissant</string>
+    <string name="filter_sort_desc">Décroissant</string>
+    <string name="filter_match">Correspondance</string>
+    <string name="filter_match_all">Toutes les conditions</string>
+    <string name="filter_match_any">Au moins une condition</string>
+    <string name="filter_active">Conditions actives</string>
+    <string name="filter_add_condition">Ajouter une condition</string>
+    <string name="filter_value">Valeur</string>
+    <string name="filter_add">Ajouter</string>
+    <string name="filter_reset">Réinitialiser</string>
+    <string name="filter_apply">Appliquer</string>
+    <string name="filter_sort_name">Nom</string>
+    <string name="filter_sort_added">Date d\'ajout</string>
+    <string name="filter_sort_modified">Date de modification</string>
+    <string name="filter_sort_chapter_added">Chapitre ajouté</string>
+    <string name="filter_sort_time">Durée de lecture</string>
+    <string name="filter_sort_year">Année de parution</string>
+    <string name="filter_sort_progress">Progression</string>
+    <string name="filter_sort_rating">Ma note</string>
+    <string name="filter_sort_unread">Chapitres non lus</string>
+    <string name="filter_sort_random">Aléatoire</string>
+    <string name="filter_field_name">Nom de série</string>
+    <string name="filter_field_writer">Auteur</string>
+    <string name="filter_field_genre">Genre</string>
+    <string name="filter_field_tag">Tag</string>
+    <string name="filter_field_status">Statut</string>
+    <string name="filter_field_age">Classification d\'âge</string>
+    <string name="filter_field_format">Format</string>
+    <string name="filter_field_language">Langue</string>
+    <string name="filter_field_want_to_read">À lire</string>
+    <string name="filter_field_rating">Ma note</string>
+    <string name="filter_field_progress">Progression</string>
+    <string name="filter_field_year">Année de parution</string>
+    <string name="filter_no_match">Aucune série ne correspond</string>
+    <string name="filter_no_match_body">Essayez d\'assouplir ou d\'effacer le filtre</string>
+    <string name="filter_clear">Effacer le filtre</string>
+    <string name="filter_cmp_is">est</string>
+    <string name="filter_cmp_is_not">n\'est pas</string>
+    <string name="filter_cmp_contains">contient</string>
+    <string name="filter_cmp_not_contains">ne contient pas</string>
+    <string name="filter_cmp_starts">commence par</string>
+    <string name="filter_cmp_ends">se termine par</string>
+    <string name="filter_cmp_empty">est vide</string>
+    <string name="filter_cmp_not_empty">n\'est pas vide</string>
+    <string name="filter_cmp_recent">Dans les N derniers jours</string>
+    <!-- shelf -->
+    <string name="shelf_collections">Collections</string>
+    <string name="shelf_reading_lists">Listes de lecture</string>
+    <string name="shelf_want_to_read">À lire</string>
+    <string name="shelf_collection_detail">Collection</string>
+    <string name="shelf_collections_empty">Aucune collection</string>
+    <string name="shelf_lists_empty">Aucune liste de lecture</string>
+    <string name="shelf_want_to_read_empty">Votre liste « à lire » est vide</string>
+    <string name="shelf_empty_body">Créez-les dans l\'interface web Kavita, ou appuyez longuement sur une série</string>
+    <string name="shelf_promoted">Public</string>
+    <string name="shelf_item_count">%1$d éléments</string>
+    <string name="series_add_to_want_to_read">Ajouter à la liste à lire</string>
+    <string name="series_remove_from_want_to_read">Retirer de la liste à lire</string>
+    <!-- Home folders / stream view -->
+    <string name="home_libraries">Bibliothèques</string>
+    <string name="home_folder_series_count">%1$d séries</string>
+    <string name="stream_empty_title">Rien ici pour le moment</string>
+    <string name="stream_empty_body">Ajoutez ou analysez du contenu depuis l\'onglet bibliothèque</string>
 </resources>

@@ -65,6 +65,7 @@ fun ServerPickerScreen(
     onAddServer: () -> Unit,
     onEditServer: (String) -> Unit,
     onOpenServer: (String, Boolean) -> Unit,
+    onBack: (() -> Unit)? = null,
     viewModel: ServerPickerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -74,7 +75,21 @@ fun ServerPickerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.servers_title)) })
+            TopAppBar(
+                title = { Text(stringResource(R.string.servers_title)) },
+                // Optional: this screen doubles as the app's startup destination, where there is
+                // nothing to go back to. When reached from "switch server" it must be dismissible.
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            KativaIcon(
+                                icon = KativaIcons.Back,
+                                contentDescription = stringResource(R.string.common_back),
+                            )
+                        }
+                    }
+                },
+            )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->

@@ -104,4 +104,53 @@ class ThemeContractTest {
 
         assertTrue("Conflicting format placeholders: $problems", problems.isEmpty())
     }
+
+    /**
+     * A parameterised string must be called WITH its arguments.
+     *
+     * `stringResource(R.string.search_min_length)` compiles fine but renders the literal text
+     * `Type at least %1$d characters` — no crash, no lint error, just broken UI. Two of these
+     * shipped (search empty title and minimum length), and only a human looking at the screen
+     * found them. This scans the Kotlin sources for `stringResource(...)` calls that reference a
+     * placeholder-bearing key without passing any argument.
+     */
+    @Test
+    fun `parameterised strings are never rendered without their arguments`() {
+        val stringsXml = File(moduleRoot, "res/values/strings.xml").readText()
+        val parameterised = Regex("""<string name="([^"]+)"[^>]*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
+            .findAll(stringsXml)
+            .filter { it.groupValues[2].contains("%") }
+            .map { it.groupValues[1] }
+            .toSet()
+
+        assertTrue("No parameterised strings found — parser is broken", parameterised.isNotEmpty())
+
+        val sourceRoot = File(moduleRoot, "java")
+        assertTrue("Expected Kotlin sources at ${sourceRoot.absolutePath}", sourceRoot.isDirectory)
+
+        val problems = mutableListOf<String>()
+        sourceRoot.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { file ->
+                val text = file.readText()
+                Regex("""stringResource\(\s*R\.string\.([A-Za-z0-9_]+)\s*\)""")
+                    .findAll(text)
+                    .forEach { match ->
+                        val key = match.groupValues[1]
+                        if (key in parameterised) {
+                            val line = text.take(match.range.first).count { it == '\n' } + 1
+                            problems += "${file.name}:$line uses R.string.$key without arguments"
+                        }
+                    }
+            }
+
+        assertTrue(
+            buildString {
+                append("These strings contain format placeholders but are rendered without arguments,\n")
+                append("so the raw %1\$s / %1\$d will appear on screen:\n")
+                problems.forEach { append("  - ").append(it).append('\n') }
+            },
+            problems.isEmpty(),
+        )
+    }
 }

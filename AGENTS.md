@@ -338,12 +338,19 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 ```bash
 # 需要 JDK 17；本机路径：D:\tools\jdk-17.0.21+9
 ./gradlew :app:assembleDebug          # 构建
+./gradlew :app:packageDebugApk        # 构建并输出到 dist/Kativa-v<versionName>-debug.apk
 ./gradlew :app:testDebugUnitTest      # 单测
 ./gradlew :app:generateAssets         # 从 assets/manifest.json 生成全部 PNG 素材
 ./gradlew :app:checkAssetsRegistered  # 校验 res/ 下没有未登记素材
 ./gradlew ktlintFormat detekt         # 格式化与静态检查（M1 接入）
 ./gradlew :app:connectedDebugAndroidTest
 ```
+
+**版本号唯一事实来源 = `app/build.gradle.kts` 的 `versionName` / `versionCode`。**
+
+交付 APK 一律用 `:app:packageDebugApk`，不要手工改名复制——文件名由构建脚本从 `versionName`
+派生，保证「文件名 = APK 元数据 = 设置页显示」。曾发生过 `versionName` 仍是 `0.1.0` 而手工
+交付物被命名为 `v0.3.10` 的事故。每次交付都要递增 `versionCode`。
 
 - 分支：`main` 可发布；功能分支 `feat/<scope>`；修复 `fix/<scope>`。
 - 提交：Conventional Commits（`feat(reader): ...` / `fix(api): ...` / `docs: ...`），一次提交一件事。
@@ -377,9 +384,68 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | --- | --- | --- | --- |
 | **M0 骨架** | ✅ 已完成 | 工程搭建、设计系统（#4AC694/#2D7A56）、多服务器添加/选择、登录（密码 + API Key）、网络层（分页/错误/明文门禁）、首页三流 + 继续阅读大卡、隐私模式开关、四语言、素材管线 | 构建通过、32 个单测通过、多服务器可添加/选择/登录、首页展示 On Deck、隐私模式可开关 |
 | **M1 可读** | ✅ 已完成 | 库内系列网格（排序 + 无限滚动）、系列详情（卷折叠/章节/标记已读）、漫画阅读器（单页翻页/分区点击/页码跳转/书签/章节切换）、进度同步（防抖 + Room 写后队列 + 断网补传）、图片 URL 按会话生成 | 构建通过、54 个单测通过、可完整读完一卷并跨设备续读 |
-| **M2 好用** | 🟨 进行中 | ✅ 双页/上下/Webtoon 三种模式 + 阅读设置抽屉（方向/模式/布局/缩放/封面单独/亮度）；✅ 哨兵编号修复（`-100000`/`100000` 不再外泄）；⬜ 搜索、筛选面板、合集、阅读清单、想读 | 阅读器补齐后四语言可用；封面受隐私模式控制 |
+| **M2 好用** | ✅ 已完成 | 双页/上下/Webtoon 三种模式 + 阅读设置抽屉（方向/布局/缩放/封面单独/亮度）；哨兵编号修复（`-100000`/`100000` 不再外泄，散章卷显示"全一章/单话"）；搜索（防抖/分组/历史）；筛选与排序面板（字段/比较符/条件 chips）；合集；阅读清单；想读（含系列详情加入/移出） | 构建通过、103 个单测通过、lint 0 error、四语言 261 条对齐 |
 | **M3 完善** | ⬜ | EPUB/PDF 阅读器、阅读配置（Reading Profiles）、统计、批注/评分、平板双栏、素材正式替换 | 功能对齐 Web 端读者主路径；占位素材替换完成 |
 | **M4 打磨** | ⬜ | 性能、无障碍、截图测试、Play 上架物料 | 冷启动 < 2s，滚动 60fps |
+
+### M2 落地记录
+
+- **阅读器**：`ReaderSettings`（方向/翻页模式/布局/缩放/封面单独/亮度/页码），`PagePairing` 纯逻辑处理宽页独占与配对，
+  `ReaderSettingsSheet` 底部抽屉。切换布局会重映射 reading position，不会跳页。
+- **编号**：`KavitaNumbering`（哨兵常量 + `containsSentinel` 词边界扫描）、`Chapter.safeTitle`、`Volume.safeName`
+  （因为服务端会把 `Title` 预格式化成 `"Chapter -100000"`，只查数值字段不够）、`EntityTitles` 唯一格式化出口。
+- **搜索**：`SearchRepository` + `SearchScreen`，300ms 防抖、**1 字符门槛**（服务端单字即可命中）、会话内历史、分组渲染。
+- **筛选**：`SeriesFilter`/`SeriesFilterField`/`Comparison`/`SeriesSort` 领域枚举严格对齐 `docs/API.md` §12；
+  `FilterSheet` + 条件 chips；库范围永远作为第一条 statement 注入，用户条件无法越出库。
+- **书架**：`ShelfRepository` + `ShelfScreen`（一个页面三种 kind：合集/阅读清单/想读），
+  想读可在系列详情菜单加入/移出（失败回滚）。
+- **文案**：四语言 261 条对齐；筛选/书架文案用脚本生成，避免手工编辑破坏 XML。
+
+### M2 修复记录（测试反馈）
+
+| 问题 | 根因 | 修复 |
+| --- | --- | --- |
+| **所有封面不显示** | `coil-network-okhttp` 只是普通 JVM 依赖，其 `ServiceLoader` target **在 Android 上不生效**；从未显式注册 `OkHttpNetworkFetcherFactory`，Coil 对每个 http(s) 请求静默失败 | `KativaApp.newImageLoader` 显式 `add(OkHttpNetworkFetcherFactory(...))`，复用同一个 OkHttp（沿用明文门禁），并显式配置内存/磁盘缓存 |
+| **"查看更多"列表滚动几下闪退** | 「最近更新」按**章节**分组，同一系列会在不同页重复出现；用 `series.id` 作 Compose key → 重复 key 崩溃 | 列表 key 改为分页位置派生的唯一值（`s{page}_{index}`），保留条目身份稳定性 |
+| **系列详情显示 "One or more validation errors occurred"** | 该文案是 ASP.NET `ValidationProblemDetails`，被当成普通 message 直接展示；且 `hasProgress`/`continuePoint` 失败会拖垮整页 | `ErrorMapper` 解析 `errors` 字段映射为 `字段: 原因`；详情页把进度/想读降级为**可选增强**，失败不再阻断渲染 |
+| 首页缺资料库入口 | 首页只有流，没有库 | 新增库文件夹卡片，改为 2 列网格 |
+| 系列列表重复请求 | 无缓存 | 新增 `SeriesListCache`（按 serverId+参数签名、TTL 2 分钟、上限 40 条、不缓存失败） |
+| **API Key 登录恒 400 "One or more validation errors occurred"** | `LoginRequest` 的 `username`/`password` 声明了 `= ""` 默认值，而 kotlinx.serialization **默认省略等于默认值的字段**，实际只发 `{"apiKey":"…"}`；Kavita 的 `LoginDto` 把二者标记为必填 → 400 | 新增 `WireJson`（`encodeDefaults = true`）作为唯一序列化入口，并用 `WireSerializationTest` 断言**精确线上负载**。MockWebServer 抓不到这类 bug：它验证的是"意图"，而字段是被编码器静默丢弃的 |
+| **保存服务器后登录仍走 https**（`SSLException: Unable to parse TLS packet header`） | 裸 `host:port` 默认补 `https://`（正确的安全默认），但自建 Kavita 常只开明文；此前只有"测试连接"按钮会回退 http，保存与登录都不会 | 在 `ServerSetupViewModel.save()` 中对未验证的 https 档案先探测：https 失败且判定为 TLS 错误时再探 http，**只有真的通了才**填入 `http://` 并开启该服务器的明文开关，同时给出警告并要求用户**再点一次保存确认**（不静默降级，符合 §4.1）。请求层**不做**自动降级 |
+| 首页搜索按钮无障碍标签写成 "View all" | `HomeScreen` 里搜索 `IconButton` 误用了 `R.string.home_view_all` | 改用 `R.string.search_title`（四语言已有该键）；TalkBack 与自动化都能正确定位 |
+| **粘贴 OPDS 链接后被拼成 `/api/opds/<key>/api/`** | `ServerUrl.normalize` 只识别 `?apiKey=`，把 `/api/opds/<key>` 当成子路径保留；`extractedApiKey` 抽出来却从未被使用 | 新增 OPDS 后缀识别：剥掉 `/api/opds/<key>` 并把末段作为密钥返回；密钥经 `PendingApiKeyStore`（仅内存、一次性）交给登录页，自动切到「API 密钥」页签并预填 |
+| **手动输入 `http://` 地址后登录报 "Network error"** | 保存时 `allowCleartext` 只取开关状态；用户显式写 `http://` 但没动开关，档案被存成 `http + allowCleartext=false`，明文门禁拦下**所有**请求 | 以地址栏里的 `http://` 作为明确同意：保存时同步把开关与档案置为允许明文（用户自己输入的协议本身就是选择） |
+| **搜索单字无反应 / "不能搜多一个字"** | `MIN_QUERY_LENGTH = 2` 是照抄 Web 端 UI 的臆测门槛，且被旧单测写死。实测服务端 `/Search/search` 单字即可命中（`z`→2 部、`日`→6 部），只有空串返回 400。单字查询被本地**静默丢弃**，看起来就是搜索坏了 | 门槛降到 1，空白输入由客户端短路（不发给服务端）；同时修 `execute()` 的竞态：慢返回的旧请求不再覆盖新查询结果 |
+| **搜索页显示 `Type at least %1$d characters` / `No results for "%1$s"`** | 带格式参数的字符串被 `stringResource(R.string.x)` **无参调用**，占位符原样渲染。可编译、无 lint 报错、不崩溃 | 两处都补上参数；新增 `ThemeContractTest` 守卫：扫描全部 Kotlin 源，凡调用含 `%` 的字符串却未传参即判失败（已反向验证该守卫确实能抓到本 bug） |
+| **首页左右留白不一致（文件夹比流区更内缩）** | `LazyVerticalGrid` 外层 16dp + `SectionHeader`/`LazyRow` 各自内部 16dp → 叠加成 32dp | 统一为**单一** 16dp：只在网格 `contentPadding` 设边距，流区与标题不再自带横向 padding。实测标题/流卡片/文件夹卡片左缘均为 44px(=16dp) |
+| **隐私模式在 2-3 级页面失效（详情/搜索/流列表封面照常加载）** | 两层错误叠加：① `ThemeViewModel` 用**嵌套 collect**（`active.collect { isPrivacyMode(id).collect { … } }`），内层永不结束 → 外层收不到「选择服务器」那次发射，`LocalPrivacyMode` 恒为 `false`；② 首页把 `coverUrl` 手动置 `null` 所以"看着对"，而二级页走 `CoverImage` 默认值就漏了。探针 `cache/image_cache` 生成封面文件即为铁证 | 隐私状态收敛到 `PrivacyModeState`（用 `combine`，进程级 scope，不依赖 ViewModel），`ThemeViewModel` 只做镜像；去掉各屏幕的 `privacyMode` 参数，统一由 `LocalPrivacyMode` 决定；再注册 `PrivacyGuardInterceptor` 在 Coil 层按路径兜底（`/Reader/image` 永不拦）。新增 `PrivacyModeStateTest` + `PrivacyGuardInterceptorTest`，真机验证 首页/详情/搜索/流列表 四级 `cache` 均无封面文件 |
+| **阅读器进度条与亮度条"很丑"** | 两处都是**裸 `material3.Slider`**，零定制。M3 1.3 的滑块 token 是"16dp 厚轨道 + 4×44dp 竖条拇指 + 轨道末端 4dp stop dot"，且**未激活轨道取 `secondaryContainer`** —— 本主题没定义该 token，于是掉进 Material 默认紫灰 `#4A4458`；`LinearProgressIndicator` 同版本也自带 4dp 间隙 + 末端圆点，在封面卡 3dp 细条上就是一颗乱入的亮点 | 新增 `core/designsystem/KativaSlider`（4dp 细轨 + 14dp 圆点，保留官方拖拽/48dp 触摸区/TalkBack 语义）与 `KativaProgressBar`（Canvas 自绘，无间隙无圆点），替换 4 处调用；`KativaTheme` 补齐 `secondaryContainer`/`inverseSurface`/`surfaceContainer*` 等 token 防再掉默认色 |
+| **亮度滑块是死控件** | `ReaderSettings.brightness` 只被 `setBrightness` 写入、Sheet 读取，**没有任何消费方**；拖了毫无效果 | 改为内容层暗色遮罩（`ReaderDim`）：遮罩画在页面之上、控件之下，`background` 不消费指针事件所以手势照常；不从系统窗口亮度下手，避免与用户自动亮度打架、退出时残留。同时补上 `keepScreenOn`（AGENTS §5 防息屏） |
+| **「显示页码」开关是死控件** | `showPageNumber` 同样只写不读 | 阅读器内容层渲染右下角极淡页码（`docs/PAGES.md` P08 早已要求），开关真正生效 |
+| **拖动阅读进度条时页面抖动、进度反复重写** | `onValueChange` 每帧调 `goToPage()`，pager 被动滚动且每帧重置 800ms 保存防抖；`updateSettings` 又对**所有**设置（含 brightness/pageNumber）无条件 `buildSlots` + 重映射阅读位置 | 滑块改为拖动期间只更新本地状态、`onValueChangeFinished` 才跳页一次；`ReaderViewModel` 拆出 `updateVisualSetting`，视觉类设置不再重建槽位 |
+| **阅读器顶部信息压住系统状态栏（时钟/电量与系列名重叠）** | `ReaderControls` 的上下条用 `Surface` 直接贴在 `TopCenter`/`BottomCenter`，阅读器本身是 edge-to-edge（`enableEdgeToEdge`），所以条带画在状态栏/导航栏**下面**，内容没有让出安全区 | 上下条改为 `TopChrome`/`BottomChrome`：**半透明 scrim（`KativaColors.ReaderScrim`，75% 黑）+ 20dp 渐变过渡**从屏幕边缘一直铺到内容，内容再叠 `WindowInsets.systemBars.only(Top/Bottom + Horizontal)` 让出安全区（同时覆盖横屏刘海）。沿用 §6「暗色优先」：阅读器内强制系统图标为浅色，退出时还原 |
+| **拖动进度条偶尔变成翻页** | 上下条只是 `Surface` + 文案/按钮，**本身没有 pointer-input 节点**；落在条带内边距、或滑块拇指与 48dp 触摸区之间的空隙的按压，命中测试直接穿透到下层 pager，横向位移就被判成翻页手势 | 给条带的实心区域挂一个**惰性命中节点**（`readerChromeTouchGuard`：只 `awaitFirstDown` 不消费），让条带成为该区域的命中目标、pager 彻底收不到这些事件；**不能**改成消费事件——那会让 `clickable` 在 Final pass 取消点击，返回/书签/设置按钮全废。`ChapterEndBar` 一并补上安全区内边距 |
+
+### M2 阅读器 UI 修复（测试反馈，2026-11）
+
+- 验证方式：`adb shell input swipe` 在条带内边距/渐变区（y=2100/2150/2300/2340/2380）横划均**不再翻页**，
+  页面区横划仍正常翻页；`Page N of M` 位于 y=2034、`Back/Bookmark/Reading settings` 位于 y=116，均已在
+  48px 系统栏之下；返回/书签/设置按钮点击正常，冷启动无 `FATAL EXCEPTION`。
+
+### M2 首页布局调整（产品反馈）
+
+| 变更 | 说明 |
+| --- | --- |
+| 搜索框提示文案 | 由「搜索系列、合集、阅读清单、人物…」改为单词 **Search / 搜索 / Rechercher / 検索**（四语言同步） |
+| 首页左上角 | 移除 `Hi, <用户名>` 问候语，改为**用户中心图标**（复用 `KativaIcons.Me`，无需新增素材），点击进入「Me」页；用户名只在 Me 页出现 |
+| 顶部「最新观看历史」 | 移除 ContinueReading 大卡（`HomeStream.ContinueReading` 及其卡片一并删除，不留死代码）。On Deck 流本身仍承载继续阅读条目 |
+| 个人首页返回键 | 「Me」原本是底部页签、无返回概念；改为从首页用户中心图标进入后成了**入栈页面**，却没有退出路径（且全应用实际并未渲染底部栏，用户会被困住）。新增 `TopAppBar` 返回箭头：优先 `popBackStack()` 保留来路，仅当 Me 是栈底（深链/进程恢复）时才导航到 Home，避免 pop 直接退出应用 |
+| Me 右上角重复设置入口 | Me 页既顶栏有 Settings 图标、正文又有 Settings 行，两个入口同一页面 | 移除顶栏图标，只保留正文菜单行 |
+| 切换服务器页无返回键 | `ServerPickerScreen` 同时是**启动目的页**与「切换服务器」入口，原实现无返回逻辑（启动页不该有） | 新增可选 `onBack`，由路由参数 `showBack` 控制：从 Me/Settings 进入时显示返回箭头；启动进入时不显示，避免 pop 直接退出应用 |
+| 设置页重复 Startup / Servers | 与 Me 页的「开机自动登录」「切换服务器」重复，且描述文案不一致 | 设置页只保留 Appearance + About；同时清理死参数 `onManageServers` 与死属性 `autoLoginName` |
+| 资料库文件夹间距 | 与上方流区对齐到同一 16dp 栅格 |
+| **文件夹内封面缩进与背景** | 封面拼图原本铺满整个顶部区域、四格紧贴，卡片背景是实色 `surface`。改为：拼图四周内缩 4dp、封面之间同 4dp 间隙（**同一个 token `INSET`，两者永不漂移**）、封面格加 3dp 圆角、卡片背景改为半透明灰（深色主题白色蒙版 `#1FFFFFFF`，浅色主题黑色蒙版 `#14000000`，均可透出页面底色）。隐私占位图继承同一缩进 |
+| **文件夹统计数字全部显示 "4 series"** | 两层错误叠加：① `HomeViewModel` 用 `series.size`（预览图数量，上限 4）当总数；② 即便改用 `Pagination` 头也取不到——`PaginationInterceptor` 用 `ThreadLocal`，OkHttp 在自己的 dispatcher 线程写入、协程在另一线程读取，`consume()` **永远是 null**。`LibraryDto` 本身没有系列数字段，真实总数只存在于 `Pagination` 响应头 | API 改为返回 `retrofit2.Response<List<SeriesDto>>`，直接从 `response.headers()["Pagination"]` 解析 `totalItems`（天然按请求隔离，无线程问题）；新增 `SeriesPage{items,totalItems}` 并从 `totalOrPageSize` 兜底；`SeriesListCache` 一并缓存 `totalItems`，缓存命中不会退化。实测 4/40/85/71 与服务端一致；`PaginationInterceptor` 保留但已标注 **禁止用于读元数据** |
 
 ### M1 落地记录
 
@@ -391,9 +457,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
   章末"下一章"条）。
 - 导航：`library/{id}`、`series/{id}`、`reader/{chapterId}`；章间跳转用 `popUpTo` 替换栈顶，避免无限堆叠。
 - **图标合规**：移除 `material-icons-extended` 依赖，全部图标改由 `KativaIcon` + `KativaIcons` 从
-  素材清单（新增 `ic_expand_less/more`、`ic_sort`、`ic_visibility/off`、`ic_read/unread`）生成，
-  清单现为 **50 项 / 218 个 PNG**。
-- 已知待办（M2）：双页/Webtoon 模式、阅读设置抽屉、卷详情页、`SessionStore` 的 Keystore 加密。
+  素材清单生成（新增 `ic_expand_less/more`、`ic_sort`、`ic_visibility/off`、`ic_read/unread`）。
 
 ### M0 落地记录（供后续参考）
 

@@ -14,8 +14,15 @@ import okhttp3.Response
  * {"currentPage":1,"itemsPerPage":40,"totalItems":1234,"totalPages":31}
  * ```
  *
- * Retrofit cannot see headers while deserialising the body, so we capture them per request
- * into a holder the repository reads right after the call returns. See AGENTS.md §4.3.
+ * ⚠️ Do NOT rely on this interceptor for reading metadata. Its `ThreadLocal` only works when the
+ * caller runs on the same thread OkHttp used, which is false for Retrofit `suspend` calls: OkHttp
+ * writes on its dispatcher thread while the coroutine resumes elsewhere, so [consume] returns
+ * `null`. That silently made every folder tile report its page size as the library total.
+ *
+ * The supported way to read the header is to declare the API method as
+ * `retrofit2.Response<List<T>>` and read `response.headers()["Pagination"]` (see
+ * `LibraryRepository.seriesPageInLibrary`). This interceptor is kept only because it is harmless
+ * and its unit test documents the wire format.
  */
 class PaginationInterceptor : Interceptor {
 

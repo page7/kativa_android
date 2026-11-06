@@ -39,6 +39,7 @@ import com.kativa.reader.ui.common.PrivacyToggle
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeScreen(
+    onBack: () -> Unit,
     onOpenSettings: () -> Unit,
     onManageServers: () -> Unit,
     viewModel: MeViewModel = hiltViewModel(),
@@ -48,15 +49,25 @@ fun MeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                // Me is reachable as a pushed destination (home's user-centre icon), so it needs
+                // an explicit way back. Relying on the system back gesture alone left users
+                // stranded on this screen.
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        KativaIcon(
+                            icon = KativaIcons.Back,
+                            contentDescription = stringResource(R.string.common_back),
+                        )
+                    }
+                },
                 title = { Text(stringResource(R.string.nav_me)) },
                 actions = {
                     PrivacyToggle(
                         enabled = state.privacyMode,
                         onToggle = viewModel::setPrivacyMode,
                     )
-                    IconButton(onClick = onOpenSettings) {
-                        KativaIcon(icon = KativaIcons.Settings, contentDescription = stringResource(R.string.settings_title))
-                    }
+                    // No settings shortcut here: Settings is already a menu row on this screen
+                    // below, and two entry points to the same page was redundant.
                 },
             )
         },

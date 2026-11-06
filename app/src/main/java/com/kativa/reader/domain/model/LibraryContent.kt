@@ -25,6 +25,15 @@ data class Chapter(
     /** True when Kavita could not parse a chapter number for this file. */
     val isUnnumbered: Boolean get() = KavitaNumbering.isUnnumbered(minNumber)
 
+    /**
+     * The server pre-formats `ChapterDto.Title` (e.g. `"Chapter -100000"`), so a title is only
+     * usable for display when it carries no sentinel token.
+     */
+    val safeTitle: String?
+        get() = title.trim().takeIf {
+            it.isNotBlank() && !KavitaNumbering.containsSentinel(it)
+        }
+
     /** Regular chapter numbers only; never a sentinel. */
     val displayNumber: String?
         get() = when {
@@ -59,6 +68,12 @@ data class Volume(
 
     /** Regular volumes are numbered; loose-leaf/specials are rendered as their own sections. */
     val isRegular: Boolean get() = !KavitaNumbering.isSyntheticVolume(minNumber)
+
+    /** `VolumeDto.Name` may also arrive pre-formatted with a sentinel; never display that. */
+    val safeName: String?
+        get() = name.trim().takeIf {
+            it.isNotBlank() && !it.startsWith("-") && !KavitaNumbering.containsSentinel(it)
+        }
 }
 
 /** Series detail aggregate. */

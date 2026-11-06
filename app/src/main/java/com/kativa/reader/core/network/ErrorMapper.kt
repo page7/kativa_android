@@ -50,12 +50,30 @@ object ErrorMapper {
         if (body == null) return null
         val text = runCatching { body.string() }.getOrNull()?.trim().orEmpty()
         if (text.isEmpty()) return null
+
         if (text.startsWith("{")) {
             runCatching {
                 val obj = json.parseToJsonElement(text) as JsonObject
+
+                // ASP.NET returns `ValidationProblemDetails` with a per-field `errors` map.
+                // Surfacing it turns "One or more validation errors occurred" into an actionable
+                // message naming the offending field.
+                val details = (obj["errors"] as? JsonObject)
+                    ?.entries
+                    ?.joinToString("; ") { (field, messages) ->
+                        val joined = (messages as? kotlinx.serialization.json.JsonArray)
+                            ?.joinToString(", ") { it.jsonPrimitive.content }
+                            ?: messages.toString()
+                        "$field: $joined"
+                    }
+                    ?.takeIf { it.isNotBlank() }
+
+                if (details != null) return details
+
                 (obj["message"] ?: obj["title"] ?: obj["detail"])?.jsonPrimitive?.content
             }.getOrNull()?.let { if (it.isNotBlank()) return it }
         }
+
         // Plain-text bodies can be long localisation strings; keep the UI readable.
         return if (text.length > 300) text.take(300) + "…" else text
     }

@@ -9,31 +9,60 @@
 ## 1. 管线与目录约定
 
 ```
-assigns/                     维护者提供的源素材（当前已有 kavita.svg）
-assets/svg/                  正式 SVG 源（最终交付物，保留可重新生成）
-assets/svg/_placeholders/    自动生成的占位 SVG（开发期）
-assets/generated/            脚本输出 PNG（占位或正式，按来源生成）
+assigns/                     维护者临时投放的源素材（当前已有 kavita.svg，作为 launcher 回退）
+assets/svg/                  正式 SVG 源，文件名 = 清单 ID（最终交付物，保留可重新生成）
+assets/generated/svg/        生成器解析后的 SVG 快照（gitignore，仅用于排错）
 app/src/main/res/
   drawable-nodpi/            大图（logo、欢迎页、空态插画）→ PNG
   drawable-mdpi|xhdpi|xxhdpi|xxxhdpi/  图标 → PNG（按密度出图，基准 1x = 24dp）
   drawable/                  小尺寸单密度 PNG（隐私占位等纯色图，可接受）
 ```
 
-生成命令（占位期）：
+生成命令：
 
 ```bash
 ./gradlew :app:generateAssets           # 从 assets/manifest.json 生成全部 PNG
-./gradlew :app:checkAssetsRegistered    # 校验 res/ 下没有未登记素材
+./gradlew :app:checkAssetsRegistered    # 校验 res/ 无未登记 PNG、svg/ 无拼错的 ID
+./gradlew :tools:assets:test            # 源解析优先级单测
 ```
 
 实现：`tools/assets`（Kotlin/JVM 子工程，jsvg 2.2.0 渲染）。清单源为 `assets/manifest.json`，生成的 SVG 落在
 `assets/generated/svg/`，PNG 直接写入 `app/src/main/res/drawable-*/` 与 `mipmap-*/`。
 
 - 占位 SVG 由脚本按清单条目自动生成（纯色矩形 + 文字标识，如 `ic_privacy`），保证每个条目**永远有图可用**。
-- 维护者提供的正式素材放进 `assigns/` → 复制到 `assets/svg/` 同名文件 → 生成 PNG → 更新清单状态。
-  **当前已有**：`assigns/kavita.svg`（64×64 圆形底 `#4AC694` + `#424C72` 图形，22 个 path，Illustrator 导出）→ 用于 `logo_mark`、`launcher_foreground`；`logo_full`/`logo_wordmark` 待维护者确认是否由它放大或另给。
+- 正式素材放进 `assets/svg/<素材ID>.svg`（**文件名 = 清单 ID**），生成器**逐条**按下面的优先级取源：
+  1. `assets/svg/<id>.svg` — 正式交付物（推荐）
+  2. `assigns/<id>.svg` — 维护者临时投放，命名规则同上
+  3. `assigns/kavita.svg` — 仅 `launcher` / `launcher-foreground` 的兼容回退
+  4. 脚本占位图 — 以上都没有时兜底
+  每次生成都会逐条打印 `id / kind / 取自哪个文件`，并在末尾列出**仍是占位的条目**，
+  所以"放进去没生效"或"忘了替换"都会立刻暴露。
+- **当前已有**：`assigns/kavita.svg`（64×64 圆形底 `#4AC694` + `#424C72` 图形，22 个 path，Illustrator 导出）→ 用于
+  `ic_launcher_foreground` / `ic_launcher` / `ic_launcher_round` 三项；`logo_full` 待维护者确认是否由它放大或另给。
 - 图标规格：24dp 基准，线性图标 1.5px 描边，输出 mdpi(24)/xhdpi(48)/xxhdpi(72)/xxxhdpi(96)。
 - 大图规格：logo 按长边 1024 出图（`drawable-nodpi`），运行时由 Coil/Compose 缩放。
+
+### 1.1 颜色规范（重要：图标**不要自己上色**）
+
+24dp 图标在 App 内统一走 `KativaIcon` → Material3 `Icon(tint = …)`，tint 的本质是
+`ColorFilter(BlendMode.SrcIn)`：**保留 alpha、丢弃 RGB**。所以源图里画成什么颜色，
+到屏幕上都会变成当前主题色（顶栏 `onSurface`、阅读器内 `Color.White`、隐私开关激活态 `BrandPrimary`）。
+生成器**不做任何调色**，它只负责 SVG → PNG。
+
+| 素材类型 | 交付要求 |
+| --- | --- |
+| `kind: "icon"` | **单色、完全不透明、透明底**。建议 `#000000`；不要渐变、不要多色（会被压成一色） |
+| 同上 | **禁止整块背景矩形 / 圆角底板**。占位图现在那层 `fill-opacity=0.16` 的方框只是占位示意，正式图若带底板会被 tint 成半透明色块，形状全糊 |
+| 同上 | 实心/空心是唯一的状态区分手段（如 `ic_bookmark` vs `ic_bookmark_filled`），不要靠颜色区分 |
+| 同上 | `viewBox="0 0 24 24"`，`stroke-width="1.5"`，`stroke-linecap/linejoin="round"` |
+| 全彩大图 | `logo_full`、`empty_*`、`error_generic`、`cover_fallback`、`privacy_placeholder`、launcher 系列走 `Image()`，**不经过 tint**，颜色必须自己画进 SVG |
+
+全彩大图特别注意：
+
+- `empty_shelf` / `empty_search` / `empty_network` / `error_generic` 会同时压在深色与浅色主题上，
+  **必须透明底**（占位图现在的 `#14141C` 实心底在浅色主题下就是一块黑方块）。
+- `privacy_placeholder` 的 `#3A3A3A` 是产品语义（AGENTS.md §6），必须烘进图片，不能依赖主题。
+
 - **禁止**使用 Material Design Icons 原生图标、emoji 或运行时绘制的临时图形作为最终 UI 素材（仅允许出现在占位文件内部文字说明里）。
 
 ---
@@ -46,10 +75,13 @@ app/src/main/res/
 
 | ID | 用途 | 规格 | PNG 输出 | 状态 |
 | --- | --- | --- | --- | --- |
-| `logo_full` | 欢迎页居中 logo（P01A） | 长边 1024，透明底 | `drawable-nodpi/logo_full.png` | 占位 |
-| `logo_mark` | 应用图标（adaptive foreground） | 108dp safe zone | `mipmap-anydpi-v26/ic_launcher_foreground.png` | 源已有（`assigns/kavita.svg`，待生成 PNG） |
-| `logo_wordmark` | Splash 顶部字标 | 长边 512 | `drawable-nodpi/logo_wordmark.png` | 占位（待确认是否由 kavita.svg 派生） |
-| `launcher_background` | 应用图标背景 | 108dp 纯色 `#4AC694` | `drawable/ic_launcher_background.png` | 占位 |
+| `logo_full` | 欢迎页/启动页居中 logo | 长边 1024，透明底，**全彩** | `drawable-nodpi/logo_full.png` | 占位 |
+| `ic_launcher_foreground` | 自适应图标前景层 | 108dp 画布 + 72dp 安全区 | `mipmap-*/ic_launcher_foreground.png` | 源已有（`assigns/kavita.svg`） |
+| `ic_launcher` | 传统图标（API < 26） | 48dp，**全彩** | `mipmap-*/ic_launcher.png` | 源已有（`assigns/kavita.svg`） |
+| `ic_launcher_round` | 圆形图标 | 48dp，**全彩** | `mipmap-*/ic_launcher_round.png` | 源已有（`assigns/kavita.svg`） |
+
+> 应用图标背景色烘在图内（`assigns/kavita.svg` 自带 `#4AC694` 圆底），不再单独出 `launcher_background`。
+> 旧文档里的 `logo_mark` / `launcher_background` 从未存在于清单，已按实际情况更正。
 
 ### 2.2 导航与顶栏图标（24dp 线性）
 
@@ -63,44 +95,51 @@ app/src/main/res/
 | `ic_privacy_off` | 隐私模式关闭态 | `drawable-xhdpi/ic_privacy_off.png` | 占位 |
 | `ic_privacy_on` | 隐私模式开启态（激活） | `drawable-xhdpi/ic_privacy_on.png` | 占位 |
 | `ic_back` | 返回 | `drawable-xhdpi/ic_back.png` | 占位 |
+| `ic_close` | 关闭 / 清空输入 | `drawable-xhdpi/ic_close.png` | 占位 |
 | `ic_more` | 更多（⋯） | `drawable-xhdpi/ic_more.png` | 占位 |
 | `ic_settings` | 设置入口 | `drawable-xhdpi/ic_settings.png` | 占位 |
-| `ic_add` | 添加服务器（+） | `drawable-xhdpi/ic_add.png` | 占位 |
 | `ic_delete` | 删除条目 | `drawable-xhdpi/ic_delete.png` | 占位 |
 | `ic_edit` | 编辑服务器 | `drawable-xhdpi/ic_edit.png` | 占位 |
-| `ic_server` | 服务器卡片图标 | `drawable-xhdpi/ic_server.png` | 占位 |
-| `ic_swap` | 切换服务器 | `drawable-xhdpi/ic_swap.png` | 占位 |
+| `ic_sort` | 排序入口 | `drawable-xhdpi/ic_sort.png` | 占位 |
+| `ic_expand_less` / `ic_expand_more` | 卷折叠箭头 | `drawable-xhdpi/ic_expand_*.png` | 占位 |
+| `ic_visibility` / `ic_visibility_off` | 密码显隐 | `drawable-xhdpi/ic_visibility*.png` | 占位 |
+| `ic_read` / `ic_unread` | 已读/未读标记 | `drawable-xhdpi/ic_*read.png` | 占位 |
+| `ic_cover_fallback_mark` | 封面缺失时的角标 | `drawable-xhdpi/ic_cover_fallback_mark.png` | 占位 |
 
 ### 2.3 阅读器图标（24dp 线性）
 
 | ID | 用途 | PNG 输出 | 状态 |
 | --- | --- | --- | --- |
-| `ic_bookmark` / `ic_bookmark_filled` | 书签 | `drawable-xhdpi/ic_bookmark*.png` | 占位 |
-| `ic_prev_chapter` / `ic_next_chapter` | 章节切换 | `drawable-xhdpi/ic_*_chapter.png` | 占位 |
-| `ic_settings_reader` | 阅读设置 | `drawable-xhdpi/ic_settings_reader.png` | 占位 |
-| `ic_toc` | 目录（EPUB） | `drawable-xhdpi/ic_toc.png` | 占位 |
-| `ic_double_page` | 双页模式 | `drawable-xhdpi/ic_double_page.png` | 占位 |
-| `ic_webtoon` | Webtoon 模式 | `drawable-xhdpi/ic_webtoon.png` | 占位 |
-| `ic_brightness` | 亮度覆盖 | `drawable-xhdpi/ic_brightness.png` | 占位 |
-| `ic_volume` | 音量键翻页 | `drawable-xhdpi/ic_volume.png` | 占位 |
+| `ic_bookmark` | 书签（未选中，**线性空心**） | `drawable-xhdpi/ic_bookmark.png` | 占位 |
+| `ic_bookmark_filled` | 书签（已选中，**实心**） | `drawable-xhdpi/ic_bookmark_filled.png` | 占位 |
+| `ic_prev_chapter` / `ic_next_chapter` | 章节切换（阅读器底栏） | `drawable-xhdpi/ic_*_chapter.png` | 占位 |
+| `ic_settings_reader` | 阅读设置（阅读器顶栏） | `drawable-xhdpi/ic_settings_reader.png` | 占位 |
+| `ic_toc` | 目录（系列详情「Volumes & chapters」标题） | `drawable-xhdpi/ic_toc.png` | 占位 |
+| `ic_double_page` | 双页模式（阅读设置分组标题） | `drawable-xhdpi/ic_double_page.png` | 占位 |
+| `ic_webtoon` | Webtoon 模式（阅读设置分组标题） | `drawable-xhdpi/ic_webtoon.png` | 占位 |
+| `ic_brightness` | 亮度覆盖（阅读设置分组标题） | `drawable-xhdpi/ic_brightness.png` | 占位 |
+| `ic_volume` | 音量键翻页（阅读设置开关行） | `drawable-xhdpi/ic_volume.png` | 占位 |
 
 ### 2.4 占位与空态
 
 | ID | 用途 | 规格 | PNG 输出 | 状态 |
 | --- | --- | --- | --- | --- |
-| `privacy_placeholder` | **隐私模式封面占位**（`#3A3A3A` + 淡 logo 水印） | 2:3，500×750 | `drawable-nodpi/privacy_placeholder.png` | 占位 |
-| `cover_fallback` | 无封面时的通用封面 | 2:3 | `drawable-nodpi/cover_fallback.png` | 占位 |
-| `empty_shelf` | 书架空态 | 512×512 | `drawable-nodpi/empty_shelf.png` | 占位 |
-| `empty_search` | 搜索无结果 | 512×512 | `drawable-nodpi/empty_search.png` | 占位 |
-| `empty_offline` | 无网络空态 | 512×512 | `drawable-nodpi/empty_offline.png` | 占位 |
-| `error_generic` | 通用错误 | 256×256 | `drawable-nodpi/error_generic.png` | 占位 |
+| `privacy_placeholder` | **隐私模式封面占位**（`#3A3A3A` + 淡 logo 水印）→ `CoverImage` 隐私分支 | 2:3，500×750 | `drawable-nodpi/privacy_placeholder.png` | 占位 |
+| `cover_fallback` | 无封面时的通用封面 → `CoverImage` 空白 URL 分支 | 2:3 | `drawable-nodpi/cover_fallback.png` | 占位 |
+| `empty_shelf` | 书架/流列表空态（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_shelf.png` | 占位 |
+| `empty_search` | 搜索无结果（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_search.png` | 占位 |
+| `empty_network` | 无网络/超时/DNS/明文拦截（`KativaError.illustration`） | 512×512 | `drawable-nodpi/empty_network.png` | 占位 |
+| `error_generic` | 通用错误（`ErrorState` 默认插图） | 256×256 | `drawable-nodpi/error_generic.png` | 占位 |
 
 ### 2.5 格式与徽标（可选，M2 起）
 
+> 尚未实现、也**未进入 `assets/manifest.json`**。启用时须先在清单追加条目并跑生成器，
+> 否则 `checkAssetsRegistered` 会把未登记素材判失败。
+
 | ID | 用途 | 状态 |
 | --- | --- | --- |
-| `badge_kavita_plus` | K+ 徽标 | 占位 |
-| `format_manga` / `format_comic` / `format_book` / `format_pdf` | 格式小标 | 占位 |
+| `badge_kavita_plus` | K+ 徽标 | 未建（未登记） |
+| `format_manga` / `format_comic` / `format_book` / `format_pdf` | 格式小标 | 未建（未登记） |
 
 ---
 
@@ -117,10 +156,11 @@ app/src/main/res/
 
 ### 正式素材替换（一次性批量）
 
-1. 维护者提供正式 SVG（命名 = 清单 ID，如 `ic_privacy_on.svg`），放进 `assets/svg/` 或 `assigns/`。
-2. 让生成器优先取同名正式 SVG（当前 `launcher` 类走 `assigns/kavita.svg`，其余仍是脚本占位）。
-3. 跑 `./gradlew :app:generateAssets` 覆盖 PNG；逐条把本表状态改为 `正式`；提交时截图确认。
-4. 全部为 `正式` 后删除占位生成物。
+1. 维护者提供正式 SVG（命名 = 清单 ID，如 `ic_privacy_on.svg`），放进 `assets/svg/`（或 `assigns/`，规则相同）。
+2. 生成器**已支持**按 ID 优先取正式 SVG，无需改代码（优先级见 §1）。
+3. 跑 `./gradlew :app:generateAssets` 覆盖 PNG；确认输出里该条目的来源是 `assets/svg/...` 而不是
+   `generated placeholder`，再逐条把本表状态改为 `正式`；提交时截图确认。
+4. 全部为 `正式` 后删除占位生成物（`assets/generated/` 已被 gitignore，无需清理）。
 
 ### 验收
 
@@ -136,3 +176,6 @@ app/src/main/res/
 | --- | --- |
 | 2026-09-02 | 初版清单（占位阶段） |
 | 2026-11-05 | M0 落地：清单迁到 `assets/manifest.json`（43 项）；生成器改为 `tools/assets` 子工程；应用图标改用 `assigns/kavita.svg` |
+| 2026-11-06 | 清理零引用素材：移除 `logo_wordmark` 与 8 个无消费方图标（`ic_add`/`ic_arrow_right`/`ic_check`/`ic_lock`/`ic_play`/`ic_refresh`/`ic_server`/`ic_swap`），清单 50 → 41 项、res PNG 218 → 177；`KativaIcons.Add` 一并删除 |
+| 2026-11-06 | **素材接线**：全部保留素材均有消费方——`CoverImage` 改用 `privacy_placeholder`/`cover_fallback` 真实图；`EmptyState`/`ErrorState` 新增 `illustration` 参数并接 `empty_shelf`/`empty_search`/`empty_network`/`error_generic`；阅读器接入 `ic_prev_chapter`/`ic_next_chapter`/`ic_settings_reader`/`ic_toc`/`ic_double_page`/`ic_webtoon`/`ic_brightness`/`ic_volume`；补齐音量键翻页功能（`VolumeKeyPaging` + 设置开关 + 单测）。同时修正 2.4 表中不存在的 `empty_offline`（实现用的是 `empty_network`） |
+| 2026-11-06 | 修复「正式 SVG 放了不生效」：生成器改为逐条按 ID 解析（`assets/svg/<id>.svg` → `assigns/<id>.svg` → `assigns/kavita.svg` → 占位），并打印每条来源与仍占位清单；新增 §1.1 颜色规范（图标单色透明底、由运行期 tint 上色；全彩大图必须透明底） |

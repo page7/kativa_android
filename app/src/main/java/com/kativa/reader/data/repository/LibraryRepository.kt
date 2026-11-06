@@ -13,9 +13,25 @@ import com.kativa.reader.domain.model.Chapter
 import com.kativa.reader.domain.model.ContentFormat
 import com.kativa.reader.domain.model.ReaderSession
 import com.kativa.reader.domain.model.SeriesDetail
+import com.kativa.reader.domain.model.SeriesFilter
 import com.kativa.reader.domain.model.SeriesSummary
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * A page of series plus the server-reported grand total.
+ *
+ * The total comes from the `Pagination` response header and is the only truthful count available:
+ * `LibraryDto` has no series-count field, and `size` of a page is just that page. Using page size
+ * as a count made every folder tile read "4 series" (AGENTS.md §4.3).
+ */
+data class SeriesPage(
+    val items: List<SeriesSummary>,
+    val totalItems: Int,
+) {
+    /** Falls back to the page size when the header was missing. */
+    val totalOrPageSize: Int get() = if (totalItems > 0) totalItems else items.size
+}
 
 /**
  * M1 content reads: library grid, series detail, reader bootstrap.
@@ -27,27 +43,113 @@ import javax.inject.Singleton
 class LibraryRepository @Inject constructor(
     private val apiFactory: ApiFactory,
     private val coverUrlBuilder: CoverUrlBuilder,
+    private val seriesCache: SeriesListCache,
+    private val activeServerStore: com.kativa.reader.core.auth.ActiveServerStore,
 ) {
 
-    /** Series in one library, paged. Library filter uses `SeriesFilterField.Libraries = 19`. */
+    /**
+     * Series in one library, paged and filtered, including the true number of series in scope.
+     *
+     * The library restriction is always injected as the first statement
+     * (`SeriesFilterField.Libraries = 19`) so a user filter can never escape the library scope.
+     *
+     * @param forceRefresh bypass the in-memory cache (used by pull-to-refresh / after mutations)
+     */
+    suspend fun seriesPageInLibrary(
+        libraryId: Int,
+        page: Int = 1,
+        pageSize: Int = 40,
+        filter: SeriesFilter = SeriesFilter.Default,
+        forceRefresh: Boolean = false,
+    ): Outcome<SeriesPage> {
+        val cacheKey = seriesCache.key(
+            activeServerStore.activeId,
+            "lib", libraryId, page, pageSize,
+            filter.combination.apiValue,
+            filter.sort.apiValue,
+            filter.ascending,
+            filter.statements.joinToString(";") { "${it.field.apiValue}:${it.comparison.apiValue}:${it.value}" },
+        )
+
+        if (!forceRefresh) {
+            seriesCache.getPage(cacheKey)?.let { return Outcome.Success(it) }
+        }
+
+        return try {
+            val userStatements = filter.statements.map { it.toDto() }
+            val body = filter.toDto().copy(
+                // Library scope first; user statements are additive under the same combination.
+                statements = listOf(
+                    SeriesFilterStatementDto(field = 19, comparison = 0, value = libraryId.toString()),
+                ) + userStatements,
+                combination = 1,
+            )
+            val response = apiFactory.series().seriesForLibrary(
+                pageNumber = page,
+                pageSize = pageSize,
+                filter = body,
+            )
+            // Retrofit does not throw on non-2xx when a Response<T> is requested.
+            val dtos = response.body().orEmpty()
+            if (!response.isSuccessful) {
+                throw retrofit2.HttpException(response)
+            }
+            val result = SeriesPage(
+                items = dtos.map(ContentMapper::series),
+                totalItems = totalFrom(response.headers()["Pagination"]),
+            )
+            seriesCache.putPage(cacheKey, result)
+            Outcome.Success(result)
+        } catch (t: Throwable) {
+            Outcome.Failure(KativaFailure(ErrorMapper.from(t)))
+        }
+    }
+
+    /**
+     * Extracts `totalItems` from Kavita's `Pagination` response header.
+     *
+     * The header looks like `{"currentPage":1,"itemsPerPage":4,"totalItems":85,"totalPages":22}`.
+     * A missing or malformed header yields 0, which callers must treat as "unknown" rather than
+     * as a real count of zero.
+     */
+    private fun totalFrom(header: String?): Int {
+        if (header.isNullOrBlank()) return 0
+        return runCatching {
+            val obj = kotlinx.serialization.json.Json
+                .parseToJsonElement(header) as kotlinx.serialization.json.JsonObject
+            obj["totalItems"]
+                ?.let { it as? kotlinx.serialization.json.JsonPrimitive }
+                ?.content
+                ?.toIntOrNull()
+                ?: 0
+        }.getOrDefault(0)
+    }
+
+    /** Convenience wrapper for callers that only need the page items (grids). */
     suspend fun seriesInLibrary(
         libraryId: Int,
         page: Int = 1,
         pageSize: Int = 40,
-        sortField: Int = 1,
-        ascending: Boolean = true,
+        filter: SeriesFilter = SeriesFilter.Default,
+        forceRefresh: Boolean = false,
+    ): Outcome<List<SeriesSummary>> = when (
+        val outcome = seriesPageInLibrary(libraryId, page, pageSize, filter, forceRefresh)
+    ) {
+        is Outcome.Success -> Outcome.Success(outcome.value.items)
+        is Outcome.Failure -> outcome
+    }
+
+    /** All series across libraries, honouring the same filter model (used by smart views). */
+    suspend fun allSeries(
+        page: Int = 1,
+        pageSize: Int = 40,
+        filter: SeriesFilter = SeriesFilter.Default,
     ): Outcome<List<SeriesSummary>> = try {
-        val filter = SeriesFilterV2Dto(
-            statements = listOf(
-                SeriesFilterStatementDto(field = 19, comparison = 0, value = libraryId.toString()),
-            ),
-            combination = 1,
-            sortOptions = com.kativa.reader.data.remote.dto.SeriesSortOptionDto(sortField, ascending),
-        )
-        val dtos = apiFactory.series().seriesForLibrary(
+        val dtos = apiFactory.series().allSeries(
             pageNumber = page,
             pageSize = pageSize,
-            filter = filter,
+            context = 1,
+            filter = filter.toDto(),
         )
         Outcome.Success(dtos.map(ContentMapper::series))
     } catch (t: Throwable) {
@@ -70,6 +172,22 @@ class LibraryRepository @Inject constructor(
         Outcome.Success(ContentMapper.chapter(apiFactory.seriesDetail().continuePoint(seriesId)))
     } catch (t: Throwable) {
         Outcome.Failure(KativaFailure(ErrorMapper.from(t)))
+    }
+
+    /**
+     * Validation errors from ASP.NET are surfaced with field names, so the UI can say
+     * "seriesId: The value must be greater than 0" instead of a generic 400.
+     */
+    suspend fun debugSeriesProbe(seriesId: Int): String = buildString {
+        append("seriesId=").append(seriesId).append("\n")
+        append("kavita=").append(
+            runCatching { apiFactory.server().serverInfo().kavitaVersion }.getOrElse { "n/a" },
+        ).append("\n")
+        append("series=")
+        append(
+            runCatching { apiFactory.series().series(seriesId).name }
+                .getOrElse { t -> "ERR " + ErrorMapper.from(t).message },
+        )
     }
 
     suspend fun chapter(chapterId: Int): Outcome<Chapter> = try {

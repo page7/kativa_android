@@ -1,5 +1,7 @@
 ﻿package com.kativa.reader.core.designsystem
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -41,6 +42,12 @@ import com.kativa.reader.R
  *
  * Critical invariant: when privacy mode is on we do NOT create an ImageRequest at all, so no
  * network call is ever made for covers. See AGENTS.md §6.
+ *
+ * `privacyMode` defaults to [LocalPrivacyMode], which is provided once at the activity root from
+ * [com.kativa.reader.core.image.PrivacyModeState]. Screens must therefore *not* thread their own
+ * copy of the flag down: a screen-level value that is wrong (or simply not passed) silently
+ * re-enables cover requests one level below home, which is exactly how "privacy works on home but
+ * not in series detail" shipped.
  */
 @Composable
 fun CoverImage(
@@ -70,7 +77,14 @@ fun CoverImage(
     )
 }
 
-/** Deep grey placeholder used by privacy mode and as the "no cover" fallback. */
+/**
+ * Cover slot used when there is nothing to draw: either privacy mode is on, or the series simply
+ * has no cover.
+ *
+ * Both cases render a real asset (`privacy_placeholder` / `cover_fallback`) instead of a
+ * code-drawn grey box, so replacing the placeholder art is a pure asset swap
+ * (docs/ASSETS.md §3). `aspectRatio` is applied by the caller's modifier where it matters.
+ */
 @Composable
 fun PrivacyCoverPlaceholder(
     modifier: Modifier = Modifier,
@@ -84,23 +98,14 @@ fun PrivacyCoverPlaceholder(
             .aspectRatio(KativaDimens.PosterAspect),
         contentAlignment = Alignment.Center,
     ) {
-        if (showFallbackMark) {
-            Icon(
-                painter = painterResource(R.drawable.ic_cover_fallback_mark),
-                contentDescription = description,
-                tint = KativaColors.TextSecondaryDark.copy(alpha = 0.55f),
-                modifier = Modifier.fillMaxWidth(0.34f).aspectRatio(1f),
-            )
-        } else {
-            // Privacy mode: no imagery at all, not even a mark that hints at content.
-            Text(
-                text = stringResource(R.string.privacy_cover_desc),
-                style = MaterialTheme.typography.labelMedium,
-                color = KativaColors.TextSecondaryDark.copy(alpha = 0.35f),
-                maxLines = 2,
-                textAlign = TextAlign.Center,
-            )
-        }
+        Image(
+            painter = painterResource(
+                if (showFallbackMark) R.drawable.cover_fallback else R.drawable.privacy_placeholder,
+            ),
+            contentDescription = description ?: stringResource(R.string.privacy_cover_desc),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
@@ -151,6 +156,7 @@ fun EmptyState(
     body: String? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    @DrawableRes illustration: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -158,6 +164,15 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        if (illustration != null) {
+            Image(
+                painter = painterResource(illustration),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(120.dp),
+            )
+            Spacer(Modifier.height(20.dp))
+        }
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -185,6 +200,7 @@ fun ErrorState(
     message: String,
     retryLabel: String,
     onRetry: () -> Unit,
+    @DrawableRes illustration: Int? = R.drawable.error_generic,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -192,6 +208,15 @@ fun ErrorState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        if (illustration != null) {
+            Image(
+                painter = painterResource(illustration),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(120.dp),
+            )
+            Spacer(Modifier.height(20.dp))
+        }
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,

@@ -25,6 +25,8 @@ data class ReaderSettings(
     val brightness: Float = 1f,
     /** Show a faint page number in the corner. */
     val showPageNumber: Boolean = true,
+    /** Let the volume keys turn pages instead of changing media volume. Off unless opted in. */
+    val volumeKeyPaging: Boolean = false,
 ) {
     val isWebtoon: Boolean get() = readerMode == ReaderMode.Webtoon
 

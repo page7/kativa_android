@@ -1,17 +1,26 @@
 package com.kativa.reader.ui.reader
 
+import android.app.Activity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -22,37 +31,47 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.kativa.reader.R
+import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
-import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaPrimaryButton
 import com.kativa.reader.core.designsystem.KativaSecondaryButton
+import com.kativa.reader.core.designsystem.KativaSlider
 import com.kativa.reader.ui.common.message
+import kotlin.math.roundToInt
 
 /**
- * P08 — manga reader.
+ * P08 —manga reader.
  *
  * Layout: full-bleed pager + tap-to-toggle overlay. Deliberately no bottom navigation, no
  * download affordance, and the privacy toggle is absent: privacy mode only masks covers, never
@@ -67,16 +86,63 @@ fun MangaReaderScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    // Hardware key events only reach the composition through the focused node, so the reader
+    // claims focus while it is on screen (AGENTS.md §5: 音量键翻页（可关）).
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(state.loading) {
+        if (!state.loading) {
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
+
     // Flush queued progress whenever the app comes back to the foreground.
     LifecycleStartEffect(Unit) {
         viewModel.onAppResumed()
         onStopOrDispose { viewModel.onAppPaused() }
     }
 
+    // AGENTS.md §5: 防息屏. Kept as a plain view flag rather than a window flag so it is cleared
+    // automatically when the reader leaves composition.
+    //
+    // The reader is always dark, so the system icon appearance is forced to light while it is on
+    // screen: `KativaTheme` otherwise hands dark icons to a light-themed app, which would be
+    // invisible over the black scrim behind the status bar. The previous value is restored on
+    // exit so every other screen keeps the theme's own choice.
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        val window = (view.context as? Activity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        val previousLightStatus = controller?.isAppearanceLightStatusBars
+        val previousLightNav = controller?.isAppearanceLightNavigationBars
+        controller?.apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+        onDispose {
+            view.keepScreenOn = false
+            if (controller != null) {
+                previousLightStatus?.let { controller.isAppearanceLightStatusBars = it }
+                previousLightNav?.let { controller.isAppearanceLightNavigationBars = it }
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Color.Black)
+            .focusRequester(focusRequester)
+            .focusable()
+            .then(
+                if (state.settings.volumeKeyPaging) {
+                    Modifier.onPreviewKeyEvent { event ->
+                        viewModel.handleVolumeKey(event.nativeKeyEvent)
+                    }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         when {
             state.loading -> ReaderLoading()
@@ -114,6 +180,7 @@ fun MangaReaderScreen(
                         onTap = viewModel::toggleControls,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    ReaderOverlay(state)
                     if (state.controlsVisible) {
                         ReaderControls(
                             state = state,
@@ -157,11 +224,11 @@ fun MangaReaderScreen(
                     }
                 }
 
+                // Taps on the chrome bars never reach this node: the bars consume their own
+                // touches (see `readerChromeTouchGuard`), which is what stops a seek drag on the
+                // progress slider from being arbitrated into a page swipe.
                 val pagerModifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (settings.isVerticalPaging) Modifier else Modifier,
-                    )
                     .pointerInput(state.settings.readerMode, state.settings.layoutMode, state.settings.readingDirection) {
                         detectTapGestures(
                             onTap = { offset ->
@@ -207,6 +274,8 @@ fun MangaReaderScreen(
                     }
                 }
 
+                ReaderOverlay(state)
+
                 if (state.controlsVisible) {
                     ReaderControls(
                         state = state,
@@ -241,6 +310,7 @@ fun MangaReaderScreen(
                 onCoverOffset = viewModel::setCoverOffset,
                 onBrightness = viewModel::setBrightness,
                 onShowPageNumber = viewModel::setShowPageNumber,
+                onVolumeKeyPaging = viewModel::setVolumeKeyPaging,
             )
         }
     }
@@ -256,6 +326,41 @@ private fun ReaderNavigationEffect(
         state.pendingChapterNavigation?.let { target ->
             viewModel.consumeNavigationTarget()
             onOpenChapter(target)
+        }
+    }
+}
+
+/** Luminance scrim + optional faint page marker, drawn below the controls and above the pages. */
+@Composable
+private fun ReaderOverlay(state: ReaderUiState) {
+    val dim = ReaderDim.alphaFor(state.settings.brightness)
+    if (dim <= 0f && !state.settings.showPageNumber) return
+
+    Box(Modifier.fillMaxSize()) {
+        if (dim > 0f) {
+            // Drawn above the pages, below the controls. `background` does not consume pointer
+            // input, so tap zones and paging gestures keep working through the scrim.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = dim)),
+            )
+        }
+        if (state.settings.showPageNumber) {
+            Text(
+                text = "${state.displayPage}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.35f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    // Keep the marker out of the system navigation bar strip.
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(
+                            WindowInsetsSides.Bottom + WindowInsetsSides.End,
+                        ),
+                    )
+                    .padding(end = 12.dp, bottom = 12.dp),
+            )
         }
     }
 }
@@ -391,12 +496,18 @@ private fun ReaderControls(
 ) {
     val session = state.session ?: return
     Box(Modifier.fillMaxSize()) {
-        Surface(
-            color = Color.Black.copy(alpha = 0.72f),
-            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
-        ) {
+        TopChrome {
             Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Content clears the status bar (and a notch/cutout in landscape), while the
+                    // scrim above it keeps painting behind the system bar strip.
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(
+                            WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                        ),
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
@@ -434,7 +545,7 @@ private fun ReaderControls(
                 }
                 IconButton(onClick = onOpenSettings) {
                     KativaIcon(
-                        icon = KativaIcons.Settings,
+                        icon = KativaIcons.SettingsReader,
                         contentDescription = stringResource(R.string.reader_settings),
                         tint = Color.White,
                     )
@@ -442,14 +553,26 @@ private fun ReaderControls(
             }
         }
 
-        Surface(
-            color = Color.Black.copy(alpha = 0.72f),
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-        ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        BottomChrome {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Content clears the navigation bar (and the gesture handle), while the scrim
+                    // keeps painting behind it.
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(
+                            WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
+                        ),
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onPrevChapter, enabled = true) {
-                        Text("‹", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                        KativaIcon(
+                            icon = KativaIcons.PrevChapter,
+                            contentDescription = stringResource(R.string.reader_prev_chapter),
+                            tint = Color.White,
+                        )
                     }
                     Text(
                         text = stringResource(R.string.reader_page, state.displayPage, state.totalPages),
@@ -459,18 +582,127 @@ private fun ReaderControls(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
                     IconButton(onClick = onNextChapter) {
-                        Text("›", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                        KativaIcon(
+                            icon = KativaIcons.NextChapter,
+                            contentDescription = stringResource(R.string.reader_next_chapter),
+                            tint = Color.White,
+                        )
                     }
                 }
-                Slider(
-                    value = state.pageIndex.toFloat(),
-                    onValueChange = { onSeek(it.toInt()) },
-                    valueRange = 0f..((state.totalPages - 1).coerceAtLeast(1)).toFloat(),
+                var dragValue by remember { mutableStateOf<Float?>(null) }
+
+                KativaSlider(
+                    value = dragValue ?: state.pageIndex.toFloat(),
+                    // While dragging only the local state moves: driving the pager from every
+                    // frame made the pages jitter and restarted the 800ms progress debounce
+                    // continuously. The jump happens once, on release.
+                    onValueChange = { dragValue = it },
+                    onValueChangeFinished = {
+                        dragValue?.let { onSeek(it.roundToInt()) }
+                        dragValue = null
+                    },
+                    valueRange = 0f..((state.totalPages - 1).coerceAtLeast(0)).toFloat(),
+                    activeColor = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.22f),
+                    valueLabel = { value ->
+                        stringResource(
+                            R.string.reader_page,
+                            value.roundToInt() + 1,
+                            state.totalPages,
+                        )
+                    },
                 )
             }
         }
     }
 }
+
+/**
+ * Top reader chrome: a translucent scrim that reaches the very top of the screen (drawing behind
+ * the status bar) while its *content* is inset below the status bar, plus a short fade so the
+ * boundary with the artwork is not a hard cut.
+ *
+ * Only the solid part is opaque to touch: the gradient tail stays transparent so a tap or swipe
+ * that lands there still reaches the pager.
+ */
+@Composable
+private fun BoxScope.TopChrome(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .fillMaxWidth(),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                // Touches on the bar must not fall through to the pager underneath: this plain
+                // container has no gesture node of its own, so without the guard a press on the
+                // bar's padding hit-tested straight through and became a page swipe.
+                .readerChromeTouchGuard()
+                .background(KativaColors.ReaderScrim),
+        ) {
+            content()
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(ChromeFadeHeight)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(KativaColors.ReaderScrim, Color.Transparent),
+                    ),
+                ),
+        )
+    }
+}
+
+/** Bottom reader chrome: fade into the bar, then a scrim behind the navigation bar too. */
+@Composable
+private fun BoxScope.BottomChrome(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth(),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(ChromeFadeHeight)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, KativaColors.ReaderScrim),
+                    ),
+                ),
+        )
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .readerChromeTouchGuard()
+                .background(KativaColors.ReaderScrim),
+        ) {
+            content()
+        }
+    }
+}
+
+/**
+ * Makes a chrome bar a hit-test target without intercepting anything.
+ *
+ * Compose hit-tests overlapping siblings from the top down and stops at the first sibling that
+ * owns a pointer-input node. The bars were previously plain layout containers, so a touch on the
+ * bar's padding or in the gap between the slider's thumb and its 48dp strip found no node there
+ * and fell straight through to the pager below — which read the slide as a page swipe.
+ *
+ * The fix is an inert gesture node: it is never consumed, so the back/bookmark/settings buttons
+ * and the progress slider keep their own handling (consuming here would make `clickable` cancel
+ * the tap on the Final pass), while the pager underneath stops receiving the touch at all.
+ */
+private fun Modifier.readerChromeTouchGuard(): Modifier = pointerInput(Unit) {
+    awaitEachGesture { awaitFirstDown(requireUnconsumed = false) }
+}
+
+/** Height of the gradient tail that softens the chrome/page boundary. */
+private val ChromeFadeHeight = 20.dp
 
 @Composable
 private fun ChapterEndBar(
@@ -480,7 +712,15 @@ private fun ChapterEndBar(
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Surface(
             color = Color.Black.copy(alpha = 0.8f),
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                // Clear the navigation bar *and* the bottom chrome it sits under.
+                .windowInsetsPadding(
+                    WindowInsets.systemBars.only(
+                        WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
+                    ),
+                )
+                .padding(16.dp),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         ) {
             Row(

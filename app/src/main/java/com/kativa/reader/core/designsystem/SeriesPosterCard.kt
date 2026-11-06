@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -93,10 +92,12 @@ fun SeriesPosterCard(
             }
 
             if (progress != null && progress > 0f) {
-                androidx.compose.material3.LinearProgressIndicator(
-                    progress = { progress.coerceIn(0f, 1f) },
+                KativaProgressBar(
+                    progress = progress,
+                    height = 3.dp,
                     color = KativaColors.BrandPrimary,
                     trackColor = Color.White.copy(alpha = 0.24f),
+                    animated = false,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth(),

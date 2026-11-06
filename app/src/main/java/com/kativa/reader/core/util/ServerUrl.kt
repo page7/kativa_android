@@ -60,6 +60,10 @@ object ServerUrl {
         if (path.endsWith("/api", ignoreCase = true)) path = path.dropLast(4)
         // Strip a trailing /login page.
         if (path.endsWith("/login", ignoreCase = true)) path = path.dropLast(6)
+        // Strip a trailing `/api/opds/<key>`: that is how Kavita prints its OPDS feed URL, and it is
+        // the link users are most likely to paste. Keeping it would build `/api/opds/<key>/api/`.
+        path = path.replace(OPDS_SUFFIX, "")
+        if (path.endsWith("/api", ignoreCase = true)) path = path.dropLast(4)
 
         val port = if (uri.port > 0) ":${uri.port}" else ""
         // URI.host already wraps IPv6 literals in brackets on some JDKs; normalise before rebuilding.
@@ -79,15 +83,28 @@ object ServerUrl {
     }
 
     private fun extractApiKey(raw: String): String? {
+        // `?apiKey=...` (docs / login links)
         val marker = "apikey="
         val idx = raw.indexOf(marker, ignoreCase = true)
-        if (idx < 0) return null
-        val value = raw.substring(idx + marker.length)
-            .substringBefore('&')
-            .substringBefore('#')
-            .trim()
-        return value.ifEmpty { null }
+        if (idx >= 0) {
+            val value = raw.substring(idx + marker.length)
+                .substringBefore('&')
+                .substringBefore('#')
+                .trim()
+            if (value.isNotEmpty()) return value
+        }
+
+        // `/api/opds/<key>` — Kavita's own OPDS feed URL. Users paste this whole link, so the
+        // trailing path segment is the key.
+        val opds = OPDS_KEY.find(raw)
+        return opds?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotEmpty() }
     }
+
+    /** `<host>/api/opds/<key>`; the key is the captured trailing segment. */
+    private val OPDS_KEY = Regex("""/api/opds/([^/?#\s]+)$""", RegexOption.IGNORE_CASE)
+
+    /** The same segment, matched so it can be removed from a user-supplied path. */
+    private val OPDS_SUFFIX = Regex("""/api/opds/[^/?#\s]+$""", RegexOption.IGNORE_CASE)
 
     /**
      * Rewrites an already-normalised base URL to use the given scheme.

@@ -37,11 +37,22 @@ object Routes {
     const val LIBRARY = "library"
     const val SERIES = "series"
     const val READER = "reader"
+    const val SEARCH = "search"
+    const val SHELF = "shelf"
+    const val STREAM = "stream"
 
     const val ARG_SERVER_ID = "serverId"
+    const val ARG_SHOW_BACK = "showBack"
 
     fun serverSetup(serverId: String? = null): String =
         if (serverId == null) SERVER_SETUP else "$SERVER_SETUP?$ARG_SERVER_ID=$serverId"
+
+    /**
+     * @param showBack true when the picker is pushed on top of another screen (Me → switch
+     *   server). The startup destination must NOT show a back affordance.
+     */
+    fun serverPicker(showBack: Boolean): String =
+        if (showBack) "$SERVER_PICKER?$ARG_SHOW_BACK=true" else SERVER_PICKER
 
     fun login(serverId: String): String = "$LOGIN?$ARG_SERVER_ID=$serverId"
 
@@ -50,4 +61,10 @@ object Routes {
     fun series(seriesId: Int): String = "$SERIES/$seriesId"
 
     fun reader(chapterId: Int): String = "$READER/$chapterId"
+
+    fun shelf(kind: String): String = "$SHELF/$kind"
+
+    fun shelfDetail(kind: String, shelfId: Int): String = "$SHELF/$kind/$shelfId"
+
+    fun stream(streamKey: String): String = "$STREAM/$streamKey"
 }

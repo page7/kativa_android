@@ -1,5 +1,6 @@
 package com.kativa.reader.ui.common
 
+import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.kativa.reader.R
@@ -21,6 +22,22 @@ fun KativaError.message(): String = when (this) {
     is KativaError.BadRequest -> serverMessage ?: stringResource(R.string.error_unknown)
     is KativaError.Server -> stringResource(R.string.error_server, status)
 }
+
+/**
+ * Illustration that best explains this failure (docs/ASSETS.md §2.4).
+ *
+ * Connectivity failures get `empty_network` because the fix is "get back online"; everything else
+ * is a genuine fault and gets the generic error art. Kept next to the copy so a new error variant
+ * cannot silently ship without thinking about its artwork.
+ */
+@get:DrawableRes
+val KativaError.illustration: Int
+    get() = when (this) {
+        KativaError.Network, KativaError.Timeout, KativaError.Dns, KativaError.CleartextBlocked ->
+            R.drawable.empty_network
+
+        else -> R.drawable.error_generic
+    }
 
 @Composable
 fun KativaError.loginMessage(): String = when (this) {

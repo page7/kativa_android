@@ -27,6 +27,7 @@ data class SeriesUiState(
     val hasProgress: Boolean = false,
     val message: String? = null,
     val busy: Boolean = false,
+    val inWantToRead: Boolean = false,
 ) {
     val primaryActionIsStart: Boolean get() = !hasProgress
     val primaryActionIsReread: Boolean get() = detail?.isComplete == true
@@ -35,6 +36,7 @@ data class SeriesUiState(
 @HiltViewModel
 class SeriesDetailViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
+    private val shelfRepository: com.kativa.reader.data.repository.ShelfRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -53,12 +55,20 @@ class SeriesDetailViewModel @Inject constructor(
             when (val outcome = libraryRepository.seriesDetail(seriesId)) {
                 is Outcome.Success -> {
                     val detail = outcome.value
-                    val hasProgress = libraryRepository.hasProgress(seriesId)
+
+                    // Progress/continue-point are enhancements. If either fails (e.g. a read-only
+                    // or restricted account returns 400/404) the detail page must still render
+                    // rather than showing a validation error.
+                    val hasProgress = runCatching { libraryRepository.hasProgress(seriesId) }
+                        .getOrDefault(false)
                     val resume = if (hasProgress) {
                         (libraryRepository.continuePoint(seriesId) as? Outcome.Success)?.value?.id
                     } else {
                         null
                     }
+                    val inWantToRead = runCatching { shelfRepository.isInWantToRead(seriesId) }
+                        .getOrDefault(false)
+
                     _state.update {
                         it.copy(
                             loading = false,
@@ -70,6 +80,7 @@ class SeriesDetailViewModel @Inject constructor(
                             },
                             hasProgress = hasProgress,
                             resumeChapterId = resume ?: detail.chapters.firstOrNull()?.id,
+                            inWantToRead = inWantToRead,
                         )
                     }
                 }
@@ -128,4 +139,17 @@ class SeriesDetailViewModel @Inject constructor(
     }
 
     fun consumeMessage() = _state.update { it.copy(message = null) }
+
+    /** Adds/removes the series from Want To Read and reflects the new state immediately. */
+    fun toggleWantToRead() {
+        val target = !_state.value.inWantToRead
+        _state.update { it.copy(inWantToRead = target) }
+        viewModelScope.launch {
+            val outcome = shelfRepository.toggleWantToRead(seriesId, !target)
+            if (outcome is Outcome.Failure) {
+                // Roll back so the UI never claims a state the server rejected.
+                _state.update { it.copy(inWantToRead = !target) }
+            }
+        }
+    }
 }

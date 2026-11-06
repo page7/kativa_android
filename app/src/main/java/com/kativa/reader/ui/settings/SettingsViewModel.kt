@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.kativa.reader.core.auth.ActiveServerStore
 import com.kativa.reader.core.auth.ServerRepository
 import com.kativa.reader.core.designsystem.ThemeMode
+import com.kativa.reader.core.image.PrivacyModeState
 import com.kativa.reader.core.settings.SettingsRepository
 import com.kativa.reader.domain.model.ServerProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,16 +25,14 @@ data class SettingsUiState(
     val autoLoginServerId: String? = null,
     val activeServerId: String? = null,
     val versionName: String = "",
-) {
-    val autoLoginName: String?
-        get() = servers.firstOrNull { it.id == autoLoginServerId }?.displayName
-}
+)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val serverRepository: ServerRepository,
     private val activeServerStore: ActiveServerStore,
+    private val privacyModeState: PrivacyModeState,
     private val authRepository: com.kativa.reader.data.repository.AuthRepository,
 ) : ViewModel() {
 
@@ -41,7 +40,10 @@ class SettingsViewModel @Inject constructor(
 
     val state: StateFlow<SettingsUiState> = combine(
         settingsRepository.themeMode,
-        settingsRepository.isPrivacyMode(activeServerStore.activeId),
+        // Read the shared flag, not `isPrivacyMode(activeId)`: the latter is bound to whichever
+        // server was active when this ViewModel was built, so switching servers left the switch
+        // showing the previous server's value.
+        privacyModeState.enabled,
         settingsRepository.language,
         serverRepository.servers,
         serverRepository.autoLoginServerId,
@@ -66,8 +68,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setPrivacyMode(enabled: Boolean) {
-        val id = activeServerStore.activeId ?: return
-        viewModelScope.launch { settingsRepository.setPrivacyMode(id, enabled) }
+        privacyModeState.toggleForActiveServer(enabled)
     }
 
     fun setLanguage(tag: String?) {

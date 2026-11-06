@@ -3,7 +3,7 @@ package com.kativa.reader.ui.me
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kativa.reader.core.auth.ActiveServerStore
-import com.kativa.reader.core.settings.SettingsRepository
+import com.kativa.reader.core.image.PrivacyModeState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +23,7 @@ data class MeUiState(
 @HiltViewModel
 class MeViewModel @Inject constructor(
     private val activeServerStore: ActiveServerStore,
-    private val settingsRepository: SettingsRepository,
+    private val privacyModeState: PrivacyModeState,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MeUiState())
@@ -42,15 +42,14 @@ class MeViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            settingsRepository.isPrivacyMode(activeServerStore.activeId).collect { enabled ->
+            privacyModeState.enabled.collect { enabled ->
                 _state.update { it.copy(privacyMode = enabled) }
             }
         }
     }
 
     fun setPrivacyMode(enabled: Boolean) {
-        val id = activeServerStore.activeId ?: return
+        privacyModeState.toggleForActiveServer(enabled)
         _state.update { it.copy(privacyMode = enabled) }
-        viewModelScope.launch { settingsRepository.setPrivacyMode(id, enabled) }
     }
 }

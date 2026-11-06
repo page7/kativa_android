@@ -53,7 +53,7 @@
     <string name="setup_allow_cleartext_warning">平文接続では、同じネットワーク上の誰でもログイン情報や読書状況を見ることができます。</string>
     <string name="setup_auto_login">起動時にこのサーバーへ自動ログイン</string>
     <string name="setup_save_and_login">保存してログイン</string>
-    <string name="setup_switched_to_http">このサーバーは暗号化されていない HTTP のみ対応のため、自動的に http:// を使用しました。</string>
+    <string name="setup_switched_to_http">このサーバーは暗号化されていない HTTP のみに対応しています。http:// を入力し、平文接続を有効にしました。もう一度「保存してサインイン」を押して確認してください。</string>
     <string name="setup_next_step">次にユーザー名とパスワード、または API キーを入力します。Kavita は両方に対応しています。ユーザー名とパスワードは Web UI と同じもの、API キーは「ユーザー設定 → Auth Keys」で作成できます。</string>
     <string name="setup_version_ok">接続済み · Kavita %1$s</string>
     <string name="setup_version_ok_unknown">接続済み</string>
@@ -148,6 +148,8 @@
 
     <string name="entity_chapter_num">第 %1$s 話</string>
     <string name="entity_volume_num">第 %1$s 巻</string>
+    <string name="entity_full_chapter">全一話</string>
+    <string name="entity_unnumbered_chapter">番号なし</string>
     <string name="entity_single_volume">単巻</string>
     <string name="entity_loose_leaf">単話（番号なし）</string>
     <string name="entity_specials">番外編</string>
@@ -180,7 +182,10 @@
     <string name="reader_setting_cover_offset">表紙を単独表示</string>
     <string name="reader_setting_cover_offset_desc">1 ページ目を見開きの組み合わせから外し、以降のページを揃えます</string>
     <string name="reader_setting_brightness">明るさ（今回の読書のみ）</string>
+    <string name="reader_brightness_percent">%1$d%%</string>
     <string name="reader_setting_page_number">ページ番号を表示</string>
+    <string name="reader_setting_volume_keys">音量キーでページ送り</string>
+    <string name="reader_setting_volume_keys_desc">音量の上下キーでページを送ります（メディア音量は変更しません）</string>
 
     <!-- Series detail -->
     <string name="series_continue">続きを読む</string>
@@ -208,4 +213,90 @@
     <string name="status_hiatus">休載</string>
     <string name="status_cancelled">打ち切り</string>
     <string name="status_ended">完結</string>
+    <!-- Search -->
+    <string name="search_title">検索</string>
+    <string name="search_hint">検索</string>
+    <string name="search_empty_title">「%1$s」の結果はありません</string>
+    <string name="search_empty_body">別のキーワードを試すか、綴りを確認してください</string>
+    <string name="search_min_length">%1$d 文字以上入力してください</string>
+    <string name="search_history_empty">最近の検索はありません</string>
+    <string name="search_history_empty_body">入力して検索を開始</string>
+    <string name="search_history">最近の検索</string>
+    <string name="search_history_clear">クリア</string>
+    <string name="search_group_series">シリーズ</string>
+    <string name="search_group_collections">コレクション</string>
+    <string name="search_group_lists">読書リスト</string>
+    <string name="search_group_people">人物</string>
+    <string name="search_group_genres">ジャンル</string>
+    <string name="search_group_tags">タグ</string>
+    <string name="search_group_libraries">ライブラリ</string>
+    <string name="discover_search_section">検索</string>
+    <string name="discover_more_section">その他</string>
+    <string name="discover_upcoming_hint">コレクションや読書リストなどは今後のバージョンで提供予定です</string>
+    <!-- Filter & sort -->
+    <string name="filter_title">絞り込みと並べ替え</string>
+    <string name="filter_sort">並べ替え</string>
+    <string name="filter_sort_asc">昇順</string>
+    <string name="filter_sort_desc">降順</string>
+    <string name="filter_match">条件の組み合わせ</string>
+    <string name="filter_match_all">すべて満たす</string>
+    <string name="filter_match_any">いずれかを満たす</string>
+    <string name="filter_active">適用中の条件</string>
+    <string name="filter_add_condition">条件を追加</string>
+    <string name="filter_value">値</string>
+    <string name="filter_add">追加</string>
+    <string name="filter_reset">リセット</string>
+    <string name="filter_apply">適用</string>
+    <string name="filter_sort_name">名前</string>
+    <string name="filter_sort_added">追加日</string>
+    <string name="filter_sort_modified">更新日</string>
+    <string name="filter_sort_chapter_added">章の追加日</string>
+    <string name="filter_sort_time">読了時間</string>
+    <string name="filter_sort_year">出版年</string>
+    <string name="filter_sort_progress">読書進捗</string>
+    <string name="filter_sort_rating">自分の評価</string>
+    <string name="filter_sort_unread">未読の章</string>
+    <string name="filter_sort_random">ランダム</string>
+    <string name="filter_field_name">シリーズ名</string>
+    <string name="filter_field_writer">作者</string>
+    <string name="filter_field_genre">ジャンル</string>
+    <string name="filter_field_tag">タグ</string>
+    <string name="filter_field_status">出版状態</string>
+    <string name="filter_field_age">年齢区分</string>
+    <string name="filter_field_format">形式</string>
+    <string name="filter_field_language">言語</string>
+    <string name="filter_field_want_to_read">読みたい</string>
+    <string name="filter_field_rating">自分の評価</string>
+    <string name="filter_field_progress">読書進捗</string>
+    <string name="filter_field_year">出版年</string>
+    <string name="filter_no_match">条件に一致するシリーズがありません</string>
+    <string name="filter_no_match_body">条件を緩めるか、絞り込みを解除してください</string>
+    <string name="filter_clear">絞り込みを解除</string>
+    <string name="filter_cmp_is">等しい</string>
+    <string name="filter_cmp_is_not">等しくない</string>
+    <string name="filter_cmp_contains">を含む</string>
+    <string name="filter_cmp_not_contains">を含まない</string>
+    <string name="filter_cmp_starts">で始まる</string>
+    <string name="filter_cmp_ends">で終わる</string>
+    <string name="filter_cmp_empty">空である</string>
+    <string name="filter_cmp_not_empty">空でない</string>
+    <string name="filter_cmp_recent">過去 N 日以内</string>
+    <!-- shelf -->
+    <string name="shelf_collections">コレクション</string>
+    <string name="shelf_reading_lists">読書リスト</string>
+    <string name="shelf_want_to_read">読みたい</string>
+    <string name="shelf_collection_detail">コレクション</string>
+    <string name="shelf_collections_empty">コレクションはまだありません</string>
+    <string name="shelf_lists_empty">読書リストはまだありません</string>
+    <string name="shelf_want_to_read_empty">「読みたい」リストは空です</string>
+    <string name="shelf_empty_body">Kavita の Web UI で作成するか、シリーズを長押しして追加してください</string>
+    <string name="shelf_promoted">公開</string>
+    <string name="shelf_item_count">%1$d 件</string>
+    <string name="series_add_to_want_to_read">読みたいに追加</string>
+    <string name="series_remove_from_want_to_read">読みたいから削除</string>
+    <!-- Home folders / stream view -->
+    <string name="home_libraries">ライブラリ</string>
+    <string name="home_folder_series_count">%1$d 作品</string>
+    <string name="stream_empty_title">まだ何もありません</string>
+    <string name="stream_empty_body">先にライブラリでコンテンツを追加またはスキャンしてください</string>
 </resources>

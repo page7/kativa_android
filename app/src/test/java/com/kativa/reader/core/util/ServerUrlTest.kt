@@ -62,9 +62,27 @@ class ServerUrlTest {
     @Test
     fun `opds style link extracts the key and keeps the host`() {
         val n = ok("https://kavita.example.com/api/opds/abcdef0123")
-        // Path is not `api` only, so it becomes a sub path — the key is still reported by the
-        // login flow separately; the important part is that parsing never throws.
-        assertTrue(n.baseUrl.startsWith("https://kavita.example.com"))
+        // `/api/opds/<key>` is how Kavita prints its OPDS feed URL. Pasting it must yield the
+        // *server* base URL, not a sub path like `/api/opds/abcdef0123/api/`, and must surface the
+        // key so the login screen can pre-fill it (AGENTS.md §4.1).
+        assertEquals("https://kavita.example.com/api/", n.baseUrl)
+        assertEquals("https://kavita.example.com", n.displayUrl)
+        assertEquals("abcdef0123", n.extractedApiKey)
+    }
+
+    @Test
+    fun `opds link with port and scheme is handled`() {
+        val n = ok("http://192.168.1.10:5500/api/opds/cGXMn4o4")
+        assertEquals("http://192.168.1.10:5500/api/", n.baseUrl)
+        assertEquals("cGXMn4o4", n.extractedApiKey)
+        assertTrue(n.isCleartext)
+    }
+
+    @Test
+    fun `opds link under a sub path is handled`() {
+        val n = ok("https://host.example.com/kavita/api/opds/key123456")
+        assertEquals("https://host.example.com/kavita/api/", n.baseUrl)
+        assertEquals("key123456", n.extractedApiKey)
     }
 
     @Test

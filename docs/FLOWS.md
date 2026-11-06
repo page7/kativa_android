@@ -125,6 +125,20 @@ Login
 - 重启 App 保持上次状态；切换服务器状态各自独立。
 - 与图片缓存的关系：隐私模式下不请求 = 不写入缓存；已缓存的封面在关闭隐私模式时直接命中缓存（**不联网也能显示已缓存封面**——这是隐私模式之外的正常缓存行为）。
 
+### 实现约束（曾因此在 2-3 级页面失效，勿再拆开）
+
+隐私状态的唯一事实来源是 `PrivacyModeState`（`core/image`），由它自己 `combine`
+`ActiveServerStore.active` 与 `SettingsRepository.privacyModeByServer`，**不依赖任何 ViewModel**。
+曾经写成在 ViewModel 里 `active.collect { isPrivacyMode(id).collect { … } }`：内层永不结束，
+外层收不到第二次发射 → 启动时 serverId 为 null，值恒为 `false`。
+
+渲染侧只有一个开关：`CoverImage` 的 `privacyMode` 默认取 `LocalPrivacyMode.current`
+（由 `KativaTheme` 从上述状态注入）。**屏幕不得再把 `privacyMode` 当参数往下传**——首页当初
+额外把 `coverUrl` 置 null，所以"看起来"生效，而系列详情/搜索/流列表走默认值就漏了。
+
+第三道闸：`PrivacyGuardInterceptor` 注册在 Coil 的 `ImageLoader` 上，按路径
+（`/Image/*-cover`、`/Reader/thumbnail`）拦掉漏网请求；`/Reader/image` 永不拦截。
+
 ---
 
 ## F4 书架浏览

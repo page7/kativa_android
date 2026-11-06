@@ -3,12 +3,13 @@ package com.kativa.reader.ui.library
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kativa.reader.core.auth.ActiveServerStore
 import com.kativa.reader.core.image.CoverUrlBuilder
+import com.kativa.reader.core.image.PrivacyModeState
 import com.kativa.reader.core.network.KativaError
 import com.kativa.reader.core.network.Outcome
-import com.kativa.reader.core.settings.SettingsRepository
 import com.kativa.reader.data.repository.LibraryRepository
+import com.kativa.reader.domain.model.SeriesFilter
+import com.kativa.reader.domain.model.SeriesSort
 import com.kativa.reader.domain.model.SeriesSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -31,18 +32,21 @@ data class LibraryGridUiState(
     val endReached: Boolean = false,
     val error: KativaError? = null,
     val privacyMode: Boolean = false,
-    val sortField: Int = 1,
-    val ascending: Boolean = true,
+    val filter: SeriesFilter = SeriesFilter.Default,
 ) {
     val isEmpty: Boolean get() = !loading && error == null && items.isEmpty()
+
+    /** True when the grid is empty *because* a filter is active. */
+    val isEmptyDueToFilter: Boolean get() = isEmpty && !filter.isEmpty
+
+    val sortLabelRes: SeriesSort get() = filter.sort
 }
 
 @HiltViewModel
 class LibraryGridViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val coverUrlBuilder: CoverUrlBuilder,
-    private val activeServerStore: ActiveServerStore,
-    private val settingsRepository: SettingsRepository,
+    private val privacyModeState: com.kativa.reader.core.image.PrivacyModeState,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -58,16 +62,15 @@ class LibraryGridViewModel @Inject constructor(
 
     private fun observePrivacy() {
         viewModelScope.launch {
-            settingsRepository.isPrivacyMode(activeServerStore.activeId).collect { enabled ->
+            privacyModeState.enabled.collect { enabled ->
                 _state.update { it.copy(privacyMode = enabled) }
             }
         }
     }
 
     fun setPrivacyMode(enabled: Boolean) {
-        val id = activeServerStore.activeId ?: return
+        privacyModeState.toggleForActiveServer(enabled)
         _state.update { it.copy(privacyMode = enabled) }
-        viewModelScope.launch { settingsRepository.setPrivacyMode(id, enabled) }
     }
 
     fun load(reset: Boolean = false) {
@@ -83,12 +86,13 @@ class LibraryGridViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            when (val outcome = libraryRepository.seriesInLibrary(
-                libraryId = libraryId,
-                page = nextPage,
-                sortField = current.sortField,
-                ascending = current.ascending,
-            )) {
+            when (
+                val outcome = libraryRepository.seriesInLibrary(
+                    libraryId = libraryId,
+                    page = nextPage,
+                    filter = current.filter,
+                )
+            ) {
                 is Outcome.Success -> {
                     val newItems = outcome.value.map { series ->
                         LibraryGridItem(
@@ -125,9 +129,24 @@ class LibraryGridViewModel @Inject constructor(
         load(reset = false)
     }
 
-    fun setSort(field: Int, ascending: Boolean) {
-        _state.update { it.copy(sortField = field, ascending = ascending) }
+    // --- sorting / filtering --------------------------------------------
+
+    fun setSort(sort: SeriesSort, ascending: Boolean) {
+        applyFilter(_state.value.filter.withSort(sort, ascending))
+    }
+
+    fun applyFilter(filter: SeriesFilter) {
+        _state.update { it.copy(filter = filter) }
         load(reset = true)
+    }
+
+    fun removeStatement(index: Int) {
+        applyFilter(_state.value.filter.withoutStatement(index))
+    }
+
+    fun clearFilter() {
+        val current = _state.value.filter
+        applyFilter(SeriesFilter(sort = current.sort, ascending = current.ascending))
     }
 
     private companion object {

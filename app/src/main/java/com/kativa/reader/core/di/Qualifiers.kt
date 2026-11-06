@@ -6,3 +6,13 @@ import javax.inject.Qualifier
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class DebugBuild
+
+/**
+ * Process-lifetime [kotlinx.coroutines.CoroutineScope] for state that must outlive any screen.
+ *
+ * Used by [com.kativa.reader.core.image.PrivacyModeState], which keeps observing the active
+ * server and its stored privacy flag even while no ViewModel is alive.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ApplicationScope

@@ -13,8 +13,14 @@ import javax.imageio.ImageIO
  * Asset pipeline: reads assets/manifest.json, renders placeholder (or provided) SVG sources
  * into Android density buckets. See docs/ASSETS.md.
  *
+ * Source resolution per manifest entry, in priority order:
+ *   1. `assets/svg/<id>.svg`   — the delivered, final artwork
+ *   2. `assigns/<id>.svg`      — maintainer drop with the same accepted naming
+ *   3. `assigns/kavita.svg`    — legacy source for `launcher` / `launcher-foreground` only
+ *   4. generated placeholder   — always available, so every entry resolves to something
+ *
  * Usage (from repo root):
- *   ./gradlew generateAssets
+ *   ./gradlew :app:generateAssets
  */
 fun main(args: Array<String>) {
     val root = File(args.firstOrNull() ?: ".").absoluteFile
@@ -26,30 +32,61 @@ fun main(args: Array<String>) {
     val generatedSvgDir = File(root, "assets/generated/svg").apply { mkdirs() }
 
     var written = 0
+    val placeholders = mutableListOf<String>()
     for (entry in manifest.entries) {
-        val svg = when (entry.kind) {
-            "launcher", "launcher-foreground" -> providedSvg(root) ?: PlaceholderSvg.forEntry(entry)
-            "privacy" -> PlaceholderSvg.privacy(entry)
-            "cover" -> PlaceholderSvg.cover(entry)
-            "illustration" -> PlaceholderSvg.forEntry(entry)
-            else -> PlaceholderSvg.icon(entry)
-        }
-        File(generatedSvgDir, "${entry.id}.svg").writeText(svg)
+        val source = resolveSource(root, entry)
+        if (source.file == null) placeholders += entry.id
 
-        val doc = loadSvg(svg, entry.id, File(generatedSvgDir, "${entry.id}.svg"))
+        File(generatedSvgDir, "${entry.id}.svg").writeText(source.svg)
+
+        val doc = loadSvg(source.svg, entry.id, File(generatedSvgDir, "${entry.id}.svg"))
         written += when (entry.kind) {
             "icon" -> renderIcon(doc, entry, resDir)
             "launcher-foreground" -> renderLauncherForeground(doc, entry, resDir)
             "launcher" -> renderLauncher(doc, entry, resDir)
             else -> renderNodpi(doc, entry, resDir)
         }
+
+        val origin = source.file?.let { it.relativeTo(root).invariantSeparatorsPath } ?: "generated placeholder"
+        println("  ${entry.id.padEnd(24)} ${entry.kind.padEnd(18)} <- $origin")
     }
-    println("Generated ${manifest.entries.size} entries ($written PNG files).")
+
+    val formal = manifest.entries.size - placeholders.size
+    println("Generated ${manifest.entries.size} entries ($written PNG files): $formal from source SVG, ${placeholders.size} placeholder.")
+    if (placeholders.isNotEmpty()) {
+        println("Still placeholder (drop assets/svg/<id>.svg to replace): ${placeholders.joinToString(", ")}")
+    }
 }
 
-private fun providedSvg(root: File): String? {
-    val f = File(root, "assigns/kavita.svg")
-    return if (f.isFile) f.readText() else null
+internal data class SvgSource(val svg: String, val file: File?)
+
+/**
+ * Picks the artwork for one entry. `file == null` means "no delivered SVG, use the placeholder",
+ * which the caller reports so the placeholder backlog stays visible on every run.
+ *
+ * `internal` so the priority order is unit-tested instead of assumed — the previous version claimed
+ * to honour `assets/svg/<id>.svg` in the docs but always rendered placeholders.
+ */
+internal fun resolveSource(root: File, entry: ManifestEntry): SvgSource {
+    val candidates = buildList {
+        add(File(root, "assets/svg/${entry.id}.svg"))
+        add(File(root, "assigns/${entry.id}.svg"))
+        if (entry.kind == "launcher" || entry.kind == "launcher-foreground") {
+            add(File(root, "assigns/kavita.svg"))
+        }
+    }
+    candidates.firstOrNull { it.isFile }?.let { file ->
+        val text = file.readText().removePrefix("\uFEFF").trim()
+        require(text.isNotEmpty()) { "SVG source is empty: ${file.absolutePath}" }
+        return SvgSource(text, file)
+    }
+    val placeholder = when (entry.kind) {
+        "privacy" -> PlaceholderSvg.privacy(entry)
+        "cover" -> PlaceholderSvg.cover(entry)
+        "illustration" -> PlaceholderSvg.forEntry(entry)
+        else -> PlaceholderSvg.icon(entry)
+    }
+    return SvgSource(placeholder, null)
 }
 
 private fun loadSvg(svg: String, id: String, sourceFile: File): SVGDocument {

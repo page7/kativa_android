@@ -24,7 +24,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -52,22 +51,22 @@ import com.kativa.reader.core.designsystem.ErrorState
 import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaDimens
 import com.kativa.reader.core.designsystem.KativaPrimaryButton
-import com.kativa.reader.core.designsystem.LocalPrivacyMode
+import com.kativa.reader.core.designsystem.KativaProgressBar
 import com.kativa.reader.domain.model.Chapter
 import com.kativa.reader.domain.model.ContentFormat
 import com.kativa.reader.domain.model.PublicationStatus
 import com.kativa.reader.domain.model.SeriesDetail
 import com.kativa.reader.domain.model.Volume
 import com.kativa.reader.ui.common.EntityTitles
+import com.kativa.reader.ui.common.illustration
 import com.kativa.reader.ui.common.message
 
-/** P06 — series detail with collapsible volumes and a single, obvious primary action. */
+/** P06 �?series detail with collapsible volumes and a single, obvious primary action. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeriesDetailScreen(
     onBack: () -> Unit,
     onOpenChapter: (Int) -> Unit,
-    privacyMode: Boolean = LocalPrivacyMode.current,
     viewModel: SeriesDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -102,6 +101,23 @@ fun SeriesDetailScreen(
                                     viewModel.markSeriesRead()
                                 },
                             )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            if (state.inWantToRead) {
+                                                R.string.series_remove_from_want_to_read
+                                            } else {
+                                                R.string.series_add_to_want_to_read
+                                            },
+                                        ),
+                                    )
+                                },
+                                onClick = {
+                                    menuOpen = false
+                                    viewModel.toggleWantToRead()
+                                },
+                            )
                         }
                     }
                 },
@@ -116,6 +132,7 @@ fun SeriesDetailScreen(
                     message = state.error!!.message(),
                     retryLabel = stringResource(R.string.common_retry),
                     onRetry = viewModel::load,
+                    illustration = state.error!!.illustration,
                 )
 
                 state.detail != null -> {
@@ -128,7 +145,6 @@ fun SeriesDetailScreen(
                             SeriesHero(
                                 detail = detail,
                                 coverUrl = state.coverUrl,
-                                privacyMode = privacyMode,
                                 primaryLabel = when {
                                     state.primaryActionIsReread -> stringResource(R.string.series_reread)
                                     state.primaryActionIsStart -> stringResource(R.string.series_start)
@@ -145,11 +161,21 @@ fun SeriesDetailScreen(
                         }
 
                         item("volumes-header") {
-                            Text(
-                                text = stringResource(R.string.series_volumes),
-                                style = MaterialTheme.typography.titleMedium,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            )
+                            ) {
+                                KativaIcon(
+                                    icon = KativaIcons.Toc,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.series_volumes),
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
                         }
 
                         items(detail.regularVolumes, key = { "vol-${it.id}" }) { volume ->
@@ -217,7 +243,6 @@ private fun SectionLabel(text: String, count: Int) {
 private fun SeriesHero(
     detail: SeriesDetail,
     coverUrl: String?,
-    privacyMode: Boolean,
     primaryLabel: String,
     onPrimary: () -> Unit,
 ) {
@@ -239,7 +264,6 @@ private fun SeriesHero(
             CoverImage(
                 url = coverUrl,
                 contentDescription = detail.name,
-                privacyMode = privacyMode,
                 modifier = Modifier.width(120.dp).aspectRatio(KativaDimens.PosterAspect),
             )
             Spacer(Modifier.width(16.dp))
@@ -280,11 +304,10 @@ private fun SeriesHero(
 @Composable
 private fun SeriesProgress(detail: SeriesDetail) {
     Column(Modifier.padding(horizontal = 16.dp)) {
-        LinearProgressIndicator(
-            progress = { detail.progress },
-            color = KativaColors.BrandPrimary,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth().height(6.dp),
+        KativaProgressBar(
+            progress = detail.progress,
+            height = 6.dp,
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(6.dp))
         Text(
@@ -346,9 +369,13 @@ private fun VolumeSection(
         }
 
         if (expanded) {
+            // A single unnumbered chapter inside a loose-leaf volume represents the whole volume,
+            // so it reads as "全一�? rather than a bare "unnumbered" entry.
+            val onlyChapterOfLooseLeaf = volume.isLooseLeaf && volume.chapters.size == 1
             volume.chapters.forEach { chapter ->
                 ChapterRow(
                     chapter = chapter,
+                    isOnlyChapterOfVolume = onlyChapterOfLooseLeaf,
                     onClick = { onOpenChapter(chapter.id) },
                     onToggleRead = { onMarkChapter(chapter, !chapter.isRead) },
                 )
@@ -362,6 +389,7 @@ private fun ChapterRow(
     chapter: Chapter,
     onClick: () -> Unit,
     onToggleRead: () -> Unit,
+    isOnlyChapterOfVolume: Boolean = false,
 ) {
     Surface(
         color = Color.Transparent,
@@ -375,7 +403,7 @@ private fun ChapterRow(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = EntityTitles.chapter(chapter),
+                    text = EntityTitles.chapter(chapter, isOnlyChapterOfVolume),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

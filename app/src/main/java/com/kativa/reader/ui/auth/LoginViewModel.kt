@@ -41,6 +41,7 @@ class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val serverRepository: ServerRepository,
     private val activeServerStore: ActiveServerStore,
+    private val pendingApiKeyStore: com.kativa.reader.core.auth.PendingApiKeyStore,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -57,8 +58,15 @@ class LoginViewModel @Inject constructor(
             if (profile != null) {
                 activeServerStore.activate(profile, activeServerStore.session.value)
             }
+            // A pasted OPDS link carries its API key; pre-select that tab and pre-fill it so the
+            // user does not have to hunt for the key again (AGENTS.md §4.1).
+            val pendingKey = pendingApiKeyStore.consume(serverId)
             _state.update {
-                it.copy(serverName = profile?.displayName.orEmpty())
+                it.copy(
+                    serverName = profile?.displayName.orEmpty(),
+                    mode = if (pendingKey != null) LoginMode.ApiKey else it.mode,
+                    apiKey = pendingKey ?: it.apiKey,
+                )
             }
         }
     }

@@ -28,4 +28,17 @@ object KavitaNumbering {
 
     /** True for the synthetic volumes that must be surfaced separately from regular volumes. */
     fun isSyntheticVolume(number: Float?): Boolean = isUnnumbered(number) || isSpecialsVolume(number)
+
+    /**
+     * True when any of the given strings still contains a sentinel number.
+     *
+     * Needed because Kavita's server pre-formats `ChapterDto.Title` into strings such as
+     * `"Chapter -100000"` / `"Volume 100000"`, so checking only the numeric fields is not enough.
+     */
+    fun containsSentinel(vararg values: String?): Boolean = values.any { value ->
+        if (value.isNullOrBlank()) return@any false
+        SENTINEL_TOKENS.any { token -> Regex("(?<![0-9])${Regex.escape(token)}(?![0-9])").containsMatchIn(value) }
+    }
+
+    private val SENTINEL_TOKENS = listOf("-100000", "100000")
 }

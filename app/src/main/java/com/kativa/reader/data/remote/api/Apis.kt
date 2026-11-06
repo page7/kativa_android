@@ -87,6 +87,19 @@ interface SeriesApi {
         @Query("pageNumber") pageNumber: Int = 1,
         @Query("pageSize") pageSize: Int = 40,
         @Body filter: SeriesFilterV2Dto,
+        /**
+         * Wrapped in [retrofit2.Response] so the caller can read the `Pagination` header.
+         * A `ThreadLocal` holder cannot work here: OkHttp writes it on its own dispatcher thread
+         * while the coroutine resumes on another, so the value was always lost (AGENTS.md §4.3).
+         */
+    ): retrofit2.Response<List<SeriesDto>>
+
+    @POST("Series/all-v2")
+    suspend fun allSeries(
+        @Query("pageNumber") pageNumber: Int = 1,
+        @Query("pageSize") pageSize: Int = 40,
+        @Query("context") context: Int = 1,
+        @Body filter: SeriesFilterV2Dto = SeriesFilterV2Dto(),
     ): List<SeriesDto>
 
     @GET("Series/{seriesId}")

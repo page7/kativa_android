@@ -196,13 +196,27 @@ class ReaderViewModel @Inject constructor(
 
     fun setCoverOffset(enabled: Boolean) = updateSettings { it.copy(coverOffset = enabled) }
 
-    fun setBrightness(value: Float) = updateSettings { it.copy(brightness = value.coerceIn(0.2f, 1f)) }
+    fun setBrightness(value: Float) =
+        updateVisualSetting { it.copy(brightness = value.coerceIn(0.2f, 1f)) }
 
-    fun setShowPageNumber(enabled: Boolean) = updateSettings { it.copy(showPageNumber = enabled) }
+    fun setShowPageNumber(enabled: Boolean) =
+        updateVisualSetting { it.copy(showPageNumber = enabled) }
+
+    /**
+     * Volume-key paging (AGENTS.md §5: "音量键翻页（可关）").
+     *
+     * Off by default so the hardware keys keep their normal meaning until the user opts in, and
+     * a toggle in the reader sheet explains why.
+     */
+    fun setVolumeKeyPaging(enabled: Boolean) = updateSettings { it.copy(volumeKeyPaging = enabled) }
 
     /**
      * Settings that change the page→slot mapping must rebuild slots *and* remap the reading
      * position so the user stays on the page they were looking at.
+     *
+     * Visual-only settings (brightness, page-number marker) use [updateVisualSetting] instead:
+     * rebuilding the slot list on every brightness frame used to remap the reading position
+     * continuously while the user dragged the slider.
      */
     private fun updateSettings(transform: (ReaderSettings) -> ReaderSettings) {
         _state.update { current ->
@@ -224,6 +238,11 @@ class ReaderViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    /** Updates a setting that does not affect slot construction or the reading position. */
+    private fun updateVisualSetting(transform: (ReaderSettings) -> ReaderSettings) {
+        _state.update { it.copy(settings = transform(it.settings)) }
     }
 
     private fun loadBookmarks() {
@@ -250,6 +269,18 @@ class ReaderViewModel @Inject constructor(
         val total = _state.value.totalPages
         if (total <= 0) return
         onPageChanged(index.coerceIn(0, total - 1))
+    }
+
+    /**
+     * Volume-key paging handler. Returns true when the event was consumed so it does not also
+     * change the media volume; false lets the system have it.
+     */
+    fun handleVolumeKey(event: android.view.KeyEvent): Boolean {
+        if (!_state.value.settings.volumeKeyPaging) return false
+        if (event.action != android.view.KeyEvent.ACTION_DOWN) return true
+        val delta = VolumeKeyPaging.pageDelta(event.keyCode) ?: return false
+        goToPage(_state.value.pageIndex + delta)
+        return true
     }
 
     /**

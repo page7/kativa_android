@@ -2,11 +2,10 @@ package com.kativa.reader.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.kativa.reader.core.auth.ActiveServerStore
 import com.kativa.reader.core.image.CoverUrlBuilder
+import com.kativa.reader.core.image.PrivacyModeState
 import com.kativa.reader.core.network.KativaError
 import com.kativa.reader.core.network.Outcome
-import com.kativa.reader.core.settings.SettingsRepository
 import com.kativa.reader.data.remote.api.LibraryDto
 import com.kativa.reader.data.repository.SeriesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,8 +37,7 @@ data class LibraryUiState(
 class LibraryViewModel @Inject constructor(
     private val seriesRepository: SeriesRepository,
     private val coverUrlBuilder: CoverUrlBuilder,
-    private val activeServerStore: ActiveServerStore,
-    private val settingsRepository: SettingsRepository,
+    private val privacyModeState: PrivacyModeState,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LibraryUiState())
@@ -52,8 +50,7 @@ class LibraryViewModel @Inject constructor(
 
     private fun observePrivacy() {
         viewModelScope.launch {
-            val id = activeServerStore.activeId
-            settingsRepository.isPrivacyMode(id).collect { enabled ->
+            privacyModeState.enabled.collect { enabled ->
                 _state.update { it.copy(privacyMode = enabled) }
             }
         }
@@ -78,9 +75,8 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun setPrivacyMode(enabled: Boolean) {
-        val id = activeServerStore.activeId ?: return
+        privacyModeState.toggleForActiveServer(enabled)
         _state.update { it.copy(privacyMode = enabled) }
-        viewModelScope.launch { settingsRepository.setPrivacyMode(id, enabled) }
     }
 
     private fun LibraryDto.toItem() = LibraryListItem(
