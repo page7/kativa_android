@@ -64,3 +64,6 @@ adb logcat -d | grep "FATAL EXCEPTION"           # 必须为空
 ## 许可
 
 Apache-2.0。Kavita 本身为 GPL-3.0，本项目仅通过 HTTP API 使用其服务。
+
+24dp UI 图标来自 [Tabler Icons](https://tabler.io/icons) v3.51.0，MIT License（Copyright © 2020-2026 Paweł Kuna），
+完整许可见 `assets/svg/LICENSE.txt`；图标来源与规范化规则见 `docs/ASSETS.md` §1.2。

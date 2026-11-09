@@ -76,6 +76,48 @@ app/src/main/res/
 
 - **禁止**使用 Material Design Icons 原生图标、emoji 或运行时绘制的临时图形作为最终 UI 素材（仅允许出现在占位文件内部文字说明里）。
 
+### 1.2 图标来源与许可
+
+§2.2 / §2.3 的 24dp 线性图标取自 **[Tabler Icons](https://tabler.io/icons)** `v3.51.0`
+（MIT License，Copyright © 2020-2026 Paweł Kuna，全文见 `assets/svg/LICENSE.txt`）。
+原始 SVG 落在 `assets/svg/<清单ID>.svg`，是**可重新生成的唯一源**，只做两处规范化：
+
+| 上游 | 本项目 | 原因 |
+| --- | --- | --- |
+| `stroke-width="2"` | `stroke-width="1.5"` | 与 §1.1 的 24dp 线性规格一致（1.5px 描边） |
+| `stroke="currentColor"` / `fill="currentColor"` | `#000000` | jsvg 不解析 CSS 变量；颜色由运行期 tint 决定（§1.1） |
+
+`ic_bookmark_filled` 取 Tabler 的 `filled/bookmark`（实心），其余取 `outline/*`。上游图标改动时，
+按上表重新下载覆盖同名 SVG 再跑 `generateAssets` 即可，**不需要改代码**。
+
+逐个 ID 与上游图标的对应关系：
+
+| 清单 ID | Tabler 图标 | 清单 ID | Tabler 图标 |
+| --- | --- | --- | --- |
+| `ic_home` | `home` | `ic_prev_chapter` | `chevrons-left` |
+| `ic_library` | `library` | `ic_next_chapter` | `chevrons-right` |
+| `ic_compass` | `compass` | `ic_settings_reader` | `adjustments-horizontal` |
+| `ic_person` | `user` | `ic_toc` | `list-details` |
+| `ic_search` | `search` | `ic_double_page` | `columns-2` |
+| `ic_privacy_off` | `eye` | `ic_webtoon` | `arrows-up-down` |
+| `ic_privacy_on` | `eye-off` | `ic_brightness` | `brightness` |
+| `ic_back` | `arrow-left` | `ic_volume` | `volume` |
+| `ic_close` | `x` | `ic_expand_less` | `chevron-up` |
+| `ic_more` | `dots` | `ic_expand_more` | `chevron-down` |
+| `ic_settings` | `settings` | `ic_sort` | `arrows-sort` |
+| `ic_delete` | `trash` | `ic_visibility` | `eye` |
+| `ic_edit` | `pencil` | `ic_visibility_off` | `eye-closed` |
+| `ic_bookmark` | `bookmark`（outline） | `ic_read` | `circle-check` |
+| `ic_bookmark_filled` | `bookmark`（filled） | `ic_unread` | `circle` |
+| `ic_cover_fallback_mark` | `book-2` | | |
+
+> `ic_visibility` 与 `ic_privacy_off` 共用 `eye`（两者语义都是"可见"，且从不出现在同一屏）；
+> `ic_visibility_off` 特意取 `eye-closed` 而非 `eye-off`，让密码显隐与隐私开关的"隐藏"态
+> 在视觉上可区分，不会看成同一个按钮。
+
+插画类（`logo_full`、`cover_fallback`、`privacy_placeholder`、`empty_*`、`error_generic`、launcher 系列）
+**不在**本次替换范围内，仍为占位。
+
 ---
 
 ## 2. 清单
@@ -100,38 +142,38 @@ app/src/main/res/
 
 | ID | 用途 | PNG 输出 | 状态 |
 | --- | --- | --- | --- |
-| `ic_home` | 底部导航 · 首页 | `drawable-xhdpi/ic_home.png` | 占位 |
-| `ic_library` | 底部导航 · 书架 | `drawable-xhdpi/ic_library.png` | 占位 |
-| `ic_compass` | 底部导航 · 发现 | `drawable-xhdpi/ic_compass.png` | 占位 |
-| `ic_person` | 底部导航 · 我的 | `drawable-xhdpi/ic_person.png` | 占位 |
-| `ic_search` | 顶栏搜索 | `drawable-xhdpi/ic_search.png` | 占位 |
-| `ic_privacy_off` | 隐私模式关闭态 | `drawable-xhdpi/ic_privacy_off.png` | 占位 |
-| `ic_privacy_on` | 隐私模式开启态（激活） | `drawable-xhdpi/ic_privacy_on.png` | 占位 |
-| `ic_back` | 返回 | `drawable-xhdpi/ic_back.png` | 占位 |
-| `ic_close` | 关闭 / 清空输入 | `drawable-xhdpi/ic_close.png` | 占位 |
-| `ic_more` | 更多（⋯） | `drawable-xhdpi/ic_more.png` | 占位 |
-| `ic_settings` | 设置入口 | `drawable-xhdpi/ic_settings.png` | 占位 |
-| `ic_delete` | 删除条目 | `drawable-xhdpi/ic_delete.png` | 占位 |
-| `ic_edit` | 编辑服务器 | `drawable-xhdpi/ic_edit.png` | 占位 |
-| `ic_sort` | 排序入口 | `drawable-xhdpi/ic_sort.png` | 占位 |
-| `ic_expand_less` / `ic_expand_more` | 卷折叠箭头 | `drawable-xhdpi/ic_expand_*.png` | 占位 |
-| `ic_visibility` / `ic_visibility_off` | 密码显隐 | `drawable-xhdpi/ic_visibility*.png` | 占位 |
-| `ic_read` / `ic_unread` | 已读/未读标记 | `drawable-xhdpi/ic_*read.png` | 占位 |
-| `ic_cover_fallback_mark` | 封面缺失时的角标 | `drawable-xhdpi/ic_cover_fallback_mark.png` | 占位 |
+| `ic_home` | 底部导航 · 首页 | `drawable-xhdpi/ic_home.png` | 正式（Tabler） |
+| `ic_library` | 底部导航 · 书架 | `drawable-xhdpi/ic_library.png` | 正式（Tabler） |
+| `ic_compass` | 底部导航 · 发现 | `drawable-xhdpi/ic_compass.png` | 正式（Tabler） |
+| `ic_person` | 底部导航 · 我的 | `drawable-xhdpi/ic_person.png` | 正式（Tabler） |
+| `ic_search` | 顶栏搜索 | `drawable-xhdpi/ic_search.png` | 正式（Tabler） |
+| `ic_privacy_off` | 隐私模式关闭态 | `drawable-xhdpi/ic_privacy_off.png` | 正式（Tabler） |
+| `ic_privacy_on` | 隐私模式开启态（激活） | `drawable-xhdpi/ic_privacy_on.png` | 正式（Tabler） |
+| `ic_back` | 返回 | `drawable-xhdpi/ic_back.png` | 正式（Tabler） |
+| `ic_close` | 关闭 / 清空输入 | `drawable-xhdpi/ic_close.png` | 正式（Tabler） |
+| `ic_more` | 更多（⋯） | `drawable-xhdpi/ic_more.png` | 正式（Tabler） |
+| `ic_settings` | 设置入口 | `drawable-xhdpi/ic_settings.png` | 正式（Tabler） |
+| `ic_delete` | 删除条目 | `drawable-xhdpi/ic_delete.png` | 正式（Tabler） |
+| `ic_edit` | 编辑服务器 | `drawable-xhdpi/ic_edit.png` | 正式（Tabler） |
+| `ic_sort` | 排序入口 | `drawable-xhdpi/ic_sort.png` | 正式（Tabler） |
+| `ic_expand_less` / `ic_expand_more` | 卷折叠箭头 | `drawable-xhdpi/ic_expand_*.png` | 正式（Tabler） |
+| `ic_visibility` / `ic_visibility_off` | 密码显隐 | `drawable-xhdpi/ic_visibility*.png` | 正式（Tabler） |
+| `ic_read` / `ic_unread` | 已读/未读标记 | `drawable-xhdpi/ic_*read.png` | 正式（Tabler） |
+| `ic_cover_fallback_mark` | 封面缺失时的角标 | `drawable-xhdpi/ic_cover_fallback_mark.png` | 正式（Tabler） |
 
 ### 2.3 阅读器图标（24dp 线性）
 
 | ID | 用途 | PNG 输出 | 状态 |
 | --- | --- | --- | --- |
-| `ic_bookmark` | 书签（未选中，**线性空心**） | `drawable-xhdpi/ic_bookmark.png` | 占位 |
-| `ic_bookmark_filled` | 书签（已选中，**实心**） | `drawable-xhdpi/ic_bookmark_filled.png` | 占位 |
-| `ic_prev_chapter` / `ic_next_chapter` | 章节切换（阅读器底栏） | `drawable-xhdpi/ic_*_chapter.png` | 占位 |
-| `ic_settings_reader` | 阅读设置（阅读器顶栏） | `drawable-xhdpi/ic_settings_reader.png` | 占位 |
-| `ic_toc` | 目录（系列详情「Volumes & chapters」标题） | `drawable-xhdpi/ic_toc.png` | 占位 |
-| `ic_double_page` | 双页模式（阅读设置分组标题） | `drawable-xhdpi/ic_double_page.png` | 占位 |
-| `ic_webtoon` | Webtoon 模式（阅读设置分组标题） | `drawable-xhdpi/ic_webtoon.png` | 占位 |
-| `ic_brightness` | 亮度覆盖（阅读设置分组标题） | `drawable-xhdpi/ic_brightness.png` | 占位 |
-| `ic_volume` | 音量键翻页（阅读设置开关行） | `drawable-xhdpi/ic_volume.png` | 占位 |
+| `ic_bookmark` | 书签（未选中，**线性空心**） | `drawable-xhdpi/ic_bookmark.png` | 正式（Tabler） |
+| `ic_bookmark_filled` | 书签（已选中，**实心**） | `drawable-xhdpi/ic_bookmark_filled.png` | 正式（Tabler） |
+| `ic_prev_chapter` / `ic_next_chapter` | 章节切换（阅读器底栏） | `drawable-xhdpi/ic_*_chapter.png` | 正式（Tabler） |
+| `ic_settings_reader` | 阅读设置（阅读器顶栏） | `drawable-xhdpi/ic_settings_reader.png` | 正式（Tabler） |
+| `ic_toc` | 目录（系列详情「Volumes & chapters」标题） | `drawable-xhdpi/ic_toc.png` | 正式（Tabler） |
+| `ic_double_page` | 双页模式（阅读设置分组标题） | `drawable-xhdpi/ic_double_page.png` | 正式（Tabler） |
+| `ic_webtoon` | Webtoon 模式（阅读设置分组标题） | `drawable-xhdpi/ic_webtoon.png` | 正式（Tabler） |
+| `ic_brightness` | 亮度覆盖（阅读设置分组标题） | `drawable-xhdpi/ic_brightness.png` | 正式（Tabler） |
+| `ic_volume` | 音量键翻页（阅读设置开关行） | `drawable-xhdpi/ic_volume.png` | 正式（Tabler） |
 
 ### 2.4 占位与空态
 
@@ -175,6 +217,8 @@ app/src/main/res/
    `generated placeholder`，再逐条把本表状态改为 `正式`；提交时截图确认。
 4. 全部为 `正式` 后删除占位生成物（`assets/generated/` 已被 gitignore，无需清理）。
 
+> 图标来源与规范化规则见 §1.2（Tabler v3.51.0）。重新抓取同名 SVG 覆盖即可，**不要**手改 path 数字。
+
 ### 验收
 
 - `docs/ASSETS.md` 中所有条目状态 = `正式`（M3 门禁）。
@@ -194,3 +238,4 @@ app/src/main/res/
 | 2026-11-06 | 修复「正式 SVG 放了不生效」：生成器改为逐条按 ID 解析（`assets/svg/<id>.svg` → `assigns/<id>.svg` → `assigns/kavita.svg` → 占位），并打印每条来源与仍占位清单；新增 §1.1 颜色规范（图标单色透明底、由运行期 tint 上色；全彩大图必须透明底） |
 | 2026-11-06 | **应用改名 Kavita Comic + 品牌图标**：`app_name` 四语言改为 `Kavita Comic`；launcher 三项改用 `assigns/logo.svg`。新增清单字段 `bleed`（`launcher-foreground` 专用，默认 `safe`；`full` = 108dp 铺满——**本项目不使用**，因为只有中间 72dp 可见，铺满会把标记放大 1.5 倍）；新增 `mipmap-anydpi-v26/ic_launcher{,_round}.xml` 自适应图标与 `@color/ic_launcher_background`（同色，仅填被裁掉的边缘）。`checkAssetsRegistered` 的白名单加入 `logo.svg`（品牌源被多个条目共享，本就不是清单 ID） |
 | 2026-11-06 | 图标白色标记归一到 50%×50%：原 path 实际 49.138% × 50.754% 且垂直中心偏上，非正方形，靠缩放无法精确命中，故在白色 path 上加 `matrix(1.017545 0 0 0.985148 -8.983 8.722)`（`tx = 512 - sx·cx` 公式保证中心落在 viewBox 中心）。实测 192px PNG = 144/288 = 50%，设备端 168px 圆盘内白色 84px = 50% |
+| 2026-11-09 | **31 个 24dp 图标替换为 Tabler Icons v3.51.0**（MIT）：源 SVG 落在 `assets/svg/<清单ID>.svg`，生成器只做 `stroke-width 2 → 1.5`、`currentColor → #000000` 两处规范化；清单状态 31 项 → `final`。插画类（`logo_full`/`privacy_placeholder`/`cover_fallback`/`empty_*`/`error_generic`）与 launcher 系列**未改动**，由维护者另行提供。新增 §1.2 记录来源、映射表与许可 |

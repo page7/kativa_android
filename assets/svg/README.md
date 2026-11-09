@@ -11,3 +11,8 @@ runtime. Full-colour illustrations must paint their own colours. See `docs/ASSET
 
 `./gradlew :app:checkAssetsRegistered` fails on a file here whose name is not a manifest id, so a
 typo cannot be mistaken for "the artwork did not take effect".
+
+The 24dp icons in this folder are generated from [Tabler Icons](https://tabler.io/icons) v3.51.0
+(MIT, see `LICENSE.txt`). Re-fetch/normalise them with `tools/fetch-tabler-icons.ps1` — do not edit
+those SVGs by hand. `DeliveredIconsTest` also fails if an entry is marked `final` in
+`assets/manifest.json` without a source file here.
