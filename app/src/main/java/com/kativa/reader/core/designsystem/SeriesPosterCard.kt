@@ -48,7 +48,15 @@ fun SeriesPosterCard(
                 modifier = Modifier.fillMaxWidth().aspectRatio(KativaDimens.PosterAspect),
             )
 
-            // Bottom gradient keeps titles readable on light covers.
+            // Bottom gradient keeps titles readable on covers.
+            //
+            // The veil is theme-dependent (AGENTS.md ยง6): dark theme fades to black so white ink
+            // pops, light theme fades to *white* so the title can be black โ€?a black veil in light
+            // mode read as a grey smudge across every list card.
+            val dark = LocalDarkTheme.current
+            val scrim = if (dark) KativaColors.PosterScrimDark else KativaColors.PosterScrimLight
+            val titleInk = if (dark) Color.White else Color.Black
+            val subtitleInk = if (dark) Color.White.copy(alpha = 0.78f) else Color.Black.copy(alpha = 0.72f)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -61,7 +69,7 @@ fun SeriesPosterCard(
                         .padding(top = 40.dp)
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.72f)),
+                                listOf(Color.Transparent, scrim),
                             ),
                         ),
                 )
@@ -76,7 +84,7 @@ fun SeriesPosterCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
+                    color = titleInk,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -84,7 +92,7 @@ fun SeriesPosterCard(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.78f),
+                        color = subtitleInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -96,7 +104,11 @@ fun SeriesPosterCard(
                     progress = progress,
                     height = 3.dp,
                     color = KativaColors.BrandPrimary,
-                    trackColor = Color.White.copy(alpha = 0.24f),
+                    trackColor = if (dark) {
+                        Color.White.copy(alpha = 0.24f)
+                    } else {
+                        Color.Black.copy(alpha = 0.24f)
+                    },
                     animated = false,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

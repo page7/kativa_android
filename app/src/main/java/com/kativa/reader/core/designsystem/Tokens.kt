@@ -71,6 +71,18 @@ object KativaColors {
     val FolderSurfaceDark = Color(0x1FFFFFFF)
     val FolderSurfaceLight = Color(0x14000000)
 
+    /**
+     * Bottom gradient behind poster titles (SeriesPosterCard), which every list uses.
+     *
+     * Dark theme darkens the bottom of the cover so white ink stays readable. Light theme must
+     * do the *inverse*: the black veil read as a grey smudge across every card in light mode, so
+     * it fades to white instead and the title flips to black. Read through the theme split in
+     * [SeriesPosterCard]; both values are ≥ 72% opaque so the artwork under the title never
+     * competes with the text.
+     */
+    val PosterScrimDark = Color(0xB8000000)
+    val PosterScrimLight = Color(0xE6FFFFFF)
+
     val TextPrimaryDark = Color(0xFFF2F3F5)
     val TextSecondaryDark = Color(0xFF9AA0AA)
     val TextPrimaryLight = Color(0xFF15161A)

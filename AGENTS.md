@@ -439,6 +439,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | **加入想读后「仅收藏」筛选仍为空** | `SeriesListCache` 有 2 分钟 TTL，而「收藏」= 想读，属于服务端用户状态；`ShelfRepository` 的 add/remove 只调了接口，没有失效任何缓存，于是筛选命中旧页 | `ShelfRepository.add/removeToWantToRead` 成功后调用 `seriesCache.clearServer(activeId)`（只清当前服务器，符合 §4.1 的会话隔离）。真机验证：详情页「加入想读」→ 回列表 → 仅收藏筛选立即返回该系列 |
 | 切筛选时旧请求回包覆盖新结果 | `LibraryGridViewModel.load()` 无请求序号，慢返回的旧条件结果会盖掉新条件 | 加单调 `requestId`，回包与当前序号不符即丢弃；末页判定改用 `Pagination.totalItems` 精确计算，仅 header 缺失时才退回"短页"启发式 |
 | 排序没有方向，且方向会在字段间串味 | 面板只有排序字段，没有升/降序控件（`isAscending` 恒为 `true`） | 补回升序/降序两段式选择；`SeriesSort.defaultAscending` 定义各字段自然默认（名称升序、两个日期字段降序），`withSort()` 默认取该值，面板切换字段时同步重置方向——避免"按加入时间+升序"把最老的排最前 |
+| **浅色主题下所有列表的封面遮罩是一层灰蒙蒙的黑渐变、标题白字发灰** | `SeriesPosterCard`（首页流/库网格/搜索/书架/书签/流列表共用的唯一列表卡片）把底部渐变写死为 `Color.Black.copy(alpha = 0.72f)` + `Color.White` 标题——这是深色主题的正确做法，浅色主题下黑纱罩在白卡上就成了灰色遮罩，白字也失去对比 | 新增 `KativaColors.PosterScrimDark/PosterScrimLight`（黑 72% / 白 90%，均 ≥72% 不透明以压住封面），`SeriesPosterCard` 按 `LocalDarkTheme` 三处分叉：遮罩、标题（浅色改 `Color.Black`）、副标题与进度条轨道同步反色；深色主题取值不变。新增 `PosterScrimContractTest` 守卫（已反向验证：把遮罩改回写死黑色立即 FAIL）；阅读器 chrome 与详情页 hero 渐变属常暗/品牌色场景，不在本次范围 |
 
 ### M2 阅读器 UI 修复（测试反馈，2026-11）
 
