@@ -26,7 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -38,16 +37,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.designsystem.EmptyState
-import com.kativa.reader.core.designsystem.ErrorState
 import com.kativa.reader.core.designsystem.SectionHeader
 import com.kativa.reader.core.designsystem.SeriesPosterCard
-import com.kativa.reader.ui.common.illustration
-import com.kativa.reader.ui.common.message
 import com.kativa.reader.ui.common.PrivacyToggle
 
 /**
- * P03 â€?home. Top bar carries search + the privacy toggle; there is deliberately no
+ * P03 é”Ÿ?home. Top bar carries search + the privacy toggle; there is deliberately no
  * notification affordance anywhere (docs/PAGES.md P03).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,7 +61,7 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = {},
                 navigationIcon = {
                     // User centre entry. The greeting text was removed by product decision: the
@@ -95,11 +92,9 @@ fun HomeScreen(
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> ErrorState(
-                    message = state.error!!.message(),
-                    retryLabel = stringResource(R.string.common_retry),
+                state.error != null -> com.kativa.reader.ui.common.KativaErrorState(
+                    error = state.error!!,
                     onRetry = viewModel::load,
-                    illustration = state.error!!.illustration,
                 )
 
                 state.isEmpty -> EmptyState(

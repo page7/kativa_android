@@ -22,15 +22,18 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,6 +46,7 @@ import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.KativaPrimaryButton
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.network.KativaError
 import com.kativa.reader.ui.common.loginMessage
 
@@ -57,10 +61,21 @@ fun LoginScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
+    val passwordFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // The account is already known, so put the cursor in the password field and raise the IME:
+    // re-login should be "type password, done", not "hunt for the right field".
+    LaunchedEffect(state.usernamePrefilled) {
+        if (state.usernamePrefilled) {
+            passwordFocus.requestFocus()
+            keyboard?.show()
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = { Text(stringResource(R.string.login_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -110,6 +125,13 @@ fun LoginScreen(
                         onValueChange = viewModel::onUsernameChange,
                         label = { Text(stringResource(R.string.login_username)) },
                         singleLine = true,
+                        // The account from last time is pre-filled and read-only-ish: the user only
+                        // has to type a password. Tapping the field still allows switching account.
+                        supportingText = if (state.usernamePrefilled) {
+                            { Text(stringResource(R.string.login_remembered_account, state.username)) }
+                        } else {
+                            null
+                        },
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Text,
                             imeAction = ImeAction.Next,
@@ -146,7 +168,15 @@ fun LoginScreen(
                                 )
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        // When the account came from storage the password is the only thing left
+                        // to type, so focus it straight away.
+                        modifier = Modifier.fillMaxWidth().then(
+                            if (state.usernamePrefilled) {
+                                Modifier.focusRequester(passwordFocus)
+                            } else {
+                                Modifier
+                            },
+                        ),
                     )
                 }
 

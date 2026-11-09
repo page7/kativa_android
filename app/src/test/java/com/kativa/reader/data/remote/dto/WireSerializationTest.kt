@@ -67,6 +67,41 @@ class WireSerializationTest {
         assertTrue("isAscending must be present: $payload", payload.contains("\"isAscending\":true"))
     }
 
+    /**
+     * Regression: the name search used `Contains(5)`, which Kavita's `ComparisonProfile`
+     * rejects for `SeriesName` (allowed: Equal, NotEqual, BeginsWith, EndsWith, and Matches).
+     * The server threw, the request came back as an error, and the grid looked simply
+     * "filtered to nothing". The comparison integer is the whole contract, so it is pinned here
+     * against the exact serialised body of a library-scoped filter.
+     */
+    @Test
+    fun `library scoped name search uses Matches and pins the And combination`() {
+        val body = com.kativa.reader.domain.model.SeriesFilter.Default
+            .withNameQuery("Love")
+            .withWantToRead(true)
+            .toLibraryScopedDto(libraryId = 5)
+
+        val payload = json.encodeToString(body)
+
+        assertTrue("combination must be 1: $payload", payload.contains("\"combination\":1"))
+        assertTrue(
+            "library scope must be first: $payload",
+            payload.contains("""{"field":19,"comparison":0,"value":"5"}"""),
+        )
+        assertTrue(
+            "name must use Matches(7), never Contains(5): $payload",
+            payload.contains("""{"field":1,"comparison":7,"value":"Love"}"""),
+        )
+        assertTrue(
+            "want-to-read is a boolean string: $payload",
+            payload.contains("""{"field":26,"comparison":0,"value":"true"}"""),
+        )
+        assertTrue(
+            "sortOptions must be encoded: $payload",
+            payload.contains("\"sortOptions\":{\"sortField\":1,\"isAscending\":true}"),
+        )
+    }
+
     @Test
     fun `save progress encodes every required field`() {
         val payload = json.encodeToString(

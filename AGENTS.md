@@ -204,9 +204,11 @@ com.kativa.reader
 ## 6. 设计系统
 
 - **主题色**：主色 `#4AC694`（薄荷绿）；深色主题色 `#2D7A56`。浅色主题用主色，深色主题用深主题色作为主色（对比度需过 WCAG AA）。M3 动态取色**关闭**（避免破坏封面视觉），封面主色可作为详情页渐变背景（`SeriesDto.primaryColor/secondaryColor`）。
+- **顶栏**：全应用只有 `core/designsystem/KativaTopAppBar`，屏幕禁止直接用 Material `TopAppBar`。亮色主题顶栏铺满品牌色 `#4AC694`，文字/图标用 `onPrimaryContainer`（近黑，`#07130E`）——白字配薄荷绿只有 ~2.2:1，不过 AA。品牌色顶上不能再用薄荷绿做强调色，改用 `LocalOnBrandSurface`（`kativaTopBarIconTint()`）切到墨色。`TopBarContractTest` 守卫这两条。
+- **填充件一律用主题色（不加深）**：主按钮、选中态分段控件、开关轨道、首页「搜索」大卡等**大面积填充**用 `#4AC694` + 墨色 `OnBrand` 内容，**不要**用深绿 `#2D7A56`（它只用于浅色主题的 `primary` 文案/图标墨色与暗色主题容器）。开关统一走 `core/designsystem/KativaSwitch`。小指示器（RadioButton 圆点等）保留 `primary`，因为薄荷绿细环在白底上对比不足。
 - **暗色优先**（阅读产品），支持跟随系统。
 - **隐私模式**（全局开关，主界面右上角）：
-  - 开启后**所有封面/缩略图不发起网络请求**，直接渲染深灰占位图（`#3A3A3A`，来自素材表 `privacy_placeholder`），卡片布局与进度信息保持不变。
+  - 开启后**所有封面/缩略图不发起网络请求**，直接渲染纯色占位图——暗色主题 `#3A3A3A`、浅色主题 `#E9EBEF`（`#3A3A3A` 在白色卡片里像个黑洞）——来自素材表 `privacy_placeholder` 的淡色水印叠在该底色上，卡片布局与进度信息保持不变。底色由 `PrivacyCoverPlaceholder` 按 `LocalDarkTheme` 选取 `PrivacyFill`/`PrivacyFillLight`。
   - 用 `PrivacyMask: StateFlow<Boolean>`（DataStore 持久化，按服务器独立），`CoverUrlBuilder`/Coil `Interceptor` 短路请求——**不是加载后打码，而是根本不请求**。
   - 阅读器内的正文页不受影响（隐私模式只管封面/缩略图/搜索结果图）。
   - 开关状态立即生效于所有已组合的列表。
@@ -384,7 +386,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | --- | --- | --- | --- |
 | **M0 骨架** | ✅ 已完成 | 工程搭建、设计系统（#4AC694/#2D7A56）、多服务器添加/选择、登录（密码 + API Key）、网络层（分页/错误/明文门禁）、首页三流 + 继续阅读大卡、隐私模式开关、四语言、素材管线 | 构建通过、32 个单测通过、多服务器可添加/选择/登录、首页展示 On Deck、隐私模式可开关 |
 | **M1 可读** | ✅ 已完成 | 库内系列网格（排序 + 无限滚动）、系列详情（卷折叠/章节/标记已读）、漫画阅读器（单页翻页/分区点击/页码跳转/书签/章节切换）、进度同步（防抖 + Room 写后队列 + 断网补传）、图片 URL 按会话生成 | 构建通过、54 个单测通过、可完整读完一卷并跨设备续读 |
-| **M2 好用** | ✅ 已完成 | 双页/上下/Webtoon 三种模式 + 阅读设置抽屉（方向/布局/缩放/封面单独/亮度）；哨兵编号修复（`-100000`/`100000` 不再外泄，散章卷显示"全一章/单话"）；搜索（防抖/分组/历史）；筛选与排序面板（字段/比较符/条件 chips）；合集；阅读清单；想读（含系列详情加入/移出） | 构建通过、103 个单测通过、lint 0 error、四语言 261 条对齐 |
+| **M2 好用** | ✅ 已完成 | 双页/上下/Webtoon 三种模式 + 阅读设置抽屉（方向/布局/缩放/封面单独/亮度）；哨兵编号修复（`-100000`/`100000` 不再外泄，散章卷显示"全一章/单话"）；搜索（防抖/分组/历史）；筛选与排序面板（字段/比较符/条件 chips）；合集；阅读清单；想读（含系列详情加入/移出）；**我的书签**（我的页入口 + 书签页缩略图网格 + 直达书签页） | 构建通过、103 个单测通过、lint 0 error、四语言 261 条对齐 |
 | **M3 完善** | ⬜ | EPUB/PDF 阅读器、阅读配置（Reading Profiles）、统计、批注/评分、平板双栏、素材正式替换 | 功能对齐 Web 端读者主路径；占位素材替换完成 |
 | **M4 打磨** | ⬜ | 性能、无障碍、截图测试、Play 上架物料 | 冷启动 < 2s，滚动 60fps |
 
@@ -412,6 +414,9 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | 系列列表重复请求 | 无缓存 | 新增 `SeriesListCache`（按 serverId+参数签名、TTL 2 分钟、上限 40 条、不缓存失败） |
 | **API Key 登录恒 400 "One or more validation errors occurred"** | `LoginRequest` 的 `username`/`password` 声明了 `= ""` 默认值，而 kotlinx.serialization **默认省略等于默认值的字段**，实际只发 `{"apiKey":"…"}`；Kavita 的 `LoginDto` 把二者标记为必填 → 400 | 新增 `WireJson`（`encodeDefaults = true`）作为唯一序列化入口，并用 `WireSerializationTest` 断言**精确线上负载**。MockWebServer 抓不到这类 bug：它验证的是"意图"，而字段是被编码器静默丢弃的 |
 | **保存服务器后登录仍走 https**（`SSLException: Unable to parse TLS packet header`） | 裸 `host:port` 默认补 `https://`（正确的安全默认），但自建 Kavita 常只开明文；此前只有"测试连接"按钮会回退 http，保存与登录都不会 | 在 `ServerSetupViewModel.save()` 中对未验证的 https 档案先探测：https 失败且判定为 TLS 错误时再探 http，**只有真的通了才**填入 `http://` 并开启该服务器的明文开关，同时给出警告并要求用户**再点一次保存确认**（不静默降级，符合 §4.1）。请求层**不做**自动降级 |
+| **搜索箱是 Material 的盒式 `OutlinedTextField`，方框+四角在顶栏里显得笨重** | 直接用了 Material 默认外形，没走设计系统 | 新增 `core/designsystem/KativaTextField.kt: KativaUnderlineField`（`BasicTextField` + `decorationBox`，只有底部一条横线：静止 1dp `outline`、聚焦 2dp `primary` 带动画；`heightIn(min=48.dp)` 保住点击区；清除按钮由调用方 `trailingIcon` 传入）。搜索页改用该组件 |
+| **输入框在空态与输入态高度不一致（下划线上下跳）** | 组件高度由子节点撑开：空态没有尾随 Clear 按钮，行高只有一行文字；输入后 `IconButton` 把行撑到 48dp，整个字段长约 6dp，横线随之位移。同时下划线参与布局、`1dp↔2dp` 的聚焦动画本身也会挤动一像素 | 高度改为**与内容无关**：`fieldHeight = max(48dp, 行高 + 4dp + 2dp)`，行高从 `typography.bodyLarge.lineHeight × fontScale` 推导（大字号自动变高、不裁切）；下划线放进独立的 2dp 槽位，粗细变化不再影响布局。真机实测 font1.0 `y=88..220 h=132`、font2.0 `y=79..228 h=149`，空/输入/清空三态**像素级一致** |
+| **中文内容搜不到，被怀疑是编码问题** | **不是编码问题**（日志里 `queryString=%E8%83%BD%E5%8A%9B`，服务端 200 正常）。两个真实原因：① Kavita 的 `/Search/search` 只搜 `includeInSearch=true` 的资料库（`GetLibraryIdsForUserIdAsync(QueryContext.Search)`），而用户中文漫画所在的「系列」库 `includeInSearch=false`；② 服务端只做 SQL `LIKE %q%` 子串匹配，**不做简繁/异体折叠**（`樂園`→命中、`乐园`→0；`女兒`→命中、`女儿`→0）。同为 CJK 的日文假名可正常命中 | 按产品决定**不改搜索行为**，只把机制写进 `docs/API.md` §6（含自查 `includeInSearch` 的方法与简繁限制），并修正 `docs/FLOWS.md` 中过期的"≥ 2 字符"门槛 |
 | 首页搜索按钮无障碍标签写成 "View all" | `HomeScreen` 里搜索 `IconButton` 误用了 `R.string.home_view_all` | 改用 `R.string.search_title`（四语言已有该键）；TalkBack 与自动化都能正确定位 |
 | **粘贴 OPDS 链接后被拼成 `/api/opds/<key>/api/`** | `ServerUrl.normalize` 只识别 `?apiKey=`，把 `/api/opds/<key>` 当成子路径保留；`extractedApiKey` 抽出来却从未被使用 | 新增 OPDS 后缀识别：剥掉 `/api/opds/<key>` 并把末段作为密钥返回；密钥经 `PendingApiKeyStore`（仅内存、一次性）交给登录页，自动切到「API 密钥」页签并预填 |
 | **手动输入 `http://` 地址后登录报 "Network error"** | 保存时 `allowCleartext` 只取开关状态；用户显式写 `http://` 但没动开关，档案被存成 `http + allowCleartext=false`，明文门禁拦下**所有**请求 | 以地址栏里的 `http://` 作为明确同意：保存时同步把开关与档案置为允许明文（用户自己输入的协议本身就是选择） |
@@ -430,6 +435,10 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | **「图片适配」是死控件（能选但不生效）** | `ReaderSettings.scalingOption` 只被 `setScaling` 写入、抽屉读取，渲染层永远硬编码 `ContentScale.Fit` —— 与之前的亮度/页码开关是同一类 bug | 新增 `ReaderScaling.contentScale()` 作为唯一映射出口（FitHeight→`Fit`、FitWidth→`FillWidth`、Original→`None`、Automatic→`Fit`），`PagerSlotContent` 单页与双页两处都改用它；条漫固定 `FillWidth` 并**在抽屉里隐藏该控件**，不提供渲染层会忽略的选项 |
 | 阅读方向/页面布局出现在它们无效的模式下 | 方向是**水平**概念（镜像点击分区、pager 顺序、对开页左右顺序），纵向翻页与条漫恒为自上而下；页面布局同理，对开页需要左右并排 | `ReaderSettings.readingDirectionApplies` / `pageLayoutApplies`（均仅 `LeftRight`）控制抽屉可见性；渲染层把 `isRightToLeft` 与 `readingDirectionApplies` 取与，避免残留的 RTL 偏好在纵向模式下镜像点击分区 |
 | 双页布局切到上下翻页后两页叠在一个槽位 | `isDoublePage = !isWebtoon && layoutMode != Single`，纵向模式下仍会 `buildSlots` 配对，而 `VerticalPager` 每槽一屏 | `isDoublePage` 收紧为 `readerMode == LeftRight && layoutMode != Single`；抽屉里布局选项也只在该模式下出现。`ReaderSettingsRulesTest` 覆盖（已反向验证会 FAIL） |
+| **筛选完全不起作用**（现象：加条件后列表要么不变、要么空） | 三个独立缺陷叠加：① 名称搜索默认发 `Contains(5)`，而 Kavita 的 `ComparisonProfile` 只允许 `SeriesName` 用 `Equal/NotEqual/BeginsWith/EndsWith/**Matches**`，落库前直接抛异常 → 整个 `/Series/v2` 失败；② 界面暴露 16 字段 × 12 比较符 × And/Or 全矩阵，其中大量组合是服务端不接受的死组合，排序也只 `take(6)` 了个残缺子集；③ 面板「应用」后列表与顶部 chips 都有，但 `SeriesSort` 枚举名与 `sortField` 混用、`removeStatement` 按下标删会产生歧义 | 按产品决定**收敛为三项**：排序（名称 1 / 加入时间 2 / 阅读时间 7）、名称搜索（`SeriesName` + `Matches(7)`）、是否收藏（`WantToRead(26)`=="true"，即「想读」）。`SeriesFilter` 重写为只含这些字段，组合固定 `And(1)`，库范围由 `toLibraryScopedDto(libraryId)` 注入第一条并禁止外部覆盖；领域枚举不再保留服务端不接受的比较符，**非法组合无法被构造出来**。`WireSerializationTest` 断言精确线上负载（`{"field":1,"comparison":7,"value":"Love"}`），`SeriesFilterTest` 覆盖条件增删不重复。真机验证：搜索 `Love` → 200 + 4 条命中 |
+| **加入想读后「仅收藏」筛选仍为空** | `SeriesListCache` 有 2 分钟 TTL，而「收藏」= 想读，属于服务端用户状态；`ShelfRepository` 的 add/remove 只调了接口，没有失效任何缓存，于是筛选命中旧页 | `ShelfRepository.add/removeToWantToRead` 成功后调用 `seriesCache.clearServer(activeId)`（只清当前服务器，符合 §4.1 的会话隔离）。真机验证：详情页「加入想读」→ 回列表 → 仅收藏筛选立即返回该系列 |
+| 切筛选时旧请求回包覆盖新结果 | `LibraryGridViewModel.load()` 无请求序号，慢返回的旧条件结果会盖掉新条件 | 加单调 `requestId`，回包与当前序号不符即丢弃；末页判定改用 `Pagination.totalItems` 精确计算，仅 header 缺失时才退回"短页"启发式 |
+| 排序没有方向，且方向会在字段间串味 | 面板只有排序字段，没有升/降序控件（`isAscending` 恒为 `true`） | 补回升序/降序两段式选择；`SeriesSort.defaultAscending` 定义各字段自然默认（名称升序、两个日期字段降序），`withSort()` 默认取该值，面板切换字段时同步重置方向——避免"按加入时间+升序"把最老的排最前 |
 
 ### M2 阅读器 UI 修复（测试反馈，2026-11）
 
@@ -452,6 +461,8 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | 设置页重复 Startup / Servers | 与 Me 页的「开机自动登录」「切换服务器」重复，且描述文案不一致 | 设置页只保留 Appearance + About；同时清理死参数 `onManageServers` 与死属性 `autoLoginName` |
 | 资料库文件夹间距 | 与上方流区对齐到同一 16dp 栅格 |
 | **文件夹内封面缩进与背景** | 封面拼图原本铺满整个顶部区域、四格紧贴，卡片背景是实色 `surface`。改为：拼图四周内缩 4dp、封面之间同 4dp 间隙（**同一个 token `INSET`，两者永不漂移**）、封面格加 3dp 圆角、卡片背景改为半透明灰（深色主题白色蒙版 `#1FFFFFFF`，浅色主题黑色蒙版 `#14000000`，均可透出页面底色）。隐私占位图继承同一缩进 |
+| **隐私模式下文件夹内的遮罩图顶掉上边距、没有圆角** | `PrivacyCoverPlaceholder` 无条件带 `aspectRatio(2f/3f)`。poster 槽位（`SeriesPosterCard`/详情封面）的调用方本来就传了同一比例，所以看不出问题；但首页文件夹的槽位是**正方形**（`aspectRatio(1f)` + `padding(INSET)`），2:3 的占位图比槽位高，Compose 把它撑到槽位外，顶部 4dp 内边距被吃掉、圆角也被外层卡片的 16dp 方形裁剪顶替（像素实测：遮罩 `y=966..1445` 高 480px，而拼图槽位应为 `y=978..1434` 高 456px，宽度还只有 458px） | 组件改为**只填满调用方给的盒子**（去掉内部 `aspectRatio`），并新增 `shape` 参数（默认仍是 `PosterRadius`）；文件夹内传入与四宫格共用的 `MosaicCellShape`（3dp，**后被下方「圆角太小」一行改为 `PrivacyPanelShape` = 12dp**）。真机像素校验：遮罩变为 `458×458`、顶部起点 977（与 4dp 内边距一致）；`CoverImage` 的 poster 调用方各自保留比例，无回归。新增 `PrivacyPlaceholderSizingTest` 守卫（已反向验证：把 `aspectRatio` 加回去立即 FAIL） |
+| **隐私模式下文件夹遮罩图圆角太小** | `LibraryFolderCard` 在隐私模式下把四宫格的 `MosaicCellShape`（3dp）直接套给了一整块占位面板。四宫格的 3dp 是「小格子」的圆角，而隐私面板是**一整块**封面大小的面，两者尺度不同；3dp 在 166dp 宽的面板上几乎看不出来，视觉上就是一块方角灰板贴在 16dp 圆角卡片里 | 新增 `PrivacyPanelShape = RoundedCornerShape(KativaDimens.PosterRadius.dp)`（12dp，与全应用封面同源 token），隐私面板改用它；`MosaicCellShape` 只留给四宫格本身。真机像素校验（440dpi）：角落内缩从 3dp 的 ~6px 变为 12dp 的 ~28px，与 `SeriesPosterCard` 封面圆角一致；`PrivacyPlaceholderSizingTest` 改为断言 `shape = PrivacyPanelShape`、显式断言**不得**再出现 `shape = MosaicCellShape`，并新增一条断言 `PrivacyPanelShape` 必须由 `KativaDimens.PosterRadius` 派生（已反向验证：改回 `MosaicCellShape` 立即 FAIL） |
 | **文件夹统计数字全部显示 "4 series"** | 两层错误叠加：① `HomeViewModel` 用 `series.size`（预览图数量，上限 4）当总数；② 即便改用 `Pagination` 头也取不到——`PaginationInterceptor` 用 `ThreadLocal`，OkHttp 在自己的 dispatcher 线程写入、协程在另一线程读取，`consume()` **永远是 null**。`LibraryDto` 本身没有系列数字段，真实总数只存在于 `Pagination` 响应头 | API 改为返回 `retrofit2.Response<List<SeriesDto>>`，直接从 `response.headers()["Pagination"]` 解析 `totalItems`（天然按请求隔离，无线程问题）；新增 `SeriesPage{items,totalItems}` 并从 `totalOrPageSize` 兜底；`SeriesListCache` 一并缓存 `totalItems`，缓存命中不会退化。实测 4/40/85/71 与服务端一致；`PaginationInterceptor` 保留但已标注 **禁止用于读元数据** |
 
 ### M1 落地记录

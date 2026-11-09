@@ -1,8 +1,11 @@
 package com.kativa.reader.data.repository
 
 import com.kativa.reader.core.auth.ActiveServerStore
+import com.kativa.reader.core.auth.RememberedAccount
+import com.kativa.reader.core.auth.RememberedAccounts
 import com.kativa.reader.core.auth.Session
-import com.kativa.reader.core.auth.SessionStore
+import com.kativa.reader.core.auth.SessionExpiryBus
+import com.kativa.reader.core.auth.SessionSink
 import com.kativa.reader.core.network.ApiFactory
 import com.kativa.reader.core.network.ErrorMapper
 import com.kativa.reader.core.network.KativaError
@@ -22,17 +25,19 @@ import retrofit2.HttpException
 @Singleton
 class AuthRepository @Inject constructor(
     private val apiFactory: ApiFactory,
-    private val sessionStore: SessionStore,
+    private val sessionStore: SessionSink,
     private val activeServerStore: ActiveServerStore,
+    private val rememberedAccounts: RememberedAccounts,
+    private val sessionExpiryBus: SessionExpiryBus,
 ) {
 
     suspend fun loginWithPassword(username: String, password: String): Outcome<Session> =
-        login(LoginRequest(username = username, password = password))
+        login(LoginRequest(username = username, password = password), username)
 
     suspend fun loginWithApiKey(apiKey: String): Outcome<Session> =
-        login(LoginRequest(apiKey = apiKey))
+        login(LoginRequest(apiKey = apiKey), username = null)
 
-    private suspend fun login(request: LoginRequest): Outcome<Session> {
+    private suspend fun login(request: LoginRequest, username: String?): Outcome<Session> {
         val server = activeServerStore.active.value
             ?: return Outcome.Failure(KativaFailure(KativaError.Unknown))
 
@@ -60,6 +65,14 @@ class AuthRepository @Inject constructor(
             )
             sessionStore.save(session)
             activeServerStore.updateSession(session)
+            // Remember the non-secret half of the sign-in so an expired session can be renewed
+            // with just the password (never the username again).
+            rememberedAccounts.save(
+                RememberedAccount(
+                    serverId = server.id,
+                    username = username?.trim()?.takeIf { it.isNotBlank() } ?: user.username,
+                ),
+            )
             Outcome.Success(session)
         } catch (t: Throwable) {
             Outcome.Failure(KativaFailure(ErrorMapper.from(t)))
@@ -108,6 +121,17 @@ class AuthRepository @Inject constructor(
     suspend fun signOut(serverId: String) {
         sessionStore.clear(serverId)
         if (activeServerStore.activeId == serverId) activeServerStore.updateSession(null)
+    }
+
+    /**
+     * Marks this server's stored token as unusable after a 401.
+     *
+     * The remembered account survives: the next sign-in only needs the password.
+     */
+    suspend fun invalidateSession(serverId: String, notify: Boolean = true) {
+        sessionStore.clear(serverId)
+        if (activeServerStore.activeId == serverId) activeServerStore.updateSession(null)
+        if (notify) sessionExpiryBus.notifyExpired(serverId)
     }
 
     private companion object {

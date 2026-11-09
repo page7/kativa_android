@@ -14,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,9 +23,10 @@ import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.designsystem.SectionHeader
 
-/** P12 — discovery entry points: search, collections, reading lists, want to read. */
+/** P12 �?discovery entry points: search, collections, reading lists, want to read. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverPlaceholder(
@@ -36,7 +36,7 @@ fun DiscoverPlaceholder(
     onOpenWantToRead: () -> Unit = {},
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_discover)) }) },
+        topBar = { KativaTopAppBar(title = { Text(stringResource(R.string.nav_discover)) }) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -50,7 +50,9 @@ fun DiscoverPlaceholder(
             Surface(
                 onClick = onOpenSearch,
                 shape = RoundedCornerShape(12.dp),
-                color = KativaColors.BrandPrimaryDeep,
+                // Brand mint, not the deep green: this is a filled card, i.e. the same visual role
+                // as a primary button (AGENTS.md §6).
+                color = KativaColors.BrandPrimary,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
@@ -60,12 +62,12 @@ fun DiscoverPlaceholder(
                     KativaIcon(
                         icon = KativaIcons.Search,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        tint = KativaColors.OnBrand,
                     )
                     Text(
                         text = stringResource(R.string.search_title),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = KativaColors.OnBrand,
                         modifier = Modifier.padding(start = 12.dp),
                     )
                 }

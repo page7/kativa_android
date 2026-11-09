@@ -7,12 +7,17 @@ import com.kativa.reader.data.remote.dto.SeriesSortOptionDto
 /**
  * Server-side series filter, mirroring Kavita's `SeriesFilterV2Dto`.
  *
- * Field/comparison values are the raw integers from `docs/API.md` §12 — do not invent new
- * values, the server will silently return nothing.
+ * Deliberately small: the inside-a-library grid only exposes sort, "want to read" and a name
+ * query (product decision, `docs/FEATURES.md` F-13). Field/comparison numbers are the raw
+ * integers from `docs/API.md` §12 — do not invent values, the server rejects some of them.
+ *
+ * **Comparisons are validated per field server-side** (`ComparisonProfile`), and a rejected
+ * comparison throws instead of returning no rows. Name matching therefore uses
+ * [Comparison.Matches] (SQL `LIKE %value%`), never `Contains(5)` — that one is only valid for
+ * list-shaped fields and made every name search fail with a 500.
  */
 data class SeriesFilter(
     val statements: List<Statement> = emptyList(),
-    val combination: Combination = Combination.And,
     val sort: SeriesSort = SeriesSort.SortName,
     val ascending: Boolean = true,
 ) {
@@ -20,18 +25,17 @@ data class SeriesFilter(
 
     val activeCount: Int get() = statements.size
 
-    enum class Combination(val apiValue: Int) {
-        /** All statements must match. */
-        And(1),
+    /** Free-text series name query, empty when the user typed nothing. */
+    val nameQuery: String
+        get() = statements.firstOrNull { it.field == SeriesFilterField.SeriesName }?.value.orEmpty()
 
-        /** Any statement may match. */
-        Or(0),
-    }
+    /** `null` = 不限制，`true` = 仅想读，`false` = 排除想读。 */
+    val wantToRead: Boolean?
+        get() = statements.firstOrNull { it.field == SeriesFilterField.WantToRead }
+            ?.value
+            ?.toBooleanStrictOrNull()
 
-    /**
-     * One filter row. [value] is a string because the API takes strings for every field type
-     * (numbers, ids, enums and dates alike).
-     */
+    /** One filter row. [value] is a string because the API takes strings for every field type. */
     data class Statement(
         val field: SeriesFilterField,
         val comparison: Comparison,
@@ -42,116 +46,109 @@ data class SeriesFilter(
             comparison = comparison.apiValue,
             value = value,
         )
-
-        /** Human-readable summary, used by the chips above the grid. */
-        fun describe(): String = "${field.label} ${comparison.label} $value"
     }
 
+    /**
+     * The combination is fixed to `And(1)`: the library scope statement is injected separately
+     * (see `LibraryRepository`) and an `Or` user statement would escape that scope.
+     */
     fun toDto(): SeriesFilterV2Dto = SeriesFilterV2Dto(
         statements = statements.map { it.toDto() },
-        combination = combination.apiValue,
+        combination = COMBINATION_AND,
         sortOptions = SeriesSortOptionDto(sortField = sort.apiValue, isAscending = ascending),
     )
 
-    fun withSort(sort: SeriesSort, ascending: Boolean): SeriesFilter =
+    /**
+     * Body for `POST /api/Series/v2` inside one library.
+     *
+     * The library restriction goes first and the combination is pinned to `And`, so a user
+     * condition can never union the library scope away. `WantToRead(26)` is pulled out by the
+     * server in a pre-pass (`SeriesRepository.ApplyWantToReadFilter`) before the And/Or group is
+     * applied, so it must be present as a sibling statement in this same flat list.
+     */
+    fun toLibraryScopedDto(libraryId: Int): SeriesFilterV2Dto = toDto().copy(
+        statements = listOf(
+            SeriesFilterStatementDto(
+                field = FIELD_LIBRARIES,
+                comparison = Comparison.Equal.apiValue,
+                value = libraryId.toString(),
+            ),
+        ) + statements.map { it.toDto() },
+        combination = COMBINATION_AND,
+    )
+
+    /**
+     * Changes the sort field and direction.
+     *
+     * [ascending] defaults to the field's natural direction (A→Z for names, newest first for
+     * dates) so "sort by date added" does not silently keep a stale "ascending" flag.
+     */
+    fun withSort(sort: SeriesSort, ascending: Boolean = sort.defaultAscending): SeriesFilter =
         copy(sort = sort, ascending = ascending)
 
-    fun withStatements(statements: List<Statement>, combination: Combination = this.combination): SeriesFilter =
-        copy(statements = statements, combination = combination)
+    /** Sets (or clears, for a blank query) the series-name condition. */
+    fun withNameQuery(query: String): SeriesFilter = copy(
+        statements = replacing(
+            SeriesFilterField.SeriesName,
+            query.trim()
+                .takeIf { it.isNotEmpty() }
+                ?.let { Statement(SeriesFilterField.SeriesName, Comparison.Matches, it) },
+        ),
+    )
 
-    fun withoutStatement(index: Int): SeriesFilter =
-        copy(statements = statements.filterIndexed { i, _ -> i != index })
+    /** `null` removes the condition, `true` keeps only want-to-read, `false` excludes it. */
+    fun withWantToRead(value: Boolean?): SeriesFilter = copy(
+        statements = replacing(
+            SeriesFilterField.WantToRead,
+            value?.let { Statement(SeriesFilterField.WantToRead, Comparison.Equal, it.toString()) },
+        ),
+    )
+
+    /** Keeps every other field's condition but the one being replaced. */
+    private fun replacing(field: SeriesFilterField, statement: Statement?): List<Statement> =
+        statements.filterNot { it.field == field } + listOfNotNull(statement)
 
     companion object {
         val Default = SeriesFilter()
+
+        /** `FilterCombination.And` (docs/API.md §12). */
+        const val COMBINATION_AND = 1
+
+        /** `SeriesFilterField.Libraries` — library scope statement (docs/API.md §12). */
+        const val FIELD_LIBRARIES = 19
     }
 }
 
 /**
- * `SeriesFilterField` values (docs/API.md §12).
+ * `SeriesFilterField` values used by the app (docs/API.md §12).
  *
- * Only fields that make sense on a phone are exposed; the server accepts many more.
+ * Local-only scope: the grid never filters by tags/genres; adding them back means re-checking
+ * each field's allowed comparisons in the server's `ComparisonProfile`.
  */
-enum class SeriesFilterField(val apiValue: Int, val label: String) {
-    SeriesName(1, "Series name"),
-    Writers(17, "Writer"),
-    Genres(18, "Genre"),
-    Tags(6, "Tag"),
-    PublicationStatus(2, "Status"),
-    AgeRating(4, "Age rating"),
-    UserRating(5, "My rating"),
-    ReadProgress(20, "Read progress"),
-    Formats(21, "Format"),
-    ReleaseYear(22, "Release year"),
-    Languages(3, "Language"),
-    WantToRead(26, "Want to read"),
-    ;
-
-    companion object {
-        fun from(apiValue: Int): SeriesFilterField? = entries.firstOrNull { it.apiValue == apiValue }
-    }
+enum class SeriesFilterField(val apiValue: Int) {
+    SeriesName(1),
+    WantToRead(26),
 }
 
-/** `FilterComparison` values (docs/API.md §12). */
-enum class Comparison(val apiValue: Int, val label: String) {
-    Equal(0, "is"),
-    NotEqual(9, "is not"),
-    Contains(5, "contains"),
-    NotContains(8, "doesn't contain"),
-    GreaterThan(1, ">"),
-    GreaterThanEqual(2, ">="),
-    LessThan(3, "<"),
-    LessThanEqual(4, "<="),
-    BeginsWith(10, "starts with"),
-    EndsWith(11, "ends with"),
-    IsEmpty(16, "is empty"),
-    IsNotEmpty(17, "is not empty"),
-    IsInLast(14, "in the last (days)"),
-    ;
-
-    /** Comparisons that need no user-entered value. */
-    val needsValue: Boolean
-        get() = this != IsEmpty && this != IsNotEmpty
-
-    /** The comparisons that actually work for a given field on Kavita. */
-    fun allowedFor(field: SeriesFilterField): Boolean = when (field) {
-        SeriesFilterField.SeriesName,
-        SeriesFilterField.Writers,
-        SeriesFilterField.Genres,
-        SeriesFilterField.Tags,
-        SeriesFilterField.Languages,
-        -> this in setOf(Equal, NotEqual, Contains, NotContains, BeginsWith, EndsWith, IsEmpty, IsNotEmpty)
-
-        SeriesFilterField.PublicationStatus,
-        SeriesFilterField.AgeRating,
-        SeriesFilterField.Formats,
-        SeriesFilterField.WantToRead,
-        -> this in setOf(Equal, NotEqual)
-
-        SeriesFilterField.UserRating,
-        SeriesFilterField.ReadProgress,
-        SeriesFilterField.ReleaseYear,
-        -> this in setOf(Equal, NotEqual, GreaterThan, GreaterThanEqual, LessThan, LessThanEqual)
-
-        else -> true
-    }
+/**
+ * `FilterComparison` values used by the app (docs/API.md §12).
+ *
+ * `Matches` is a SQL `LIKE %value%` and is the only substring comparison the server accepts for
+ * the string-shaped `SeriesName` field.
+ */
+enum class Comparison(val apiValue: Int) {
+    Equal(0),
+    Matches(7),
 }
 
-/** `SeriesSortField` values (docs/API.md §12). */
-enum class SeriesSort(val apiValue: Int, val label: String) {
-    SortName(1, "Name"),
-    CreatedDate(2, "Date added"),
-    LastModifiedDate(3, "Date modified"),
-    LastChapterAdded(4, "Chapter added"),
-    TimeToRead(5, "Time to read"),
-    ReleaseYear(6, "Release year"),
-    ReadProgress(7, "Read progress"),
-    UserRating(10, "My rating"),
-    UnreadChapterCount(11, "Unread chapters"),
-    Random(9, "Random"),
-    ;
+/** `SeriesSortField` values exposed in the UI (docs/API.md §12). */
+enum class SeriesSort(val apiValue: Int, val defaultAscending: Boolean) {
+    /** `SortName` — alphabetical. */
+    SortName(1, true),
 
-    companion object {
-        fun from(apiValue: Int): SeriesSort = entries.firstOrNull { it.apiValue == apiValue } ?: SortName
-    }
+    /** `CreatedDate` — when the series was imported. */
+    CreatedDate(2, false),
+
+    /** `ReadProgress` — the user's last reading date. */
+    ReadProgress(7, false),
 }

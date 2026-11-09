@@ -31,6 +31,8 @@ data class ShelfCollection(
 class ShelfRepository @Inject constructor(
     private val apiFactory: ApiFactory,
     private val coverUrlBuilder: CoverUrlBuilder,
+    private val seriesCache: SeriesListCache,
+    private val activeServerStore: com.kativa.reader.core.auth.ActiveServerStore,
 ) {
 
     // --- collections ----------------------------------------------------
@@ -105,6 +107,7 @@ class ShelfRepository @Inject constructor(
 
     suspend fun addToWantToRead(seriesId: Int): Outcome<Unit> = try {
         apiFactory.wantToRead().addSeries(UpdateWantToReadRequest(listOf(seriesId)))
+        invalidateSeriesCaches()
         Outcome.Success(Unit)
     } catch (t: Throwable) {
         Outcome.Failure(KativaFailure(ErrorMapper.from(t)))
@@ -112,6 +115,7 @@ class ShelfRepository @Inject constructor(
 
     suspend fun removeFromWantToRead(seriesId: Int): Outcome<Unit> = try {
         apiFactory.wantToRead().removeSeries(UpdateWantToReadRequest(listOf(seriesId)))
+        invalidateSeriesCaches()
         Outcome.Success(Unit)
     } catch (t: Throwable) {
         Outcome.Failure(KativaFailure(ErrorMapper.from(t)))
@@ -119,6 +123,15 @@ class ShelfRepository @Inject constructor(
 
     suspend fun toggleWantToRead(seriesId: Int, currentlyInList: Boolean): Outcome<Unit> =
         if (currentlyInList) removeFromWantToRead(seriesId) else addToWantToRead(seriesId)
+
+    /**
+     * "Favourite" is backed by the want-to-read list, and a library grid can be filtered by it,
+     * so a cached page from before the toggle would keep showing the old membership for up to
+     * [SeriesListCache.TTL_MS] — a filtered grid looked empty even after adding the series.
+     */
+    private suspend fun invalidateSeriesCaches() {
+        activeServerStore.activeId?.let { seriesCache.clearServer(it) }
+    }
 }
 
 /** A series plus its resolved cover URL — the shape every shelf screen renders. */

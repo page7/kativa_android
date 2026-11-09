@@ -2,7 +2,6 @@ package com.kativa.reader.ui.library
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,22 +11,16 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -42,17 +35,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
-import com.kativa.reader.core.designsystem.KativaColors
+import com.kativa.reader.core.designsystem.EmptyState
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
-import com.kativa.reader.core.designsystem.EmptyState
-import com.kativa.reader.core.designsystem.ErrorState
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.designsystem.SeriesPosterCard
+import com.kativa.reader.core.designsystem.kativaTopBarIconTint
 import com.kativa.reader.ui.common.PrivacyToggle
-import com.kativa.reader.ui.common.illustration
-import com.kativa.reader.ui.common.message
 
-/** P05 �?series grid for one library, with sort and infinite scroll. */
+/** P05 锟?series grid for one library, with sort and infinite scroll. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryGridScreen(
@@ -63,7 +54,6 @@ fun LibraryGridScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
     var filterOpen by remember { mutableStateOf(false) }
-    var sortOpen by remember { mutableStateOf(false) }
 
     // Prefetch when the user is ~4 rows from the end.
     val shouldLoadMore by remember {
@@ -79,7 +69,7 @@ fun LibraryGridScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = { Text(stringResource(R.string.nav_library)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -96,11 +86,7 @@ fun LibraryGridScreen(
                         KativaIcon(
                             icon = KativaIcons.Sort,
                             contentDescription = stringResource(R.string.filter_title),
-                            tint = if (state.filter.isEmpty) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                KativaColors.BrandPrimary
-                            },
+                            tint = kativaTopBarIconTint(state.hasActiveFilter),
                         )
                     }
                 },
@@ -111,12 +97,11 @@ fun LibraryGridScreen(
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null && state.items.isEmpty() -> ErrorState(
-                    message = state.error!!.message(),
-                    retryLabel = stringResource(R.string.common_retry),
-                    onRetry = { viewModel.load(reset = true) },
-                    illustration = state.error!!.illustration,
-                )
+                state.error != null && state.items.isEmpty() ->
+                    com.kativa.reader.ui.common.KativaErrorState(
+                        error = state.error!!,
+                        onRetry = { viewModel.load(reset = true) },
+                    )
 
                 state.isEmptyDueToFilter -> EmptyState(
                     title = stringResource(R.string.filter_no_match),
@@ -144,7 +129,8 @@ fun LibraryGridScreen(
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             ActiveFilterChips(
                                 filter = state.filter,
-                                onRemove = viewModel::removeStatement,
+                                onClearName = { viewModel.applyFilter(state.filter.withNameQuery("")) },
+                                onClearWantToRead = { viewModel.applyFilter(state.filter.withWantToRead(null)) },
                                 onClear = viewModel::clearFilter,
                             )
                         }
@@ -187,45 +173,53 @@ fun LibraryGridScreen(
     }
 }
 
+/**
+ * Chips for the conditions currently applied.
+ *
+ * Only two fields can be active (name query, want-to-read), so each chip maps to one field
+ * rather than to a raw statement index: tapping it drops exactly that condition.
+ */
 @Composable
 private fun ActiveFilterChips(
     filter: com.kativa.reader.domain.model.SeriesFilter,
-    onRemove: (Int) -> Unit,
+    onClearName: () -> Unit,
+    onClearWantToRead: () -> Unit,
     onClear: () -> Unit,
 ) {
     androidx.compose.foundation.lazy.LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(vertical = 4.dp),
     ) {
-        item(key = "combination") {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = KativaColors.BrandPrimaryDeep,
-            ) {
-                Text(
-                    text = if (filter.combination == com.kativa.reader.domain.model.SeriesFilter.Combination.And) {
-                        stringResource(R.string.filter_match_all)
-                    } else {
-                        stringResource(R.string.filter_match_any)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+        filter.nameQuery.takeIf { it.isNotEmpty() }?.let { query ->
+            item(key = "name") {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    onClick = onClearName,
+                ) {
+                    Text(
+                        text = stringResource(R.string.filter_chip_name, query) + "  " + CloseMark,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        maxLines = 1,
+                    )
+                }
             }
         }
-        itemsIndexed(filter.statements) { index, statement ->
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                onClick = { onRemove(index) },
-            ) {
-                Text(
-                    text = statement.describe() + "  ×",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    maxLines = 1,
-                )
+        if (filter.wantToRead == true) {
+            item(key = "want") {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    onClick = onClearWantToRead,
+                ) {
+                    Text(
+                        text = stringResource(R.string.filter_want_to_read_only) + "  " + CloseMark,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        maxLines = 1,
+                    )
+                }
             }
         }
         item(key = "clear") {
@@ -235,3 +229,6 @@ private fun ActiveFilterChips(
         }
     }
 }
+
+/** Multiplied sign, used as the "remove" affordance on a chip (avoids a new asset). */
+private const val CloseMark = "\u00D7"

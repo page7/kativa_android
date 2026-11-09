@@ -24,12 +24,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,16 +41,17 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
-import com.kativa.reader.core.designsystem.KativaIcon
-import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.EmptyState
 import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaDimens
+import com.kativa.reader.core.designsystem.KativaIcon
+import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.KativaPrimaryButton
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.domain.model.ServerProfile
-import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.launch
 
 /**
  * P01 — the default startup screen. No automatic sign-in unless the user opted in
@@ -69,13 +67,12 @@ fun ServerPickerScreen(
     viewModel: ServerPickerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var pendingDelete by remember { mutableStateOf<ServerProfile?>(null) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = { Text(stringResource(R.string.servers_title)) },
                 // Optional: this screen doubles as the app's startup destination, where there is
                 // nothing to go back to. When reached from "switch server" it must be dismissible.
@@ -91,7 +88,6 @@ fun ServerPickerScreen(
                 },
             )
         },
-        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when {
@@ -126,8 +122,6 @@ fun ServerPickerScreen(
                                 }
                             },
                             onEdit = { onEditServer(item.profile.id) },
-                            onSetAutoLogin = { viewModel.setAutoLogin(item.profile.id) },
-                            onClearAutoLogin = { viewModel.setAutoLogin(null) },
                             onDelete = { pendingDelete = item.profile },
                         )
                     }
@@ -170,8 +164,6 @@ private fun ServerCard(
     isAutoLogin: Boolean,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onSetAutoLogin: () -> Unit,
-    onClearAutoLogin: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -214,11 +206,23 @@ private fun ServerCard(
                         text = when (item.status) {
                             ServerStatus.SignedIn -> stringResource(R.string.servers_state_logged_in)
                             ServerStatus.NeedsLogin -> stringResource(R.string.servers_state_needs_login)
+                            ServerStatus.Expired -> stringResource(R.string.servers_state_expired)
                             ServerStatus.Unreachable -> stringResource(R.string.servers_state_unreachable)
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // A remembered account turns "sign in again" into "type your password".
+                    item.rememberedUsername?.takeIf { it.isNotBlank() }?.let { user ->
+                        Spacer(Modifier.size(12.dp))
+                        Text(
+                            text = user,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = KativaColors.BrandPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     Spacer(Modifier.size(12.dp))
                     Text(
                         text = item.profile.lastUsedAt?.let {
@@ -244,20 +248,6 @@ private fun ServerCard(
                         text = { Text(stringResource(R.string.common_edit)) },
                         leadingIcon = { KativaIcon(KativaIcons.Edit, null) },
                         onClick = { menu = false; onEdit() },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                stringResource(
-                                    if (isAutoLogin) R.string.servers_auto_login_none
-                                    else R.string.servers_set_auto_login,
-                                ),
-                            )
-                        },
-                        onClick = {
-                            menu = false
-                            if (isAutoLogin) onClearAutoLogin() else onSetAutoLogin()
-                        },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.common_delete)) },
@@ -289,7 +279,7 @@ private fun AutoLoginBadge() {
 private fun StatusDot(status: ServerStatus) {
     val color = when (status) {
         ServerStatus.SignedIn -> KativaColors.BrandPrimary
-        ServerStatus.NeedsLogin -> KativaColors.Warning
+        ServerStatus.NeedsLogin, ServerStatus.Expired -> KativaColors.Warning
         ServerStatus.Unreachable -> KativaColors.Danger
     }
     Surface(color = color, shape = RoundedCornerShape(50), modifier = Modifier.size(8.dp)) {}

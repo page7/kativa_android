@@ -9,7 +9,6 @@ import com.kativa.reader.core.network.KativaError
 import com.kativa.reader.core.network.Outcome
 import com.kativa.reader.data.repository.LibraryRepository
 import com.kativa.reader.domain.model.SeriesFilter
-import com.kativa.reader.domain.model.SeriesSort
 import com.kativa.reader.domain.model.SeriesSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -39,7 +38,8 @@ data class LibraryGridUiState(
     /** True when the grid is empty *because* a filter is active. */
     val isEmptyDueToFilter: Boolean get() = isEmpty && !filter.isEmpty
 
-    val sortLabelRes: SeriesSort get() = filter.sort
+    /** Drives the tinted sort/filter action, so an active condition is visible at a glance. */
+    val hasActiveFilter: Boolean get() = !filter.isEmpty
 }
 
 @HiltViewModel
@@ -54,6 +54,9 @@ class LibraryGridViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(LibraryGridUiState())
     val state: StateFlow<LibraryGridUiState> = _state.asStateFlow()
+
+    /** Guards against a slow page landing after the user already changed the filter. */
+    private var requestId = 0
 
     init {
         observePrivacy()
@@ -76,6 +79,7 @@ class LibraryGridViewModel @Inject constructor(
     fun load(reset: Boolean = false) {
         val current = _state.value
         val nextPage = if (reset) 1 else current.page + 1
+        val request = ++requestId
         _state.update {
             it.copy(
                 loading = reset,
@@ -87,14 +91,18 @@ class LibraryGridViewModel @Inject constructor(
 
         viewModelScope.launch {
             when (
-                val outcome = libraryRepository.seriesInLibrary(
+                val outcome = libraryRepository.seriesPageInLibrary(
                     libraryId = libraryId,
                     page = nextPage,
+                    pageSize = PAGE_SIZE,
                     filter = current.filter,
                 )
             ) {
                 is Outcome.Success -> {
-                    val newItems = outcome.value.map { series ->
+                    // A slow response for an older filter must not overwrite a newer one.
+                    if (request != requestId) return@launch
+                    val page = outcome.value
+                    val newItems = page.items.map { series ->
                         LibraryGridItem(
                             series = series,
                             coverUrl = coverUrlBuilder.series(series.id),
@@ -106,18 +114,20 @@ class LibraryGridViewModel @Inject constructor(
                             loading = false,
                             loadingMore = false,
                             items = merged,
-                            // A short page means we reached the end; no total is exposed reliably.
-                            endReached = newItems.size < PAGE_SIZE,
+                            endReached = isLastPage(nextPage, page),
                         )
                     }
                 }
 
-                is Outcome.Failure -> _state.update {
-                    it.copy(
-                        loading = false,
-                        loadingMore = false,
-                        error = outcome.failure.error,
-                    )
+                is Outcome.Failure -> {
+                    if (request != requestId) return@launch
+                    _state.update {
+                        it.copy(
+                            loading = false,
+                            loadingMore = false,
+                            error = outcome.failure.error,
+                        )
+                    }
                 }
             }
         }
@@ -131,17 +141,9 @@ class LibraryGridViewModel @Inject constructor(
 
     // --- sorting / filtering --------------------------------------------
 
-    fun setSort(sort: SeriesSort, ascending: Boolean) {
-        applyFilter(_state.value.filter.withSort(sort, ascending))
-    }
-
     fun applyFilter(filter: SeriesFilter) {
         _state.update { it.copy(filter = filter) }
         load(reset = true)
-    }
-
-    fun removeStatement(index: Int) {
-        applyFilter(_state.value.filter.withoutStatement(index))
     }
 
     fun clearFilter() {
@@ -151,5 +153,21 @@ class LibraryGridViewModel @Inject constructor(
 
     private companion object {
         const val PAGE_SIZE = 40
+
+        /**
+         * End-of-list detection.
+         *
+         * The `Pagination` header carries the true total, so this is exact when it is present.
+         * When the header is missing (`totalItems == 0`, see `LibraryRepository.totalFrom`) the
+         * old "short page" heuristic is the only signal left.
+         */
+        fun isLastPage(page: Int, response: com.kativa.reader.data.repository.SeriesPage): Boolean {
+            val total = response.totalItems
+            return if (total > 0) {
+                page * PAGE_SIZE >= total
+            } else {
+                response.items.size < PAGE_SIZE
+            }
+        }
     }
 }

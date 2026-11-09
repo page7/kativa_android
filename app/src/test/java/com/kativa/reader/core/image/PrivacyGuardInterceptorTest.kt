@@ -81,6 +81,17 @@ class PrivacyGuardInterceptorTest {
     }
 
     @Test
+    fun `bookmark thumbnails are blocked in privacy mode`() {
+        // Bookmark cards preview the *page*, which is exactly as revealing as a cover.
+        assertTrue(
+            interceptor.run {
+                "http://host/api/Image/bookmark?chapterId=3&pageNum=4&imageOffset=0&apiKey=k"
+                    .isCoverRequest()
+            },
+        )
+    }
+
+    @Test
     fun `authorisation is irrelevant - a bare url is still a cover request`() {
         // The path alone decides; privacy mode must not depend on a key being present.
         assertTrue(interceptor.run { "https://host/api/Image/series-cover".isCoverRequest() })

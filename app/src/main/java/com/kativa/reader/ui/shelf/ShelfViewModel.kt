@@ -63,8 +63,19 @@ class ShelfViewModel @Inject constructor(
 
     init {
         observePrivacy()
-        load()
     }
+
+    /**
+     * Loads on resume rather than only in `init`.
+     *
+     * The same ViewModel instance survives navigation to a series detail (where the user can
+     * leave the Want To Read list) and back, so a load performed once at construction would show
+     * stale membership. Resume covers both the first entry and every return.
+     *
+     * The spinner is skipped when this shelf already has content: the rows stay put while the
+     * refresh lands, instead of flashing an empty loading state on every back-navigation.
+     */
+    fun onResumed() = load(showSpinner = _state.value.shelves.isEmpty() && _state.value.series.isEmpty())
 
     private fun observePrivacy() {
         viewModelScope.launch {
@@ -79,11 +90,10 @@ class ShelfViewModel @Inject constructor(
         _state.update { it.copy(privacyMode = enabled) }
     }
 
-    fun load() {
-        _state.update { it.copy(loading = true, error = null) }
+    fun load(showSpinner: Boolean = true) {
+        _state.update { it.copy(loading = showSpinner, error = null) }
         viewModelScope.launch {
-            if (detailId > 0) {
-                // Collection detail: series inside it.
+            if (detailId > 0) {                // Collection detail: series inside it.
                 when (val outcome = shelfRepository.seriesInCollection(detailId)) {
                     is Outcome.Success -> _state.update {
                         it.copy(loading = false, series = outcome.value)

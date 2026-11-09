@@ -55,6 +55,9 @@ class PrivacyGuardInterceptor(
             "/Image/collection-cover",
             "/Image/readinglist-cover",
             "/Image/person-cover",
+            // Bookmark thumbnails are "cover-like": a spoiler-y page preview, and
+            // docs/FEATURES.md F-17 promises they stay masked in privacy mode.
+            "/Image/bookmark",
             "/Reader/thumbnail",
         )
     }

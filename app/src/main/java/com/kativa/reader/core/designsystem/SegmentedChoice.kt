@@ -37,7 +37,10 @@ fun <T> SegmentedChoice(
                 val isSelected = value == selected
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) KativaColors.BrandPrimaryDeep else Color.Transparent,
+                    // Selected segment uses the brand mint with the dark brand ink, not the deep
+                    // green: on a filled chip the deep tone just reads as "darkened green"
+                    // (AGENTS.md §6). White text on mint is ~2.2:1, hence `OnBrand`.
+                    color = if (isSelected) KativaColors.BrandPrimary else Color.Transparent,
                     modifier = Modifier
                         .weight(1f)
                         .selectable(selected = isSelected, onClick = { onSelect(value) }),
@@ -45,7 +48,7 @@ fun <T> SegmentedChoice(
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isSelected) KativaColors.OnBrand else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         modifier = Modifier
                             .fillMaxWidth()

@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,24 +45,22 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
-import com.kativa.reader.core.designsystem.KativaIcon
-import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.CoverImage
-import com.kativa.reader.core.designsystem.ErrorState
 import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaDimens
+import com.kativa.reader.core.designsystem.KativaIcon
+import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.KativaPrimaryButton
 import com.kativa.reader.core.designsystem.KativaProgressBar
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.domain.model.Chapter
 import com.kativa.reader.domain.model.ContentFormat
 import com.kativa.reader.domain.model.PublicationStatus
 import com.kativa.reader.domain.model.SeriesDetail
 import com.kativa.reader.domain.model.Volume
 import com.kativa.reader.ui.common.EntityTitles
-import com.kativa.reader.ui.common.illustration
-import com.kativa.reader.ui.common.message
 
-/** P06 �?series detail with collapsible volumes and a single, obvious primary action. */
+/** P06 · series detail with collapsible volumes and a single, obvious primary action. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeriesDetailScreen(
@@ -74,7 +73,7 @@ fun SeriesDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = {
                     Text(
                         text = state.detail?.name.orEmpty(),
@@ -101,23 +100,6 @@ fun SeriesDetailScreen(
                                     viewModel.markSeriesRead()
                                 },
                             )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        stringResource(
-                                            if (state.inWantToRead) {
-                                                R.string.series_remove_from_want_to_read
-                                            } else {
-                                                R.string.series_add_to_want_to_read
-                                            },
-                                        ),
-                                    )
-                                },
-                                onClick = {
-                                    menuOpen = false
-                                    viewModel.toggleWantToRead()
-                                },
-                            )
                         }
                     }
                 },
@@ -128,11 +110,9 @@ fun SeriesDetailScreen(
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> ErrorState(
-                    message = state.error!!.message(),
-                    retryLabel = stringResource(R.string.common_retry),
+                state.error != null -> com.kativa.reader.ui.common.KativaErrorState(
+                    error = state.error!!,
                     onRetry = viewModel::load,
-                    illustration = state.error!!.illustration,
                 )
 
                 state.detail != null -> {
@@ -153,6 +133,8 @@ fun SeriesDetailScreen(
                                 onPrimary = {
                                     state.resumeChapterId?.let(onOpenChapter)
                                 },
+                                inWantToRead = state.inWantToRead,
+                                onToggleWantToRead = viewModel::toggleWantToRead,
                             )
                         }
 
@@ -239,12 +221,15 @@ private fun SectionLabel(text: String, count: Int) {
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SeriesHero(
     detail: SeriesDetail,
     coverUrl: String?,
     primaryLabel: String,
     onPrimary: () -> Unit,
+    inWantToRead: Boolean,
+    onToggleWantToRead: () -> Unit,
 ) {
     val accent = runCatching {
         Color(android.graphics.Color.parseColor(detail.primaryColor ?: "#2D7A56"))
@@ -295,7 +280,33 @@ private fun SeriesHero(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(12.dp))
-                KativaPrimaryButton(text = primaryLabel, onClick = onPrimary)
+                // FlowRow so the heart wraps to a second line at large font scales instead of
+                // squeezing (and clipping) the primary label — AGENTS.md §6 forbids truncation.
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    KativaPrimaryButton(text = primaryLabel, onClick = onPrimary)
+                    // Want-to-read lives next to the primary action: one tap to favourite a series
+                    // from the page you land on, instead of digging into the ⋯ menu.
+                    IconButton(onClick = onToggleWantToRead) {
+                        KativaIcon(
+                            icon = if (inWantToRead) KativaIcons.FavoriteFilled else KativaIcons.Favorite,
+                            contentDescription = stringResource(
+                                if (inWantToRead) {
+                                    R.string.series_remove_from_want_to_read
+                                } else {
+                                    R.string.series_add_to_want_to_read
+                                },
+                            ),
+                            tint = if (inWantToRead) {
+                                KativaColors.BrandPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -332,7 +343,8 @@ private fun VolumeSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onToggle)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                // `end = 8.dp` matches ChapterRow so the trailing icon slots share one axis.
+                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             KativaIcon(icon = if (expanded) KativaIcons.ExpandLess else KativaIcons.ExpandMore, contentDescription = null, tint =  MaterialTheme.colorScheme.onSurfaceVariant,
@@ -355,22 +367,40 @@ private fun VolumeSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (volume.isRead) {
-                KativaIcon(icon = KativaIcons.Read, contentDescription = stringResource(R.string.series_read), tint =  KativaColors.BrandPrimary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-            }
-            IconButton(onClick = onMarkVolume) {
-                KativaIcon(icon = KativaIcons.Read, contentDescription = stringResource(R.string.series_mark_read), tint =  MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
+            // Exactly one icon per volume header: a green check for a read volume (status only,
+            // nothing left to mark), otherwise the hollow ring that marks the whole volume read.
+            // Rendering both used to stack two identical check marks ("one or two check marks?").
+            //
+            // Both the volume header and the chapter rows reserve the same 48dp trailing slot with
+            // the same end padding, so every status icon centres on one vertical axis. Before, the
+            // read check was a bare 20dp icon (flush to the padding) while the chapter check lived
+            // inside a 48dp IconButton, which put them 14dp apart.
+            Box(
+                modifier = Modifier.size(KativaDimens.TouchTarget.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (volume.isRead) {
+                    KativaIcon(icon = KativaIcons.Read, contentDescription = stringResource(R.string.series_read), tint =  KativaColors.BrandPrimary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                } else {
+                    // The volume is never "unread-only": keep the mark-read action inside the slot
+                    // so its icon sits on the same axis as the read check.
+                    IconButton(
+                        onClick = onMarkVolume,
+                        modifier = Modifier.size(KativaDimens.TouchTarget.dp),
+                    ) {
+                        KativaIcon(icon = KativaIcons.Unread, contentDescription = stringResource(R.string.series_mark_chapter_read), tint =  MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             }
         }
 
         if (expanded) {
             // A single unnumbered chapter inside a loose-leaf volume represents the whole volume,
-            // so it reads as "全一�? rather than a bare "unnumbered" entry.
+            // so it reads as "全一章" rather than a bare "unnumbered" entry.
             val onlyChapterOfLooseLeaf = volume.isLooseLeaf && volume.chapters.size == 1
             volume.chapters.forEach { chapter ->
                 ChapterRow(
@@ -398,7 +428,10 @@ private fun ChapterRow(
             .clickable(onClick = onClick),
     ) {
         Row(
-            modifier = Modifier.padding(start = 40.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            // 16dp + 24dp chevron + 8dp gap = 48dp is where the volume *title* starts; chapters
+            // start a further 16dp in so the hierarchy reads at a glance. The end padding matches
+            // the volume header so both status icon slots land on the same vertical axis.
+            modifier = Modifier.padding(start = 64.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {

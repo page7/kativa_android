@@ -24,8 +24,8 @@ android {
          *
          * Bump [versionCode] on every artifact, even for a same-version rebuild that you hand out.
          */
-        versionCode = 16
-        versionName = "0.3.16"
+        versionCode = 25
+        versionName = "0.3.25"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         @Suppress("UnstableApiUsage")

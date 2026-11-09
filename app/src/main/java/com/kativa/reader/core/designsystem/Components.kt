@@ -1,4 +1,4 @@
-﻿package com.kativa.reader.core.designsystem
+package com.kativa.reader.core.designsystem
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -83,19 +84,29 @@ fun CoverImage(
  *
  * Both cases render a real asset (`privacy_placeholder` / `cover_fallback`) instead of a
  * code-drawn grey box, so replacing the placeholder art is a pure asset swap
- * (docs/ASSETS.md §3). `aspectRatio` is applied by the caller's modifier where it matters.
+ * (docs/ASSETS.md §3).
+ *
+ * Sizing contract: this composable only *fills* whatever box the caller gives it. It must not
+ * impose an aspect ratio of its own — callers that need a poster shape already pass
+ * `aspectRatio(KativaDimens.PosterAspect)` (or a fixed width/height), while non-poster slots such
+ * as the home folder mosaic are square. Adding an internal 2:3 ratio made the placeholder overflow
+ * the folder's square slot, silently eating its 4dp inset and its corner rounding.
  */
 @Composable
 fun PrivacyCoverPlaceholder(
     modifier: Modifier = Modifier,
     description: String? = null,
     showFallbackMark: Boolean = false,
+    shape: Shape = RoundedCornerShape(KativaDimens.PosterRadius.dp),
 ) {
+    // The backdrop follows the active theme: #3A3A3A is a near-black hole among white cards, so
+    // the light theme uses a light grey instead (AGENTS.md §6). The PNG itself is only a
+    // translucent mint watermark, so the fill is painted here rather than baked into the asset.
+    val fill = if (LocalDarkTheme.current) KativaColors.PrivacyFill else KativaColors.PrivacyFillLight
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(KativaDimens.PosterRadius.dp))
-            .background(KativaColors.PrivacyFill)
-            .aspectRatio(KativaDimens.PosterAspect),
+            .clip(shape)
+            .background(fill),
         contentAlignment = Alignment.Center,
     ) {
         Image(
@@ -109,6 +120,15 @@ fun PrivacyCoverPlaceholder(
     }
 }
 
+/**
+ * Primary action button.
+ *
+ * Colours come from the brand tokens rather than `colorScheme.primary`: in the light theme
+ * `primary` is the *deep* brand (`#2D7A56`), which is the right ink for outlined/text buttons on
+ * white but reads as "darkened green" as a large filled area. Filled buttons use the brand mint
+ * itself with the dark `OnBrand` ink, which is both on-brand and passes AA (~9:1). Dark theme
+ * keeps mint-on-ink too, so the two themes no longer disagree about what a primary button is.
+ */
 @Composable
 fun KativaPrimaryButton(
     text: String,
@@ -122,11 +142,17 @@ fun KativaPrimaryButton(
         enabled = enabled && !loading,
         modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = KativaColors.BrandPrimary,
+            contentColor = KativaColors.OnBrand,
+            disabledContainerColor = KativaColors.BrandPrimary.copy(alpha = 0.38f),
+            disabledContentColor = KativaColors.OnBrand.copy(alpha = 0.55f),
+        ),
     ) {
         if (loading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = KativaColors.OnBrand,
                 strokeWidth = 2.dp,
             )
             Spacer(Modifier.size(10.dp))

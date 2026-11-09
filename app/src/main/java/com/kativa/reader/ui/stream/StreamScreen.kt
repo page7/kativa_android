@@ -17,7 +17,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -31,13 +30,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.EmptyState
-import com.kativa.reader.core.designsystem.ErrorState
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.designsystem.SeriesPosterCard
 import com.kativa.reader.ui.common.PrivacyToggle
-import com.kativa.reader.ui.common.illustration
-import com.kativa.reader.ui.common.message
 
 /**
  * "View all" target for a home stream: the same cards, paged, with no horizontal cap.
@@ -65,7 +62,7 @@ fun StreamScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = { Text(stringResource(viewModel.kind.titleRes)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -88,12 +85,11 @@ fun StreamScreen(
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null && state.items.isEmpty() -> ErrorState(
-                    message = state.error!!.message(),
-                    retryLabel = stringResource(R.string.common_retry),
-                    onRetry = { viewModel.load(reset = true) },
-                    illustration = state.error!!.illustration,
-                )
+                state.error != null && state.items.isEmpty() ->
+                    com.kativa.reader.ui.common.KativaErrorState(
+                        error = state.error!!,
+                        onRetry = { viewModel.load(reset = true) },
+                    )
 
                 state.isEmpty -> EmptyState(
                     title = stringResource(R.string.stream_empty_title),

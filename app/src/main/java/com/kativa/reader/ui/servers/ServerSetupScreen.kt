@@ -18,9 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,11 +30,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
+import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
-import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaPrimaryButton
 import com.kativa.reader.core.designsystem.KativaSecondaryButton
+import com.kativa.reader.core.designsystem.KativaSwitch
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.util.ServerUrl
 import com.kativa.reader.ui.common.message
 
@@ -48,15 +48,16 @@ import com.kativa.reader.ui.common.message
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServerSetupScreen(
-    onBack: () -> Unit,
     onSaved: (serverId: String, autoLogin: Boolean, probed: Boolean) -> Unit,
+    /** Null on first run (welcome → setup): there is nothing behind this screen to go back to. */
+    onBack: (() -> Unit)? = null,
     viewModel: ServerSetupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = {
                     Text(
                         stringResource(
@@ -65,9 +66,15 @@ fun ServerSetupScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        KativaIcon(icon = KativaIcons.Back, contentDescription = stringResource(R.string.common_back),
-                        )
+                    // Only shown when this screen was pushed on top of the picker. As a first-run
+                    // root a back arrow (or a pop) would just exit the app.
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            KativaIcon(
+                                icon = KativaIcons.Back,
+                                contentDescription = stringResource(R.string.common_back),
+                            )
+                        }
                     }
                 },
             )
@@ -162,7 +169,7 @@ fun ServerSetupScreen(
                     )
                 }
                 Spacer(Modifier.size(12.dp))
-                Switch(
+                KativaSwitch(
                     checked = state.allowCleartext,
                     onCheckedChange = viewModel::onAllowCleartextChange,
                 )
@@ -174,7 +181,7 @@ fun ServerSetupScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                Switch(
+                KativaSwitch(
                     checked = state.autoLogin,
                     onCheckedChange = viewModel::onAutoLoginChange,
                 )

@@ -197,7 +197,11 @@ fun MangaReaderScreen(
                         context = context,
                         onGoToPage = viewModel::goToPage,
                         onToggleControls = viewModel::toggleControls,
-                        onToggleBookmark = viewModel::toggleBookmark,
+                        // Double-tap is the second bookmark affordance and must obey the same
+                        // role check as the toolbar icon (docs/FEATURES.md F-17).
+                        onToggleBookmark = {
+                            if (state.canBookmark) viewModel.toggleBookmark()
+                        },
                     )
                 }
 
@@ -565,18 +569,22 @@ private fun ReaderControls(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                IconButton(onClick = onToggleBookmark) {
-                    KativaIcon(icon = if (state.pageIndex in state.bookmarkedPages) {
-                            KativaIcons.BookmarkFilled
-                        } else {
-                            KativaIcons.Bookmark
-                        }, contentDescription = stringResource(R.string.reader_bookmark),
-                        tint = if (state.pageIndex in state.bookmarkedPages) {
-                            KativaColors.BrandPrimary
-                        } else {
-                            Color.White
-                        },
-                    )
+                if (state.canBookmark) {
+                    IconButton(onClick = onToggleBookmark) {
+                        KativaIcon(
+                            icon = if (state.pageIndex in state.bookmarkedPages) {
+                                KativaIcons.BookmarkFilled
+                            } else {
+                                KativaIcons.Bookmark
+                            },
+                            contentDescription = stringResource(R.string.reader_bookmark),
+                            tint = if (state.pageIndex in state.bookmarkedPages) {
+                                KativaColors.BrandPrimary
+                            } else {
+                                Color.White
+                            },
+                        )
+                    }
                 }
                 IconButton(onClick = onOpenSettings) {
                     KativaIcon(

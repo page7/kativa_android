@@ -25,7 +25,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -34,22 +33,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.CoverImage
 import com.kativa.reader.core.designsystem.EmptyState
-import com.kativa.reader.core.designsystem.ErrorState
 import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.designsystem.SeriesPosterCard
 import com.kativa.reader.data.repository.ShelfCollection
 import com.kativa.reader.ui.common.PrivacyToggle
-import com.kativa.reader.ui.common.illustration
-import com.kativa.reader.ui.common.message
 
 /**
- * P12 �?collections, reading lists and Want To Read.
+ * P12 锟?collections, reading lists and Want To Read.
  *
  * One composable serves all three: they are all "shelves", and the ViewModel already resolved
  * which endpoint backs this screen.
@@ -64,6 +62,13 @@ fun ShelfScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // Want To Read membership changes on the series detail screen; reloading on resume keeps this
+    // list truthful when the user comes back (AGENTS.md §3 rule 5: optimistic + refreshable).
+    LifecycleResumeEffect(Unit) {
+        viewModel.onResumed()
+        onPauseOrDispose { /* nothing to release */ }
+    }
+
     val title = when {
         viewModel.isDetail -> stringResource(R.string.shelf_collection_detail)
         viewModel.shelfKind == ShelfKind.ReadingLists -> stringResource(R.string.shelf_reading_lists)
@@ -73,7 +78,7 @@ fun ShelfScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -96,11 +101,9 @@ fun ShelfScreen(
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> ErrorState(
-                    message = state.error!!.message(),
-                    retryLabel = stringResource(R.string.common_retry),
+                state.error != null -> com.kativa.reader.ui.common.KativaErrorState(
+                    error = state.error!!,
                     onRetry = viewModel::load,
-                    illustration = state.error!!.illustration,
                 )
 
                 state.isEmpty -> EmptyState(

@@ -32,6 +32,14 @@ object AppModule {
         CleartextGateInterceptor { activeServerStore.active.value?.allowCleartext == true }
 
     @Provides
+    @Singleton
+    fun provideSessionExpiryInterceptor(
+        activeServerStore: ActiveServerStore,
+        sessionExpiryBus: com.kativa.reader.core.auth.SessionExpiryBus,
+    ): com.kativa.reader.core.network.SessionExpiryInterceptor =
+        com.kativa.reader.core.network.SessionExpiryInterceptor(activeServerStore, sessionExpiryBus)
+
+    @Provides
     @DebugBuild
     fun provideDebugBuild(): Boolean = com.kativa.reader.BuildConfig.DEBUG
 

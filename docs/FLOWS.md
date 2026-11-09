@@ -72,15 +72,19 @@ Login
 5. `GET /api/Server/server-info-slim` 记录版本，用于能力开关。
 6. 会话按 `serverId` 落库；可选：勾选"启动时自动登录此服务器"（写入启动偏好，写前确认"仅记住本机"）。
 
-**Token 过期流程**
+**Token 过期流程（P0：无自动刷新，只保证可恢复）**
 
 ```
-请求 401
- └─ Authenticator 加锁 → POST /api/Account/refresh-token
-     ├─ 成功 → 重放原请求（只重放一次）
-     └─ 失败 → 清该服务器会话 → 全局事件 SessionExpired
-         → Snackbar「登录已过期」→ 回到服务器选择页（该服务器标"需登录"）
+启动 / 打开选择页 / 请求收到 401（且请求带 Authorization）
+ └─ 会话按 JWT exp 判定为 Expired
+     ├─ 选择页显示「登录已过期」（不再显示"已登录"）
+     ├─ 点该服务器 → 直接进登录页（不再进首页再报错）
+     └─ 登录页已预填上次的账号，只需输入密码 → 成功后写回新 token
 ```
+
+- 密码/API Key **从不**落盘；只记住 `username`（`kativa_accounts` DataStore），登出/过期都不清。
+- 401 拦截在 `SessionExpiryInterceptor`：跳过 `Account/login`、`Account/refresh-token`、`Plugin/authenticate`，避免把"密码错"当成"会话过期"。
+- 自动刷新（`Authenticator` + 单飞 + 提前 5 分钟）属于 **P1**，尚未实现；当前 token 过期即需重新登录（只需密码）。
 
 **登出 / 删除服务器**
 
@@ -250,7 +254,7 @@ PDF
 
 ```
 发现 → 搜索框（自动聚焦）
- ├─ 输入 ≥ 2 字符，300ms 防抖 → GET /api/Search/search?queryString=&includeChapterAndFiles=false
+ ├─ 输入 ≥ 1 字符，300ms 防抖 → GET /api/Search/search?queryString=&includeChapterAndFiles=false
  ├─ 结果分组：系列 / 合集 / 阅读清单 / 人物 / 类型 / 标签 / 章节(M2 打开)
  ├─ 最近搜索（本地，最多 10 条），可单条删除/清空
  └─ 空结果：「没有找到「xxx」」+ 「在库内筛选」
@@ -265,19 +269,20 @@ PDF
 
 ```
 任意系列列表 → 筛选按钮
- ├─ FilterSheet（底部抽屉）
- │  ├─ 组合方式：全部满足(And,1) / 任一满足(Or,0)
- │  ├─ 条件行：字段 → 比较 → 值（可加多行）
- │  │   字段：系列名/作者/类型/标签/出版状态/年龄分级/用户评分/页数/阅读时长/年份/语言/库/格式/想读
- │  │   比较：等于/包含/不包含/开头/结尾/大于/小于/为空/不为空/最近N天…
- │  └─ 排序：sortField(1..11) + 升降序
- ├─ 「重置」→ 默认筛选（当前库）
- ├─ 「保存为智能筛选」→ POST /api/Filter/update/series（名称）
- └─ 确定 → POST /api/Series/v2 或 all-v2（带 body）
+ ├─ FilterSheet（底部抽屉，只有三项）
+ │  ├─ 排序：名称(1) / 加入时间(2) / 阅读时间(7) + 升序/降序
+ │  │   切换字段时方向自动取该字段自然默认（名称→升序，日期类→降序），可再手动反转
+ │  ├─ 名称搜索：SeriesName(1) + Matches(7)（空串则不发该条件）
+ │  └─ 是否收藏：全部 / 仅收藏 → WantToRead(26)= "true"
+ ├─ 「重置」→ 回到默认（名称升序、无条件）
+ └─ 「应用」→ POST /api/Series/v2（body 固定 combination=1）
 ```
 
-- 筛选状态写入 URL/ViewModel（进程重建可恢复），但**不持久化到服务端**，除非用户主动保存智能筛选。
-- 已激活筛选时按钮显示数字角标；列表顶部显示可移除的条件 chips。
+- 条件与排序同步写进 `SeriesFilter`（ViewModel 内），进程重建后可按需恢复；**不持久化到服务端**。
+- 已激活筛选时图标高亮；列表顶部显示可移除的 chips（名称 / 仅收藏）。
+- 比较符不能乱选：`SeriesName` 只认 `Matches/BeginsWith/EndsWith/Equal/NotEqual`。用 `Contains(5)`
+  会被服务端 `ComparisonProfile` 直接拒绝，表现为"筛选没反应"。详见 `docs/API.md` §2。
+- 想读是"收藏"的唯一后端能力；在系列详情加入/移出想读后会**清空系列列表缓存**，否则筛选结果会继续用旧页。
 
 ---
 
@@ -332,9 +337,16 @@ PDF
 书签入口
  ├─ 我的 → 书签（POST /api/Reader/all-bookmarks，仅支持系列名筛选，返回全量；客户端本地分页/分组）
  │    └─ 网格：页面缩略图（GET /api/Image/bookmark?chapterId=&pageNum=）
- │        └─ 点击 → 直接进入该章该页（bookmarkMode）
+ │        └─ 点击 → 直接进入该章该页（路由 reader/{chapterId}?page={0 基索引}）
  └─ 系列详情 → 书签 Tab（GET /api/Reader/series-bookmarks）
 ```
+
+- **页码语义**：`BookmarkDto.page` 与 `Image/bookmark?pageNum=` 都是 **0 基**图片索引，与
+  `Reader/image?page=` 一致；只有展示（"第 N 页"）才 `+1`。加书签时提交阅读器的 `pageIndex` 原值，
+  **不要**再 `+1`（详见 `docs/API.md` §3「书签」）。
+- 书签列表在 `ON_RESUME` 重新拉取：书签的增删都发生在阅读器里，返回时缓存必然过期。
+- 隐私模式下缩略图不发请求（`Image/bookmark` 在 `PrivacyGuardInterceptor.COVER_PATHS` 内）。
+- 只读角色：列表可看，阅读器的"加书签"按钮与双击手势隐藏（服务端 `Bookmark` 策略会 403）。
 
 ---
 
@@ -362,7 +374,7 @@ PDF
 ```
 我的
  ├─ 头像/用户名/角色徽标（Admin/Pleb/Read Only）+ 当前服务器名
- ├─ 快捷：切换服务器（→ F10）、隐私模式（同顶栏开关）
+ ├─ 快捷：切换服务器（→ F10）（隐私模式开关只在首页/书架/发现顶栏与设置里）
  ├─ 统计卡（GET /api/Stats/user-stats；M3 详情页有图表）
  ├─ 我的书签 / 我的清单 / 我的合集 / 我的评分
  └─ 设置

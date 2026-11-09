@@ -14,6 +14,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -60,11 +61,15 @@ class ServerSetupViewModel @Inject constructor(
                     val schemeStripped = profile.baseUrl
                         .removeSuffix("api/")
                         .trimEnd('/')
+                    // Reflect the stored startup preference: this screen is now the only place the
+                    // flag can be changed, so showing it unchecked would silently mislead.
+                    val isAutoLogin = serverRepository.autoLoginServerId.first() == id
                     _state.update {
                         it.copy(
                             name = profile.name,
                             url = schemeStripped,
                             allowCleartext = profile.allowCleartext,
+                            autoLogin = isAutoLogin,
                         )
                     }
                 }
@@ -284,7 +289,13 @@ class ServerSetupViewModel @Inject constructor(
             lastUsedAt = null,
         )
         serverRepository.upsert(profile)
-        if (_state.value.autoLogin) serverRepository.setAutoLogin(id)
+        // The startup flag is a single selection, so it must be able to be turned OFF here too —
+        // only setting it when checked left users unable to undo it.
+        if (_state.value.autoLogin) {
+            serverRepository.setAutoLogin(id)
+        } else if (serverRepository.autoLoginServerId.first() == id) {
+            serverRepository.setAutoLogin(null)
+        }
         // If the address was a pasted OPDS link, carry the recovered key over to the login screen.
         normalized.extractedApiKey?.let { pendingApiKeyStore.put(id, it) }
         onSaved(id, _state.value.autoLogin, testedOk)

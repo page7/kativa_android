@@ -25,6 +25,7 @@ class ApiFactory @Inject constructor(
     private val activeServerStore: ActiveServerStore,
     private val paginationInterceptor: PaginationInterceptor,
     private val cleartextGate: CleartextGateInterceptor,
+    private val sessionExpiryInterceptor: SessionExpiryInterceptor,
     @param:com.kativa.reader.core.di.DebugBuild private val isDebug: Boolean,
 ) {
     /**
@@ -47,6 +48,9 @@ class ApiFactory @Inject constructor(
             .retryOnConnectionFailure(true)
             .apply { leading.forEach { interceptor -> addInterceptor(interceptor) } }
             .addInterceptor(AuthInterceptor(activeServerStore))
+            // After auth so it can see the Authorization header, before everything that consumes
+            // the body. Turns a dead token into a navigable "sign in again" event.
+            .addInterceptor(sessionExpiryInterceptor)
             .addInterceptor(cleartextGate)
             .addInterceptor(paginationInterceptor)
             .addInterceptor(DeviceHeaderInterceptor())

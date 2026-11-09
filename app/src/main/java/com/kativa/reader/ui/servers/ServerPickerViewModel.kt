@@ -3,66 +3,88 @@ package com.kativa.reader.ui.servers
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kativa.reader.core.auth.ActiveServerStore
+import com.kativa.reader.core.auth.RememberedAccountStore
 import com.kativa.reader.core.auth.ServerRepository
+import com.kativa.reader.core.auth.Session
+import com.kativa.reader.core.auth.SessionStatus
 import com.kativa.reader.core.auth.SessionStore
+import com.kativa.reader.core.auth.status
 import com.kativa.reader.domain.model.ServerProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class ServerStatus { SignedIn, NeedsLogin, Unreachable }
+enum class ServerStatus { SignedIn, NeedsLogin, Expired, Unreachable }
 
 data class ServerItemState(
     val profile: ServerProfile,
     val status: ServerStatus,
     val hasSession: Boolean,
-)
+    /** Username remembered from a previous sign-in, shown as a re-login hint. */
+    val rememberedUsername: String? = null,
+) {
+    /** True when tapping the card can go straight to Home. */
+    val canEnterDirectly: Boolean get() = status == ServerStatus.SignedIn
+}
 
 data class ServerPickerUiState(
     val loading: Boolean = true,
     val items: List<ServerItemState> = emptyList(),
     val autoLoginServerId: String? = null,
-    val message: String? = null,
 ) {
     val isEmpty: Boolean get() = !loading && items.isEmpty()
 }
+
+/**
+ * Maps one stored session to a card status.
+ *
+ * Extracted as a pure function because this exact decision caused the bug it now guards:
+ * the status used to be `sessions.containsKey(id)`, i.e. "a record exists". An expired token
+ * still has a record, so the card said "signed in", tapping it skipped the login screen, and the
+ * home screen immediately failed with "session expired" — forever.
+ */
+fun serverStatusFor(session: Session?, nowEpochSeconds: Long = System.currentTimeMillis() / 1000): ServerStatus =
+    when (session.status(nowEpochSeconds)) {
+        SessionStatus.Missing -> ServerStatus.NeedsLogin
+        SessionStatus.Expired -> ServerStatus.Expired
+        SessionStatus.Valid -> ServerStatus.SignedIn
+    }
 
 @HiltViewModel
 class ServerPickerViewModel @Inject constructor(
     private val serverRepository: ServerRepository,
     private val sessionStore: SessionStore,
+    private val rememberedAccounts: RememberedAccountStore,
     private val activeServerStore: ActiveServerStore,
+    private val authRepository: com.kativa.reader.data.repository.AuthRepository,
 ) : ViewModel() {
-
-    private val message = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<ServerPickerUiState> =
         combine(
             serverRepository.servers,
             serverRepository.autoLoginServerId,
             sessionStore.sessions,
-            message,
-        ) { servers, autoId, sessions, msg ->
+            rememberedAccounts.accounts,
+        ) { servers, autoId, sessions, accounts ->
             ServerPickerUiState(
                 loading = false,
                 items = servers
                     .sortedByDescending { it.lastUsedAt ?: 0L }
                     .map { profile ->
-                        val hasSession = sessions.containsKey(profile.id)
+                        val session = sessions[profile.id]
+                        val status = serverStatusFor(session)
                         ServerItemState(
                             profile = profile,
-                            status = if (hasSession) ServerStatus.SignedIn else ServerStatus.NeedsLogin,
-                            hasSession = hasSession,
+                            status = status,
+                            hasSession = session != null,
+                            rememberedUsername = accounts[profile.id]?.username,
                         )
                     },
                 autoLoginServerId = autoId,
-                message = msg,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -70,26 +92,32 @@ class ServerPickerViewModel @Inject constructor(
             initialValue = ServerPickerUiState(),
         )
 
-    /** Activates a server. Returns true when the caller should go straight to Home. */
+    /**
+     * Activates a server. Returns true when the caller should go straight to Home.
+     *
+     * An expired/missing session returns false so navigation goes to the login form — this is the
+     * escape hatch that did not exist before.
+     */
     suspend fun select(serverId: String): Boolean {
         val profile = serverRepository.getServer(serverId) ?: return false
         val session = sessionStore.get(serverId)
-        activeServerStore.activate(profile, session)
-        serverRepository.touch(profile)
-        return session != null
-    }
+        val usable = session?.takeIf { it.status() == SessionStatus.Valid }
 
-    fun setAutoLogin(serverId: String?) {
-        viewModelScope.launch {
-            serverRepository.setAutoLogin(serverId)
-            message.value = null
+        // A dead token must not be activated: every subsequent request would carry it.
+        if (session != null && usable == null) {
+            sessionStore.clear(serverId)
         }
+        activeServerStore.activate(profile, usable)
+        serverRepository.touch(profile)
+        return usable != null
     }
 
     fun delete(serverId: String) {
         viewModelScope.launch {
             serverRepository.delete(serverId)
             sessionStore.clear(serverId)
+            // Deleting the server also forgets its account: it is the user's "forget this server".
+            rememberedAccounts.clear(serverId)
             if (activeServerStore.activeId == serverId) activeServerStore.clear()
         }
     }

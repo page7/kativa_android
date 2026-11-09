@@ -22,11 +22,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,18 +42,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.CoverImage
 import com.kativa.reader.core.designsystem.EmptyState
-import com.kativa.reader.core.designsystem.ErrorState
-import com.kativa.reader.core.designsystem.KativaColors
-import com.kativa.reader.core.designsystem.KativaDimens
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
+import com.kativa.reader.core.designsystem.KativaTopAppBar
+import com.kativa.reader.core.designsystem.KativaUnderlineField
 import com.kativa.reader.core.designsystem.SectionHeader
 import com.kativa.reader.core.designsystem.SeriesPosterCard
 import com.kativa.reader.data.repository.SearchHit
 import com.kativa.reader.data.repository.SearchKind
 import com.kativa.reader.data.repository.SearchRepository
-import com.kativa.reader.ui.common.illustration
-import com.kativa.reader.ui.common.message
 
 /**
  * P11 — search.
@@ -78,13 +73,12 @@ fun SearchScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = {
-                    OutlinedTextField(
+                    KativaUnderlineField(
                         value = state.query,
                         onValueChange = viewModel::onQueryChange,
-                        placeholder = { Text(stringResource(R.string.search_hint)) },
-                        singleLine = true,
+                        placeholder = stringResource(R.string.search_hint),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { viewModel.submit() }),
                         trailingIcon = {
@@ -117,11 +111,9 @@ fun SearchScreen(
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> ErrorState(
-                    message = state.error!!.message(),
-                    retryLabel = stringResource(R.string.common_retry),
+                state.error != null -> com.kativa.reader.ui.common.KativaErrorState(
+                    error = state.error!!,
                     onRetry = viewModel::retry,
-                    illustration = state.error!!.illustration,
                 )
 
                 state.isEmptyResult -> EmptyState(

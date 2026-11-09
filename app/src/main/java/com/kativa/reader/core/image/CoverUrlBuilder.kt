@@ -1,7 +1,6 @@
 package com.kativa.reader.core.image
 
 import com.kativa.reader.core.auth.ActiveServerStore
-import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.di.ApplicationScope
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,6 +33,19 @@ class CoverUrlBuilder @Inject constructor(
         val base = activeServerStore.active.value?.displayBaseUrl() ?: return null
         val key = activeServerStore.session.value?.imageKey ?: return null
         return "$base/Reader/image?chapterId=$chapterId&page=$pageIndex&apiKey=${encode(key)}"
+    }
+
+    /**
+     * Bookmark page thumbnail (`GET Image/bookmark`).
+     *
+     * `pageNum` is **1-based** here (`BookmarkDto.page`), unlike `Reader/image?page=` which is
+     * 0-based — the server looks the bookmark row up by that exact number and 400s otherwise.
+     */
+    fun bookmarkPage(chapterId: Int, pageNum: Int, imageOffset: Int = 0): String? {
+        val base = activeServerStore.active.value?.displayBaseUrl() ?: return null
+        val key = activeServerStore.session.value?.imageKey ?: return null
+        return "$base/Image/bookmark?chapterId=$chapterId&pageNum=$pageNum" +
+            "&imageOffset=$imageOffset&apiKey=${encode(key)}"
     }
 
     fun thumbnail(chapterId: Int, pageNum: Int): String? {
@@ -128,6 +140,6 @@ class PrivacyModeState @Inject constructor(
     }
 }
 
-object PrivacyPlaceholderColor {
-    val fill = KativaColors.PrivacyFill
-}
+// PrivacyPlaceholderColor used to live here (a dead, theme-blind copy of the placeholder fill).
+// The placeholder now reads KativaColors.PrivacyFill / PrivacyFillLight directly in
+// `PrivacyCoverPlaceholder`, so there is a single source of truth.

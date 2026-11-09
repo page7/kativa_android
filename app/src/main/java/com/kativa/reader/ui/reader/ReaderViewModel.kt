@@ -42,6 +42,11 @@ data class ReaderUiState(
     val settings: ReaderSettings = ReaderSettings.Default,
     /** Double-page slots, recomputed whenever the chapter or layout changes. */
     val slots: List<com.kativa.reader.domain.model.PageSlot> = emptyList(),
+    /**
+     * False for accounts without the `Bookmark`/`Admin` role: the server rejects the endpoint, so
+     * the affordance is hidden rather than offered and then failed (docs/FEATURES.md F-17).
+     */
+    val canBookmark: Boolean = true,
 ) {
     val totalPages: Int get() = session?.totalPages ?: 0
 
@@ -92,12 +97,22 @@ class ReaderViewModel @Inject constructor(
 
     private val chapterId: Int = savedStateHandle.get<String>("chapterId")?.toIntOrNull() ?: 0
 
+    /**
+     * Explicit 0-based page to open at (set when arriving from a bookmark).
+     *
+     * `null` means "resume from server progress". It only applies to the first load: paging away
+     * must not be undone by it, so it is consumed alongside the initial session.
+     */
+    private var explicitStartPage: Int? =
+        savedStateHandle.get<Int>("page")?.takeIf { it >= 0 }
+
     private val _state = MutableStateFlow(ReaderUiState())
     val state: StateFlow<ReaderUiState> = _state.asStateFlow()
 
     private var saveJob: Job? = null
 
     init {
+        _state.update { it.copy(canBookmark = activeServerStore.session.value?.canBookmark == true) }
         load()
     }
 
@@ -133,7 +148,7 @@ class ReaderViewModel @Inject constructor(
                             loading = false,
                             session = session,
                             pageUrls = buildPageUrls(session),
-                            pageIndex = session.startPageIndex,
+                            pageIndex = resolveStartPage(session),
                             slots = buildSlots(session, it.settings),
                         )
                     }
@@ -153,6 +168,24 @@ class ReaderViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Where the first render should start.
+     *
+     * A bookmark link carries an explicit **0-based** page index — the same space as
+     * `Reader/image?page=` and `BookmarkDto.page` — which wins over saved progress, because the
+     * user asked for *that* page. [ReaderStartPage] clamps it and the value is then discarded, so
+     * later swipes are not snapped back to it.
+     */
+    private fun resolveStartPage(session: ReaderSession): Int {
+        val explicit = explicitStartPage
+        explicitStartPage = null
+        return com.kativa.reader.domain.model.ReaderStartPage.resolve(
+            explicitPageIndex = explicit,
+            totalPages = session.totalPages,
+            progressPageIndex = session.startPageIndex,
+        )
     }
 
     private fun buildPageUrls(session: ReaderSession): List<String> {
@@ -248,8 +281,9 @@ class ReaderViewModel @Inject constructor(
     private fun loadBookmarks() {
         viewModelScope.launch {
             val pages = libraryRepository.bookmarks(chapterId)
-            // API bookmarks are 1-based page numbers; the UI keeps 0-based indexes.
-            _state.update { it.copy(bookmarkedPages = pages.map { p -> p - 1 }.toSet()) }
+            // `BookmarkDto.page` is a 0-based image index (same as the reader's `pageIndex` and
+            // `Reader/image?page=`); no conversion is needed or allowed here.
+            _state.update { it.copy(bookmarkedPages = pages.toSet()) }
         }
     }
 
@@ -327,15 +361,23 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Toggles a bookmark on the current page.
+     *
+     * `BookmarkDto.page` is a **0-based** image index, the same space as `Reader/image?page=` and
+     * `Image/bookmark?pageNum=` (the Kavita web reader posts its 0-based `pageNum`). Sending
+     * `index + 1` stored a row one page past what the user tapped, so the bookmark list opened
+     * the wrong page and `Image/bookmark` 400'd on the last page of a chapter.
+     */
     fun toggleBookmark() {
         val s = _state.value.session ?: return
         val index = _state.value.pageIndex
         val isBookmarked = index in _state.value.bookmarkedPages
         viewModelScope.launch {
             val outcome = if (isBookmarked) {
-                libraryRepository.removeBookmark(s.chapterId, s.seriesId, s.volumeId, index + 1)
+                libraryRepository.removeBookmark(s.chapterId, s.seriesId, s.volumeId, index)
             } else {
-                libraryRepository.addBookmark(s.chapterId, s.seriesId, s.volumeId, index + 1)
+                libraryRepository.addBookmark(s.chapterId, s.seriesId, s.volumeId, index)
             }
             if (outcome is Outcome.Success) {
                 _state.update {

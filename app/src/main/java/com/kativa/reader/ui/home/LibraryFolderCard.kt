@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.CoverImage
 import com.kativa.reader.core.designsystem.KativaColors
+import com.kativa.reader.core.designsystem.KativaDimens
 import com.kativa.reader.core.designsystem.LocalDarkTheme
 import com.kativa.reader.core.designsystem.LocalPrivacyMode
 import com.kativa.reader.core.designsystem.PrivacyCoverPlaceholder
@@ -34,6 +35,25 @@ import com.kativa.reader.core.designsystem.PrivacyCoverPlaceholder
  * so the two can never drift apart in value.
  */
 private val INSET = 4.dp
+
+/**
+ * Corner radius of a single mosaic cell.
+ *
+ * Deliberately *not* shared with the privacy panel: four small tiles need a small radius, whereas
+ * the panel replaces all four with one large surface and must read as a cover (see
+ * [PrivacyPanelShape]).
+ */
+private val MosaicCellShape = RoundedCornerShape(3.dp)
+
+/**
+ * Corner radius of the flat panel shown instead of the mosaic in privacy mode.
+ *
+ * Same as every other cover in the app ([KativaDimens.PosterRadius], 12dp): a single big panel
+ * rounded at the 3dp mosaic-cell radius looked like a sharp grey rectangle sitting inside a
+ * rounded card, which is what "the privacy image is too square" reported. The panel is one cover
+ * now, so it takes the cover radius.
+ */
+private val PrivacyPanelShape = RoundedCornerShape(KativaDimens.PosterRadius.dp)
 
 /**
  * A library as a folder tile: a translucent grey panel holding a 2x2 mosaic of its first four
@@ -71,13 +91,14 @@ fun LibraryFolderCard(
             ) {
                 if (privacyMode) {
                     // One flat placeholder is enough: four grey squares add noise, and privacy
-                    // mode must not request anything anyway.
-                    Box(Modifier.fillMaxSize()) {
-                        PrivacyCoverPlaceholder(
-                            modifier = Modifier.fillMaxSize(),
-                            description = null,
-                        )
-                    }
+                    // mode must not request anything anyway. It fills the padded slot, so it
+                    // keeps the same INSET rims as the mosaic, but takes the *cover* radius
+                    // rather than the tiny per-cell one — see [PrivacyPanelShape].
+                    PrivacyCoverPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        description = null,
+                        shape = PrivacyPanelShape,
+                    )
                 } else {
                     FolderMosaic(covers = folder.previewCovers)
                 }
@@ -144,7 +165,7 @@ private fun MosaicRow(left: String?, right: String?, modifier: Modifier = Modifi
 
 @Composable
 private fun MosaicCell(url: String?, modifier: Modifier) {
-    Box(modifier.fillMaxSize().clip(RoundedCornerShape(3.dp))) {
+    Box(modifier.fillMaxSize().clip(MosaicCellShape)) {
         if (url != null) {
             CoverImage(
                 url = url,

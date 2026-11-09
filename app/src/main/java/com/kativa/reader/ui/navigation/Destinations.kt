@@ -40,12 +40,24 @@ object Routes {
     const val SEARCH = "search"
     const val SHELF = "shelf"
     const val STREAM = "stream"
+    const val BOOKMARKS = "bookmarks"
 
     const val ARG_SERVER_ID = "serverId"
     const val ARG_SHOW_BACK = "showBack"
+    const val ARG_PAGE = "page"
 
-    fun serverSetup(serverId: String? = null): String =
-        if (serverId == null) SERVER_SETUP else "$SERVER_SETUP?$ARG_SERVER_ID=$serverId"
+    /**
+     * @param showBack true when setup was pushed on top of another screen (server picker → add,
+     *   or edit an existing server). First-run setup (welcome → setup) is a graph root with
+     *   nothing to return to, so it must NOT offer a back affordance.
+     */
+    fun serverSetup(serverId: String? = null, showBack: Boolean = serverId != null): String {
+        val query = buildList {
+            serverId?.let { add("$ARG_SERVER_ID=$it") }
+            if (showBack) add("$ARG_SHOW_BACK=true")
+        }
+        return if (query.isEmpty()) SERVER_SETUP else "$SERVER_SETUP?${query.joinToString("&")}"
+    }
 
     /**
      * @param showBack true when the picker is pushed on top of another screen (Me → switch
@@ -61,6 +73,20 @@ object Routes {
     fun series(seriesId: Int): String = "$SERIES/$seriesId"
 
     fun reader(chapterId: Int): String = "$READER/$chapterId"
+
+    /**
+     * Opens a chapter, optionally at an explicit page.
+     *
+     * `pageIndex` is the **0-based** page index, the same space as `Reader/image?page=` and
+     * `BookmarkDto.page`. It is used when the user taps a bookmark: resuming at saved progress
+     * would open a different page than the one they chose. Omitted means "resume".
+     */
+    fun reader(chapterId: Int, pageIndex: Int? = null): String =
+        if (pageIndex == null || pageIndex < 0) {
+            reader(chapterId)
+        } else {
+            "$READER/$chapterId?$ARG_PAGE=$pageIndex"
+        }
 
     fun shelf(kind: String): String = "$SHELF/$kind"
 

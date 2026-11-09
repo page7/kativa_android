@@ -33,10 +33,9 @@
     <string name="servers_add">Add server</string>
     <string name="servers_state_logged_in">Signed in</string>
     <string name="servers_state_needs_login">Sign-in needed</string>
+    <string name="servers_state_expired">Session expired</string>
     <string name="servers_state_unreachable">Unreachable</string>
-    <string name="servers_set_auto_login">Sign in automatically at startup</string>
     <string name="servers_set_auto_login_on">Startup server</string>
-    <string name="servers_auto_login_none">Do not sign in automatically</string>
     <string name="servers_delete_title">Delete server?</string>
     <string name="servers_delete_body">Only the record and sign-in state stored on this device are removed. Nothing on the server is affected.</string>
     <string name="servers_last_used">Last used: %1$s</string>
@@ -79,6 +78,12 @@
     <string name="login_error_password_disabled">Password sign-in is disabled on this server. Use an API key instead.</string>
     <string name="login_error_key_expired">This API key has expired</string>
     <string name="login_server_version">Server version %1$s</string>
+    <string name="login_remembered_account">Using the account from last time: %1$s — only the password is needed</string>
+
+    <!-- Session expired -->
+    <string name="session_expired_title">Session expired</string>
+    <string name="session_expired_body">Sign in again to keep using this server. Only the password is needed.</string>
+    <string name="session_expired_sign_in">Sign in again</string>
 
     <!-- Home -->
     <string name="home_greeting">Hi, %1$s</string>
@@ -238,49 +243,20 @@
     <string name="filter_sort">Sort by</string>
     <string name="filter_sort_asc">Ascending</string>
     <string name="filter_sort_desc">Descending</string>
-    <string name="filter_match">Match</string>
-    <string name="filter_match_all">All conditions</string>
-    <string name="filter_match_any">Any condition</string>
-    <string name="filter_active">Active conditions</string>
-    <string name="filter_add_condition">Add condition</string>
-    <string name="filter_value">Value</string>
-    <string name="filter_add">Add</string>
-    <string name="filter_reset">Reset</string>
-    <string name="filter_apply">Apply</string>
     <string name="filter_sort_name">Name</string>
     <string name="filter_sort_added">Date added</string>
-    <string name="filter_sort_modified">Date modified</string>
-    <string name="filter_sort_chapter_added">Chapter added</string>
-    <string name="filter_sort_time">Time to read</string>
-    <string name="filter_sort_year">Release year</string>
-    <string name="filter_sort_progress">Read progress</string>
-    <string name="filter_sort_rating">My rating</string>
-    <string name="filter_sort_unread">Unread chapters</string>
-    <string name="filter_sort_random">Random</string>
-    <string name="filter_field_name">Series name</string>
-    <string name="filter_field_writer">Author</string>
-    <string name="filter_field_genre">Genre</string>
-    <string name="filter_field_tag">Tag</string>
-    <string name="filter_field_status">Status</string>
-    <string name="filter_field_age">Age rating</string>
-    <string name="filter_field_format">Format</string>
-    <string name="filter_field_language">Language</string>
-    <string name="filter_field_want_to_read">Want to read</string>
-    <string name="filter_field_rating">My rating</string>
-    <string name="filter_field_progress">Read progress</string>
-    <string name="filter_field_year">Release year</string>
+    <string name="filter_sort_last_read">Last read</string>
+    <string name="filter_reset">Reset</string>
+    <string name="filter_apply">Apply</string>
+    <string name="filter_field_name">Name search</string>
+    <string name="filter_name_hint">Series name</string>
+    <string name="filter_field_want_to_read">Favourite</string>
+    <string name="filter_any">All</string>
+    <string name="filter_want_to_read_only">Favourites only</string>
+    <string name="filter_chip_name">Name: %1$s</string>
     <string name="filter_no_match">No series match</string>
     <string name="filter_no_match_body">Try loosening or clearing the filter</string>
     <string name="filter_clear">Clear filter</string>
-    <string name="filter_cmp_is">is</string>
-    <string name="filter_cmp_is_not">is not</string>
-    <string name="filter_cmp_contains">contains</string>
-    <string name="filter_cmp_not_contains">doesn\'t contain</string>
-    <string name="filter_cmp_starts">starts with</string>
-    <string name="filter_cmp_ends">ends with</string>
-    <string name="filter_cmp_empty">is empty</string>
-    <string name="filter_cmp_not_empty">is not empty</string>
-    <string name="filter_cmp_recent">In the last N days</string>
     <!-- shelf -->
     <string name="shelf_collections">Collections</string>
     <string name="shelf_reading_lists">Reading lists</string>
@@ -294,6 +270,12 @@
     <string name="shelf_item_count">%1$d items</string>
     <string name="series_add_to_want_to_read">Add to want to read</string>
     <string name="series_remove_from_want_to_read">Remove from want to read</string>
+    <!-- Bookmarks -->
+    <string name="bookmarks_title">My bookmarks</string>
+    <string name="bookmarks_empty_title">No bookmarks yet</string>
+    <string name="bookmarks_empty_body">Double-tap a page in the reader to bookmark it</string>
+    <string name="bookmark_chapter_page">%1$s · page %2$d</string>
+    <string name="bookmark_page_number">Page %1$d</string>
     <!-- Home folders / stream view -->
     <string name="home_libraries">Libraries</string>
     <string name="home_folder_series_count">%1$d series</string>

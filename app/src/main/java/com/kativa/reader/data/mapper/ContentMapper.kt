@@ -1,11 +1,13 @@
 package com.kativa.reader.data.mapper
 
 import com.kativa.reader.data.remote.dto.ChapterDto
+import com.kativa.reader.data.remote.dto.BookmarkDto
 import com.kativa.reader.data.remote.dto.ChapterInfoDto
 import com.kativa.reader.data.remote.dto.PageDimensionDto
 import com.kativa.reader.data.remote.dto.ProgressDto
 import com.kativa.reader.data.remote.dto.SeriesDto
 import com.kativa.reader.data.remote.dto.VolumeDto
+import com.kativa.reader.domain.model.Bookmark
 import com.kativa.reader.domain.model.Chapter
 import com.kativa.reader.domain.model.ChapterProgress
 import com.kativa.reader.domain.model.ContentFormat
@@ -108,6 +110,24 @@ object ContentMapper {
         height = dto.height,
         pageNumber = dto.pageNumber,
         isWide = dto.isWide,
+    )
+
+    /**
+     * `POST Reader/all-bookmarks` returns each bookmark with an embedded `series`, which is the
+     * only way to name the series in the bookmark list (the DTO only carries ids). The chapter
+     * title is optional and pre-formatted server-side.
+     */
+    fun bookmark(dto: BookmarkDto): Bookmark = Bookmark(
+        id = dto.id,
+        page = dto.page,
+        chapterId = dto.chapterId,
+        volumeId = dto.volumeId,
+        seriesId = dto.seriesId,
+        seriesName = dto.series?.let { it.localizedName?.takeIf(String::isNotBlank) ?: it.name }
+            .orEmpty(),
+        chapterTitle = dto.chapterTitle?.takeIf { it.isNotBlank() },
+        imageOffset = dto.imageOffset,
+        xPath = dto.xPath,
     )
 
     fun readerSession(chapterId: Int, info: ChapterInfoDto, startPageNum: Int): ReaderSession =

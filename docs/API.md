@@ -66,6 +66,16 @@
 { "token": "<jwt>", "refreshToken": "<refresh>" }
 ```
 - 200 → 同结构新 token；401 `{message:"invalid-token"}` 或纯文本。
+- ⚠️ **P0 未接入自动刷新**：token 过期由客户端按 JWT `exp` 判定（`core/auth/JwtExpiry`），
+  选择页显示"登录已过期"并要求重新登录（只需密码）。本端点留给 P1 的 `Authenticator` 使用。
+
+### 客户端会话判定（P0）
+- JWT 的 `exp` 从 payload 里直接解析（不验签、不引依赖）；解析失败视为**未过期**，
+  避免因服务端格式变化把用户锁在登录页。
+- 业务请求返回 401 且请求带有 `Authorization` 时，`SessionExpiryInterceptor` 广播
+  "会话过期" 并清除该服务器的 token；`Account/login` / `refresh-token` / `Plugin/authenticate`
+  的 401 **不**走这条路径（密码错同样是 401）。
+- 只持久化 `username`（`kativa_accounts`），**永不**持久化密码或 API Key。
 
 ### `POST /api/Plugin/authenticate?apiKey=&pluginName=Kativa` ✅ 匿名
 - 备选登录：返回 `UserDto{username, token, refreshToken, apiKey, kavitaVersion}`（无 roles/preferences）。
@@ -129,6 +139,16 @@ query：`pageNumber, pageSize`
 }
 ```
 - 200 → `SeriesDto[]` + `Pagination` 头。
+
+**比较符必须按字段匹配（`ComparisonProfile` 校验，错配会抛异常而非返回空）**：`SeriesName(1)` 只接受
+`Equal(0) / NotEqual(9) / BeginsWith(10) / EndsWith(11) / Matches(7)`；`Contains(5)` 只对**列表型**字段
+（Tags/Genres/People 的 id 列表）有效，用在名字上会让整次请求 500/失败。客户端曾因此「筛选没反应」。
+同理 `WantToRead(26)` 的值是 `"true"/"false"` 字符串（`bool.Parse`），且服务端在 And/Or 组合**之前**
+单独预处理（`ApplyWantToReadFilter` + `ApplyLibraryFilter`），所以它和 `Libraries(19)` 都必须是
+同一层 `statements` 里的兄弟项。
+
+客户端只暴露三条：排序（`sortField` 1 名称 / 2 加入时间 / 7 上次阅读）、`SeriesName + Matches(7)` 名称搜索、
+`WantToRead(26) == true` 收藏（想读）。`combination` 固定 `1`，避免用户条件把库范围并集掉。
 
 ### `GET /api/Series/{seriesId}` 🔒
 - `SeriesDto`：`id, name, localizedName, sortName, pages, format, libraryId, libraryName, userRating, hasUserRated, totalReads, pagesRead, latestReadDate, minHoursToRead, maxHoursToRead, avgHoursToRead, releaseYear?(metadata), primaryColor, secondaryColor, aniListId, malId, ...`
@@ -285,6 +305,17 @@ query：`pageNumber, pageSize, userId?, context?`
 | `POST /api/Reader/remove-bookmarks` / `bulk-remove-bookmarks` | 批量删 |
 | `GET /api/Image/bookmark?chapterId=&pageNum=&imageOffset=` | 书签页图片（需 apiKey） |
 
+> **`BookmarkDto.page` 是 0 基图片索引**，不是 `pageNum`。Kavita Web 端阅读器提交的是 0 基的
+> `pageNum`，`Reader/image?page=` 与 `Image/bookmark?pageNum=` 使用同一索引；客户端**只在展示时
+> +1**。曾经按"进度 `pageNum` 是 1 基"的直觉给它 `+1`，结果书签存到下一页、列表点开错页，且章节
+> 最后一页会 400（`Image/bookmark` 用 `page/chapterId/imageOffset` 唯一定位，越界即 `bookmark-doesnt-exist`）。
+>
+> `POST /api/Reader/all-bookmarks` 是唯一返回 `series` 内嵌对象的书签端点（`BookmarkDto.series`），
+> 书签列表的系列名只能来自它。body 必须是 `SeriesFilterV2Dto`：服务端直接枚举 `Statements`，
+> 空 body 会 500；`limitTo` 默认 0（不限制）。
+>
+> `Image/bookmark` 属于"封面类"媒体：隐私模式下同样**不发请求**（见 `PrivacyGuardInterceptor.COVER_PATHS`）。
+
 ### `GET /api/Reader/ptoc?chapterId=` / `POST /api/Reader/create-ptoc` / `DELETE /api/Reader/ptoc`
 - 个人目录（PDF/漫画可用）：`PersonalToCDto{id, chapterId, pageNumber, title, bookScrollId, selectedText}`。P2。
 
@@ -366,6 +397,9 @@ PDF：`pdfTheme(0 Dark/1 Light)`、`pdfScrollMode(0/1/3)`、`pdfSpreadMode(0 Non
 ### `GET /api/Search/search?queryString=&includeChapterAndFiles=false` 🔒
 - `SearchResultGroupDto`：`libraries[], series[], collections[], readingLists[], persons[], genres[], tags[], files[], chapters[], bookmarks[], annotations[]`
 - `SearchResultDto`：`seriesId, name, localizedName, sortName, format, libraryName, libraryId, releaseYear, volumeCount, chapterCount`
+- **只搜 `includeInSearch=true` 资料库**：`SearchController` 先用 `GetLibraryIdsForUserIdAsync(userId, QueryContext.Search)` 取库列表，`SeriesRepository.SearchSeriesAsync` 再按 `libraryIds.Contains(s.LibraryId)` 过滤。关掉某库的「包含在搜索中」后，该库所有系列都搜不到——这不是编码问题，客户端无法绕过（`GET /api/Library/libraries` 的 `includeInSearch` 字段可自查）。
+- **匹配规则是 SQL LIKE 子串，不做简繁/异体折叠**：`s.Name / OriginalName / LocalizedName / NormalizedName` 各做一次 `%query%`。实测 `樂園`→命中，`乐园`→0 条；`女兒`→命中，`女儿`→0 条。要跨简繁必须有客户端变体展开。
+- 单字可搜（`学`/`園`/`力`），空串 400。`queryString` 按 UTF-8 百分号编码，服务端会再做一次 `Uri.UnescapeDataString` 并去掉 `%`/`:`。
 
 ### 浏览
 | 端点 | 说明 |

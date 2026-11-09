@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kativa.reader.core.auth.ActiveServerStore
 import com.kativa.reader.core.auth.ServerRepository
+import com.kativa.reader.core.auth.SessionStatus
 import com.kativa.reader.core.auth.SessionStore
+import com.kativa.reader.core.auth.status
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +21,10 @@ enum class SplashDestination { Pending, Welcome, ServerPicker, Home }
  * Startup routing (docs/FLOWS.md F1):
  *  - no servers                → Welcome (logo only)
  *  - servers but no auto-login → ServerPicker (the default behaviour)
- *  - auto-login + live session → Home
+ *  - auto-login + usable session → Home
+ *
+ * Expired sessions are dropped first, so "auto-login + dead token" can never take the user to a
+ * home screen that only shows "session expired".
  */
 @HiltViewModel
 class SplashViewModel @Inject constructor(
@@ -47,9 +52,10 @@ class SplashViewModel @Inject constructor(
             val autoId = serverRepository.autoLoginServerId.first()
             val auto = servers.firstOrNull { it.id == autoId }
             val session = auto?.let { sessionStore.get(it.id) }
+            val usable = session?.takeIf { it.status() == SessionStatus.Valid }
 
-            if (auto != null && session != null) {
-                activeServerStore.activate(auto, session)
+            if (auto != null && usable != null) {
+                activeServerStore.activate(auto, usable)
                 _destination.value = SplashDestination.Home
             } else {
                 _destination.value = SplashDestination.ServerPicker

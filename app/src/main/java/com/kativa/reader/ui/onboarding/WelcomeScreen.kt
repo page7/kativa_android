@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -13,7 +14,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.kativa.reader.R
-import com.kativa.reader.core.designsystem.KativaColors
 import kotlinx.coroutines.delay
 
 /**
@@ -35,7 +35,9 @@ fun WelcomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(KativaColors.Background)
+            // Follows the selected theme for the same reason as SplashScreen: a hard-coded dark
+            // backdrop made welcome look like a different app in light mode.
+            .background(MaterialTheme.colorScheme.background)
             .clickable { onContinue() },
         contentAlignment = Alignment.Center,
     ) {

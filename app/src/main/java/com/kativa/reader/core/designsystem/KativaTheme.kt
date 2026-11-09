@@ -28,6 +28,13 @@ val LocalPrivacyMode = compositionLocalOf { false }
 /** True while a screen wants the top-bar privacy toggle visible. */
 val LocalDarkTheme = staticCompositionLocalOf { true }
 
+/**
+ * True when the composable sits on a brand-coloured (mint) surface, as the light-theme top bar
+ * does. Accent colours that normally use [KativaColors.BrandPrimary] must fall back to an
+ * ink-based tone there — mint on mint is invisible. See [KativaTopAppBar].
+ */
+val LocalOnBrandSurface = staticCompositionLocalOf { false }
+
 @Composable
 fun KativaTheme(
     themeMode: ThemeMode = ThemeMode.System,
@@ -66,7 +73,7 @@ fun KativaTheme(
     }
 }
 
-private val OnBrand = Color(0xFF07130E)
+private val OnBrand = KativaColors.OnBrand
 private val White = Color(0xFFFFFFFF)
 
 private val DarkColors = darkColorScheme(

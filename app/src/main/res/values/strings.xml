@@ -32,10 +32,9 @@
     <string name="servers_add">添加服务器</string>
     <string name="servers_state_logged_in">已登录</string>
     <string name="servers_state_needs_login">需要登录</string>
+    <string name="servers_state_expired">登录已过期</string>
     <string name="servers_state_unreachable">无法连接</string>
-    <string name="servers_set_auto_login">启动时自动登录</string>
     <string name="servers_set_auto_login_on">已设为启动时自动登录</string>
-    <string name="servers_auto_login_none">不自动登录</string>
     <string name="servers_delete_title">删除服务器？</string>
     <string name="servers_delete_body">只删除本机保存的记录与登录状态，不会影响服务器上的任何数据。</string>
     <string name="servers_last_used">最近使用：%1$s</string>
@@ -78,6 +77,12 @@
     <string name="login_error_password_disabled">服务器已禁用密码登录，请使用 API 密钥</string>
     <string name="login_error_key_expired">该 API 密钥已过期</string>
     <string name="login_server_version">服务器版本 %1$s</string>
+    <string name="login_remembered_account">将使用上次登录的账号 %1$s，只需输入密码</string>
+
+    <!-- Session expired -->
+    <string name="session_expired_title">登录已过期</string>
+    <string name="session_expired_body">请重新登录以继续使用该服务器，只需输入密码。</string>
+    <string name="session_expired_sign_in">重新登录</string>
 
     <!-- Home -->
     <string name="home_greeting">你好，%1$s</string>
@@ -237,49 +242,20 @@
     <string name="filter_sort">排序</string>
     <string name="filter_sort_asc">升序</string>
     <string name="filter_sort_desc">降序</string>
-    <string name="filter_match">匹配方式</string>
-    <string name="filter_match_all">全部条件都满足</string>
-    <string name="filter_match_any">任一条件满足</string>
-    <string name="filter_active">已添加的条件</string>
-    <string name="filter_add_condition">添加条件</string>
-    <string name="filter_value">值</string>
-    <string name="filter_add">添加</string>
+    <string name="filter_sort_name">按名称</string>
+    <string name="filter_sort_added">按加入时间</string>
+    <string name="filter_sort_last_read">按阅读时间</string>
     <string name="filter_reset">重置</string>
     <string name="filter_apply">应用</string>
-    <string name="filter_sort_name">名称</string>
-    <string name="filter_sort_added">添加时间</string>
-    <string name="filter_sort_modified">修改时间</string>
-    <string name="filter_sort_chapter_added">章节更新时间</string>
-    <string name="filter_sort_time">阅读时长</string>
-    <string name="filter_sort_year">出版年份</string>
-    <string name="filter_sort_progress">阅读进度</string>
-    <string name="filter_sort_rating">我的评分</string>
-    <string name="filter_sort_unread">未读章节</string>
-    <string name="filter_sort_random">随机</string>
-    <string name="filter_field_name">系列名</string>
-    <string name="filter_field_writer">作者</string>
-    <string name="filter_field_genre">类型</string>
-    <string name="filter_field_tag">标签</string>
-    <string name="filter_field_status">出版状态</string>
-    <string name="filter_field_age">年龄分级</string>
-    <string name="filter_field_format">格式</string>
-    <string name="filter_field_language">语言</string>
-    <string name="filter_field_want_to_read">想读</string>
-    <string name="filter_field_rating">我的评分</string>
-    <string name="filter_field_progress">阅读进度</string>
-    <string name="filter_field_year">出版年份</string>
+    <string name="filter_field_name">名称搜索</string>
+    <string name="filter_name_hint">输入系列名</string>
+    <string name="filter_field_want_to_read">是否收藏</string>
+    <string name="filter_any">全部</string>
+    <string name="filter_want_to_read_only">仅收藏（想读）</string>
+    <string name="filter_chip_name">名称：%1$s</string>
     <string name="filter_no_match">没有符合条件的系列</string>
     <string name="filter_no_match_body">试试放宽或清除筛选条件</string>
     <string name="filter_clear">清除筛选</string>
-    <string name="filter_cmp_is">是</string>
-    <string name="filter_cmp_is_not">不是</string>
-    <string name="filter_cmp_contains">包含</string>
-    <string name="filter_cmp_not_contains">不包含</string>
-    <string name="filter_cmp_starts">开头是</string>
-    <string name="filter_cmp_ends">结尾是</string>
-    <string name="filter_cmp_empty">为空</string>
-    <string name="filter_cmp_not_empty">不为空</string>
-    <string name="filter_cmp_recent">最近 N 天</string>
     <!-- shelf -->
     <string name="shelf_collections">合集</string>
     <string name="shelf_reading_lists">阅读清单</string>
@@ -293,6 +269,12 @@
     <string name="shelf_item_count">%1$d 项</string>
     <string name="series_add_to_want_to_read">加入想读</string>
     <string name="series_remove_from_want_to_read">移出想读</string>
+    <!-- Bookmarks -->
+    <string name="bookmarks_title">我的书签</string>
+    <string name="bookmarks_empty_title">还没有书签</string>
+    <string name="bookmarks_empty_body">在阅读器里双击页面即可添加书签</string>
+    <string name="bookmark_chapter_page">%1$s · 第 %2$d 页</string>
+    <string name="bookmark_page_number">第 %1$d 页</string>
     <!-- Home folders / stream view -->
     <string name="home_libraries">资料库</string>
     <string name="home_folder_series_count">%1$d 部系列</string>

@@ -33,10 +33,9 @@
     <string name="servers_add">Ajouter un serveur</string>
     <string name="servers_state_logged_in">Connecté</string>
     <string name="servers_state_needs_login">Connexion requise</string>
+    <string name="servers_state_expired">Session expirée</string>
     <string name="servers_state_unreachable">Injoignable</string>
-    <string name="servers_set_auto_login">Connexion automatique au démarrage</string>
     <string name="servers_set_auto_login_on">Serveur de démarrage</string>
-    <string name="servers_auto_login_none">Ne pas se connecter automatiquement</string>
     <string name="servers_delete_title">Supprimer le serveur ?</string>
     <string name="servers_delete_body">Seul l\'enregistrement et l\'état de connexion sur cet appareil sont supprimés. Rien sur le serveur n\'est affecté.</string>
     <string name="servers_last_used">Dernière utilisation : %1$s</string>
@@ -79,6 +78,12 @@
     <string name="login_error_password_disabled">La connexion par mot de passe est désactivée sur ce serveur. Utilisez une clé API.</string>
     <string name="login_error_key_expired">Cette clé API a expiré</string>
     <string name="login_server_version">Version du serveur %1$s</string>
+    <string name="login_remembered_account">Compte utilisé lors de la dernière connexion : %1$s — seul le mot de passe est requis</string>
+
+    <!-- Session expired -->
+    <string name="session_expired_title">Session expirée</string>
+    <string name="session_expired_body">Reconnectez-vous pour continuer à utiliser ce serveur. Seul le mot de passe est requis.</string>
+    <string name="session_expired_sign_in">Se reconnecter</string>
 
     <!-- Home -->
     <string name="home_greeting">Bonjour, %1$s</string>
@@ -238,49 +243,20 @@
     <string name="filter_sort">Trier par</string>
     <string name="filter_sort_asc">Croissant</string>
     <string name="filter_sort_desc">Décroissant</string>
-    <string name="filter_match">Correspondance</string>
-    <string name="filter_match_all">Toutes les conditions</string>
-    <string name="filter_match_any">Au moins une condition</string>
-    <string name="filter_active">Conditions actives</string>
-    <string name="filter_add_condition">Ajouter une condition</string>
-    <string name="filter_value">Valeur</string>
-    <string name="filter_add">Ajouter</string>
-    <string name="filter_reset">Réinitialiser</string>
-    <string name="filter_apply">Appliquer</string>
     <string name="filter_sort_name">Nom</string>
     <string name="filter_sort_added">Date d\'ajout</string>
-    <string name="filter_sort_modified">Date de modification</string>
-    <string name="filter_sort_chapter_added">Chapitre ajouté</string>
-    <string name="filter_sort_time">Durée de lecture</string>
-    <string name="filter_sort_year">Année de parution</string>
-    <string name="filter_sort_progress">Progression</string>
-    <string name="filter_sort_rating">Ma note</string>
-    <string name="filter_sort_unread">Chapitres non lus</string>
-    <string name="filter_sort_random">Aléatoire</string>
-    <string name="filter_field_name">Nom de série</string>
-    <string name="filter_field_writer">Auteur</string>
-    <string name="filter_field_genre">Genre</string>
-    <string name="filter_field_tag">Tag</string>
-    <string name="filter_field_status">Statut</string>
-    <string name="filter_field_age">Classification d\'âge</string>
-    <string name="filter_field_format">Format</string>
-    <string name="filter_field_language">Langue</string>
-    <string name="filter_field_want_to_read">À lire</string>
-    <string name="filter_field_rating">Ma note</string>
-    <string name="filter_field_progress">Progression</string>
-    <string name="filter_field_year">Année de parution</string>
+    <string name="filter_sort_last_read">Dernière lecture</string>
+    <string name="filter_reset">Réinitialiser</string>
+    <string name="filter_apply">Appliquer</string>
+    <string name="filter_field_name">Recherche par nom</string>
+    <string name="filter_name_hint">Nom de série</string>
+    <string name="filter_field_want_to_read">Favori</string>
+    <string name="filter_any">Tout</string>
+    <string name="filter_want_to_read_only">Favoris uniquement</string>
+    <string name="filter_chip_name">Nom : %1$s</string>
     <string name="filter_no_match">Aucune série ne correspond</string>
     <string name="filter_no_match_body">Essayez d\'assouplir ou d\'effacer le filtre</string>
     <string name="filter_clear">Effacer le filtre</string>
-    <string name="filter_cmp_is">est</string>
-    <string name="filter_cmp_is_not">n\'est pas</string>
-    <string name="filter_cmp_contains">contient</string>
-    <string name="filter_cmp_not_contains">ne contient pas</string>
-    <string name="filter_cmp_starts">commence par</string>
-    <string name="filter_cmp_ends">se termine par</string>
-    <string name="filter_cmp_empty">est vide</string>
-    <string name="filter_cmp_not_empty">n\'est pas vide</string>
-    <string name="filter_cmp_recent">Dans les N derniers jours</string>
     <!-- shelf -->
     <string name="shelf_collections">Collections</string>
     <string name="shelf_reading_lists">Listes de lecture</string>
@@ -294,6 +270,12 @@
     <string name="shelf_item_count">%1$d éléments</string>
     <string name="series_add_to_want_to_read">Ajouter à la liste à lire</string>
     <string name="series_remove_from_want_to_read">Retirer de la liste à lire</string>
+    <!-- Bookmarks -->
+    <string name="bookmarks_title">Mes signets</string>
+    <string name="bookmarks_empty_title">Aucun signet</string>
+    <string name="bookmarks_empty_body">Double-touchez une page dans le lecteur pour ajouter un signet</string>
+    <string name="bookmark_chapter_page">%1$s · page %2$d</string>
+    <string name="bookmark_page_number">Page %1$d</string>
     <!-- Home folders / stream view -->
     <string name="home_libraries">Bibliothèques</string>
     <string name="home_folder_series_count">%1$d séries</string>

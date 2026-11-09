@@ -1,7 +1,9 @@
 package com.kativa.reader.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -38,10 +40,42 @@ fun KativaNavHost(
     privacyMode: Boolean,
     navController: NavHostController = rememberNavController(),
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = Routes.SPLASH,
+    val sessionExpiry: com.kativa.reader.ui.navigation.SessionExpiryHandler =
+        hiltViewModel()
+    val currentNav = rememberUpdatedState(navController)
+
+    // A dead token on any screen must lead somewhere the user can actually fix it: the server
+    // picker (marked expired) and then the login form. Without this, 401s were shown as error
+    // screens whose "retry" could only fail again.
+    LaunchedEffect(sessionExpiry) {
+        sessionExpiry.expired.collect { serverId ->
+            val nav = currentNav.value
+            if (nav.currentDestination?.route?.startsWith(Routes.SERVER_PICKER) == true) return@collect
+            nav.navigate(Routes.serverPicker(showBack = false)) {
+                // Clear the stack: the screen the user was on is unusable until they sign in, and
+                // back from the picker must not return to it.
+                popUpTo(nav.graph.findStartDestination().id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    // Lets any screen's error state offer "sign in again" without hard-coding navigation.
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.kativa.reader.ui.common.LocalSignInAgain provides {
+            val nav = currentNav.value
+            val serverId = sessionExpiry.serverToSignIn()
+            if (serverId != null) {
+                nav.navigate(Routes.login(serverId)) { launchSingleTop = true }
+            } else {
+                nav.navigate(Routes.serverPicker(showBack = true)) { launchSingleTop = true }
+            }
+        },
     ) {
+        NavHost(
+            navController = navController,
+            startDestination = Routes.SPLASH,
+        ) {
         composable(Routes.SPLASH) {
             SplashScreen(
                 onWelcome = {
@@ -65,7 +99,7 @@ fun KativaNavHost(
         composable(Routes.WELCOME) {
             WelcomeScreen(
                 onContinue = {
-                    navController.navigate(Routes.SERVER_SETUP) {
+                    navController.navigate(Routes.serverSetup(showBack = false)) {
                         popUpTo(Routes.WELCOME) { inclusive = true }
                     }
                 },
@@ -83,7 +117,7 @@ fun KativaNavHost(
         ) { entry ->
             val showBack = entry.arguments?.getBoolean(Routes.ARG_SHOW_BACK) == true
             ServerPickerScreen(
-                onAddServer = { navController.navigate(Routes.SERVER_SETUP) },
+                onAddServer = { navController.navigate(Routes.serverSetup(showBack = true)) },
                 onEditServer = { id -> navController.navigate(Routes.serverSetup(id)) },
                 // Only offer "back" when this screen was explicitly pushed on top of another.
                 // As the app's startup destination there is no previous entry, and a back button
@@ -110,22 +144,46 @@ fun KativaNavHost(
         }
 
         composable(
-            route = "${Routes.SERVER_SETUP}?${Routes.ARG_SERVER_ID}={${Routes.ARG_SERVER_ID}}",
+            route = "${Routes.SERVER_SETUP}?" +
+                "${Routes.ARG_SERVER_ID}={${Routes.ARG_SERVER_ID}}&" +
+                "${Routes.ARG_SHOW_BACK}={${Routes.ARG_SHOW_BACK}}",
             arguments = listOf(
                 navArgument(Routes.ARG_SERVER_ID) {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
                 },
+                navArgument(Routes.ARG_SHOW_BACK) {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
             ),
-        ) {
+        ) { entry ->
+            val showBack = entry.arguments?.getBoolean(Routes.ARG_SHOW_BACK) == true
             ServerSetupScreen(
-                onBack = { navController.popBackStack() },
+                // First run arrives here straight from Welcome: there is no previous entry, so a
+                // back arrow would only exit the app. Show it when setup was pushed on top of the
+                // picker (add another server) or when editing an existing one.
+                onBack = if (showBack) ({ navController.popBackStack() }) else null,
                 onSaved = { serverId, _, _ ->
                     // Always continue to sign-in: the credentials step is what actually authorises
                     // the app, and it is reachable even when the health probe was skipped.
+                    if (!showBack) {
+                        // First run: setup is the root, so replace it with the picker before
+                        // pushing sign-in. Backing out of sign-in then lands on the server list
+                        // (where the saved entry can be edited) instead of a stale "add server"
+                        // form or a bare exit.
+                        navController.navigate(Routes.SERVER_PICKER) {
+                            popUpTo(entry.destination.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
                     navController.navigate(Routes.login(serverId)) {
-                        popUpTo(Routes.SERVER_PICKER)
+                        if (showBack) {
+                            // Pushed from the picker: keep it underneath so back from sign-in
+                            // returns there instead of to a form that was just saved.
+                            popUpTo(Routes.SERVER_PICKER)
+                        }
                     }
                 },
             )
@@ -190,15 +248,22 @@ fun KativaNavHost(
         }
 
         composable(
-            route = "${Routes.READER}/{chapterId}",
-            arguments = listOf(navArgument("chapterId") { type = NavType.StringType }),
-        ) {
+            route = "${Routes.READER}/{chapterId}?${Routes.ARG_PAGE}={${Routes.ARG_PAGE}}",
+            arguments = listOf(
+                navArgument("chapterId") { type = NavType.StringType },
+                // 0-based page index; -1 = no explicit target, resume from server progress.
+                navArgument(Routes.ARG_PAGE) {
+                    type = NavType.IntType
+                    defaultValue = -1
+                },
+            ),
+        ) { entry ->
             MangaReaderScreen(
                 onBack = { navController.popBackStack() },
                 onOpenChapter = { chapterId ->
                     // Replace the reader entry: reading chapter after chapter must not grow the stack.
                     navController.navigate(Routes.reader(chapterId)) {
-                        popUpTo("${Routes.READER}/{chapterId}") { inclusive = true }
+                        popUpTo(entry.destination.id) { inclusive = true }
                     }
                 },
             )
@@ -231,6 +296,19 @@ fun KativaNavHost(
                 },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onManageServers = { navController.navigate(Routes.serverPicker(showBack = true)) },
+                onOpenBookmarks = { navController.navigate(Routes.BOOKMARKS) },
+                onOpenWantToRead = { navController.navigate(Routes.shelf("want-to-read")) },
+            )
+        }
+
+        composable(Routes.BOOKMARKS) {
+            com.kativa.reader.ui.bookmarks.BookmarksScreen(
+                onBack = { navController.popBackStack() },
+                onOpenBookmark = { chapterId, pageIndex ->
+                    // Carry the 0-based bookmark page index: resuming at saved progress would open
+                    // a different page than the one the user tapped (docs/FLOWS.md F11).
+                    navController.navigate(Routes.reader(chapterId, pageIndex))
+                },
             )
         }
 
@@ -286,6 +364,7 @@ fun KativaNavHost(
                     }
                 },
             )
+        }
         }
     }
 }

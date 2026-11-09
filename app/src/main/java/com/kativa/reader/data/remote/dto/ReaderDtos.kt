@@ -106,6 +106,8 @@ data class BookmarkDto(
     @SerialName("imageOffset") val imageOffset: Int = 0,
     @SerialName("xPath") val xPath: String? = null,
     @SerialName("chapterTitle") val chapterTitle: String? = null,
+    /** Only populated by `POST Reader/all-bookmarks` (the chapter/volume endpoints omit it). */
+    @SerialName("series") val series: SeriesDto? = null,
 )
 
 @Serializable

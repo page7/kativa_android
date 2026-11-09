@@ -18,6 +18,15 @@ object KativaColors {
     val BrandPrimaryDeep = Color(0xFF2D7A56)
     val BrandPrimaryDim = Color(0xFF3AA87B)
 
+    /**
+     * Content colour that sits *on* [BrandPrimary]: near-black with a green cast.
+     *
+     * White on the mint fails WCAG AA (~2.2:1); this ink reaches ~9:1, which is why every
+     * brand-coloured surface (top bar, primary buttons, selected segments) paints its text and
+     * icons with it instead of `onPrimary`/`White`.
+     */
+    val OnBrand = Color(0xFF07130E)
+
     val Background = Color(0xFF0B0B0F)
     val Surface = Color(0xFF15151C)
     val SurfaceElevated = Color(0xFF1D1D26)
@@ -31,8 +40,17 @@ object KativaColors {
     val Danger = Color(0xFFE5484D)
     val Success = Color(0xFF4AC694)
 
-    /** Deep grey used behind every cover when privacy mode is on. */
+    /**
+     * Backdrop behind every cover when privacy mode is on.
+     *
+     * Dark theme keeps the deep grey (#3A3A3A): a light tile would glare at night, which defeats
+     * the point of masking the artwork. The light theme needs its own value — #3A3A3A read as a
+     * black hole among white cards — so it uses a light grey (#E9EBEF) one step below the surface,
+     * which still reads as "deliberately blank" rather than "failed to load".
+     * Read through [privacyFill] so the right one follows the active theme.
+     */
     val PrivacyFill = Color(0xFF3A3A3A)
+    val PrivacyFillLight = Color(0xFFE9EBEF)
 
     /**
      * Reader chrome scrim (AGENTS.md §5/§6).

@@ -53,6 +53,18 @@ interface ReaderApi {
     @GET("Reader/chapter-bookmarks")
     suspend fun chapterBookmarks(@Query("chapterId") chapterId: Int): List<BookmarkDto>
 
+    /**
+     * Every bookmark of the signed-in user.
+     *
+     * The body must be a `SeriesFilterV2Dto` — Kavita dereferences `Statements` without a null
+     * check, so an empty body is a 500. Only `SeriesName` statements are honoured (plus the sort
+     * options); paging is ignored and the whole list comes back (docs/API.md §3).
+     */
+    @POST("Reader/all-bookmarks")
+    suspend fun allBookmarks(
+        @Body filter: com.kativa.reader.data.remote.dto.SeriesFilterV2Dto,
+    ): List<BookmarkDto>
+
     @POST("Reader/bookmark")
     suspend fun addBookmark(@Body body: BookmarkDto)
 

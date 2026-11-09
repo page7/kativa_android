@@ -49,7 +49,8 @@ app/src/main/res/
   - 白色标记当前精确为可见区的 **50% × 50%**，靠白色 path 上的
     `transform="matrix(1.017545 0 0 0.985148 -8.983 8.722)"` 归一得到（原 path 实际是
     49.138% × 50.754% 且垂直中心偏上 1.1 单位）。**若日后手动改 path 数字，这个 matrix 需要重算**。
-- `logo_full`（欢迎页/启动页大图）仍为占位，待维护者确认是否由品牌图标放大或另给。
+- `logo_full`（欢迎页/启动页大图）已替换为正式素材 `assets/svg/logo_full.svg`（1024 画布，品牌圆形标记居中，
+  图形本体约占画布 31%×31%）。
 - 图标规格：24dp 基准，线性图标 1.5px 描边，输出 mdpi(24)/xhdpi(48)/xxhdpi(72)/xxxhdpi(96)。
 - 大图规格：logo 按长边 1024 出图（`drawable-nodpi`），运行时由 Coil/Compose 缩放。
 
@@ -57,7 +58,8 @@ app/src/main/res/
 
 24dp 图标在 App 内统一走 `KativaIcon` → Material3 `Icon(tint = …)`，tint 的本质是
 `ColorFilter(BlendMode.SrcIn)`：**保留 alpha、丢弃 RGB**。所以源图里画成什么颜色，
-到屏幕上都会变成当前主题色（顶栏 `onSurface`、阅读器内 `Color.White`、隐私开关激活态 `BrandPrimary`）。
+到屏幕上都会变成当前主题色（暗色顶栏 `onSurface`、亮色顶栏 `onPrimaryContainer`、阅读器内
+`Color.White`、隐私开关激活态 `BrandPrimary` / 亮色顶栏上的 `OnBrand`）。
 生成器**不做任何调色**，它只负责 SVG → PNG。
 
 | 素材类型 | 交付要求 |
@@ -72,7 +74,10 @@ app/src/main/res/
 
 - `empty_shelf` / `empty_search` / `empty_network` / `error_generic` 会同时压在深色与浅色主题上，
   **必须透明底**（占位图现在的 `#14141C` 实心底在浅色主题下就是一块黑方块）。
-- `privacy_placeholder` 的 `#3A3A3A` 是产品语义（AGENTS.md §6），必须烘进图片，不能依赖主题。
+- `privacy_placeholder` 的底色是产品语义（AGENTS.md §6），但它**跟随主题**：暗色 `#3A3A3A`、亮色 `#E9EBEF`
+  （`#3A3A3A` 在浅色主题的白色卡片里像一个黑洞）。当前正式素材（`assets/svg/privacy_placeholder.svg`）
+  是一张**透明底**的淡色水印，底色由 `PrivacyCoverPlaceholder` 的 `.background(PrivacyFill / PrivacyFillLight)`
+  铺在图片层下面；换用该图的任何新位置**必须**同时铺对应背景，否则会露出主题色。
 
 - **禁止**使用 Material Design Icons 原生图标、emoji 或运行时绘制的临时图形作为最终 UI 素材（仅允许出现在占位文件内部文字说明里）。
 
@@ -109,14 +114,15 @@ app/src/main/res/
 | `ic_edit` | `pencil` | `ic_visibility_off` | `eye-closed` |
 | `ic_bookmark` | `bookmark`（outline） | `ic_read` | `circle-check` |
 | `ic_bookmark_filled` | `bookmark`（filled） | `ic_unread` | `circle` |
+| `ic_favorite` | `heart`（outline） | `ic_favorite_filled` | `heart`（filled） |
 | `ic_cover_fallback_mark` | `book-2` | | |
 
 > `ic_visibility` 与 `ic_privacy_off` 共用 `eye`（两者语义都是"可见"，且从不出现在同一屏）；
 > `ic_visibility_off` 特意取 `eye-closed` 而非 `eye-off`，让密码显隐与隐私开关的"隐藏"态
 > 在视觉上可区分，不会看成同一个按钮。
 
-插画类（`logo_full`、`cover_fallback`、`privacy_placeholder`、`empty_*`、`error_generic`、launcher 系列）
-**不在**本次替换范围内，仍为占位。
+插画类（`cover_fallback`、`empty_*`、`error_generic`、launcher 系列）中的 launcher 三项来自
+`assigns/logo.svg`；其余已于 2026-11-09 全部替换为正式素材（含此前的 `logo_full` / `privacy_placeholder`）。
 
 ---
 
@@ -128,7 +134,7 @@ app/src/main/res/
 
 | ID | 用途 | 规格 | PNG 输出 | 状态 |
 | --- | --- | --- | --- | --- |
-| `logo_full` | 欢迎页/启动页居中 logo | 长边 1024，透明底，**全彩** | `drawable-nodpi/logo_full.png` | 占位 |
+| `logo_full` | 欢迎页/启动页居中 logo | 长边 1024，透明底，**全彩** | `drawable-nodpi/logo_full.png` | 正式（`assets/svg/logo_full.svg`） |
 | `ic_launcher_foreground` | 自适应图标前景层 | 108dp 画布，safe（72dp 可见区） | `mipmap-*/ic_launcher_foreground.png` | 正式（`assigns/logo.svg`） |
 | `ic_launcher` | 传统图标（API < 26） | 48dp，**全彩** | `mipmap-*/ic_launcher.png` | 正式（`assigns/logo.svg`） |
 | `ic_launcher_round` | 圆形图标 | 48dp，**全彩** | `mipmap-*/ic_launcher_round.png` | 正式（`assigns/logo.svg`） |
@@ -159,6 +165,7 @@ app/src/main/res/
 | `ic_expand_less` / `ic_expand_more` | 卷折叠箭头 | `drawable-xhdpi/ic_expand_*.png` | 正式（Tabler） |
 | `ic_visibility` / `ic_visibility_off` | 密码显隐 | `drawable-xhdpi/ic_visibility*.png` | 正式（Tabler） |
 | `ic_read` / `ic_unread` | 已读/未读标记 | `drawable-xhdpi/ic_*read.png` | 正式（Tabler） |
+| `ic_favorite` / `ic_favorite_filled` | 想读（收藏）未选中 / 选中 | `drawable-xhdpi/ic_favorite*.png` | 正式（Tabler） |
 | `ic_cover_fallback_mark` | 封面缺失时的角标 | `drawable-xhdpi/ic_cover_fallback_mark.png` | 正式（Tabler） |
 
 ### 2.3 阅读器图标（24dp 线性）
@@ -179,12 +186,12 @@ app/src/main/res/
 
 | ID | 用途 | 规格 | PNG 输出 | 状态 |
 | --- | --- | --- | --- | --- |
-| `privacy_placeholder` | **隐私模式封面占位**（`#3A3A3A` + 淡 logo 水印）→ `CoverImage` 隐私分支 | 2:3，500×750 | `drawable-nodpi/privacy_placeholder.png` | 占位 |
-| `cover_fallback` | 无封面时的通用封面 → `CoverImage` 空白 URL 分支 | 2:3 | `drawable-nodpi/cover_fallback.png` | 占位 |
-| `empty_shelf` | 书架/流列表空态（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_shelf.png` | 占位 |
-| `empty_search` | 搜索无结果（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_search.png` | 占位 |
-| `empty_network` | 无网络/超时/DNS/明文拦截（`KativaError.illustration`） | 512×512 | `drawable-nodpi/empty_network.png` | 占位 |
-| `error_generic` | 通用错误（`ErrorState` 默认插图） | 256×256 | `drawable-nodpi/error_generic.png` | 占位 |
+| `privacy_placeholder` | **隐私模式封面占位**（`PrivacyFill` 底 + 淡 logo 水印）→ `CoverImage` 隐私分支 | 2:3，500×750 | `drawable-nodpi/privacy_placeholder.png` | 正式（`assets/svg/privacy_placeholder.svg`） |
+| `cover_fallback` | 无封面时的通用封面 → `CoverImage` 空白 URL 分支 | 2:3 | `drawable-nodpi/cover_fallback.png` | 正式（`assets/svg/cover_fallback.svg`） |
+| `empty_shelf` | 书架/流列表空态（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_shelf.png` | 正式（`assets/svg/empty_shelf.svg`） |
+| `empty_search` | 搜索无结果（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_search.png` | 正式（`assets/svg/empty_search.svg`） |
+| `empty_network` | 无网络/超时/DNS/明文拦截（`KativaError.illustration`） | 512×512 | `drawable-nodpi/empty_network.png` | 正式（`assets/svg/empty_network.svg`） |
+| `error_generic` | 通用错误（`ErrorState` 默认插图） | 256×256 | `drawable-nodpi/error_generic.png` | 正式（`assets/svg/error_generic.svg`） |
 
 ### 2.5 格式与徽标（可选，M2 起）
 
@@ -239,3 +246,4 @@ app/src/main/res/
 | 2026-11-06 | **应用改名 Kavita Comic + 品牌图标**：`app_name` 四语言改为 `Kavita Comic`；launcher 三项改用 `assigns/logo.svg`。新增清单字段 `bleed`（`launcher-foreground` 专用，默认 `safe`；`full` = 108dp 铺满——**本项目不使用**，因为只有中间 72dp 可见，铺满会把标记放大 1.5 倍）；新增 `mipmap-anydpi-v26/ic_launcher{,_round}.xml` 自适应图标与 `@color/ic_launcher_background`（同色，仅填被裁掉的边缘）。`checkAssetsRegistered` 的白名单加入 `logo.svg`（品牌源被多个条目共享，本就不是清单 ID） |
 | 2026-11-06 | 图标白色标记归一到 50%×50%：原 path 实际 49.138% × 50.754% 且垂直中心偏上，非正方形，靠缩放无法精确命中，故在白色 path 上加 `matrix(1.017545 0 0 0.985148 -8.983 8.722)`（`tx = 512 - sx·cx` 公式保证中心落在 viewBox 中心）。实测 192px PNG = 144/288 = 50%，设备端 168px 圆盘内白色 84px = 50% |
 | 2026-11-09 | **31 个 24dp 图标替换为 Tabler Icons v3.51.0**（MIT）：源 SVG 落在 `assets/svg/<清单ID>.svg`，生成器只做 `stroke-width 2 → 1.5`、`currentColor → #000000` 两处规范化；清单状态 31 项 → `final`。插画类（`logo_full`/`privacy_placeholder`/`cover_fallback`/`empty_*`/`error_generic`）与 launcher 系列**未改动**，由维护者另行提供。新增 §1.2 记录来源、映射表与许可 |
+| 2026-11-09 | **`logo_full` / `privacy_placeholder` 替换为正式素材**：源文件 `assets/svg/logo_full.svg`（1024 透明底，品牌圆标居中，图形本体约 31%×31%）与 `assets/svg/privacy_placeholder.svg`（500×750 透明底淡色水印，主体约 31.6%×21.1%），清单状态 → `final`。`privacy_placeholder` 的深灰底仍由 `PrivacyCoverPlaceholder` 的 `PrivacyFill` 背景负责（AGENTS §6 语义不变，且图片透明底可同时适配深/浅主题）。剩余占位：`cover_fallback`、`empty_*`、`error_generic` |

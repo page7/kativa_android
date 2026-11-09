@@ -1,5 +1,6 @@
 package com.kativa.reader.ui.reader
 
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -24,12 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.annotation.DrawableRes
 import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.KativaSlider
+import com.kativa.reader.core.designsystem.KativaSwitch
 import com.kativa.reader.core.designsystem.SegmentedChoice
 import com.kativa.reader.domain.model.PageLayout
 import com.kativa.reader.domain.model.ReaderMode
@@ -252,6 +252,6 @@ private fun SwitchRow(
                 )
             }
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        KativaSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

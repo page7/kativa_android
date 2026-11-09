@@ -54,6 +54,8 @@ object KativaIcons {
     val BookmarkFilled = R.drawable.ic_bookmark_filled
     val Read = R.drawable.ic_read
     val Unread = R.drawable.ic_unread
+    val Favorite = R.drawable.ic_favorite
+    val FavoriteFilled = R.drawable.ic_favorite_filled
     val CoverFallback = R.drawable.ic_cover_fallback_mark
 
     val PrevChapter = R.drawable.ic_prev_chapter

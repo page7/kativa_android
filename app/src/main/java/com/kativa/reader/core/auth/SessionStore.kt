@@ -44,7 +44,7 @@ data class Session(
 @Singleton
 class SessionStore @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : SessionSink {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     /** All sessions, keyed by server id. */
@@ -60,16 +60,16 @@ class SessionStore @Inject constructor(
 
     fun sessionFlow(serverId: String): Flow<Session?> = sessions.map { it[serverId] }
 
-    suspend fun get(serverId: String): Session? = sessions.first()[serverId]
+    override suspend fun get(serverId: String): Session? = sessions.first()[serverId]
 
-    suspend fun save(session: Session) {
+    override suspend fun save(session: Session) {
         context.sessionDataStore.edit { prefs ->
             val key = stringPreferencesKey(PREFIX + session.serverId)
             prefs[key] = json.encodeToString(Session.serializer(), session)
         }
     }
 
-    suspend fun clear(serverId: String) {
+    override suspend fun clear(serverId: String) {
         context.sessionDataStore.edit { prefs ->
             prefs.remove(stringPreferencesKey(PREFIX + serverId))
         }

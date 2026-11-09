@@ -4,12 +4,20 @@
       Must descend from an AppCompat theme: MainActivity extends AppCompatActivity (needed for
       per-app locales), and AppCompat throws at startup when the theme is not AppCompat-derived.
 
-      Deliberately NOT DayNight: this is a dark-first reading app, and Compose owns all colours.
-      Using a DayNight parent would flash a white window on devices set to light mode before
-      Compose draws its first frame. See AGENTS.md §6/§8.1.
+      DayNight (not the old fixed `Theme.AppCompat.NoActionBar`): on Android 12+ the *system*
+      splash window is created by system_server from this theme before the app process even runs,
+      so it can only follow resource qualifiers — a runtime `window.setBackgroundDrawable` cannot
+      touch it. `windowBackground` therefore has a light value here and a dark one in
+      `values-night/colors.xml`, which makes the splash backdrop follow the device theme instead
+      of always flashing near-black.
+
+      The user-selected theme still wins once the app is running: MainActivity re-applies the
+      window background from the stored preference, and on API 33+ KativaApp calls
+      `UiModeManager.setApplicationNightMode` so the *next* launch's system splash matches too.
+      See AGENTS.md §6/§8.1.
     -->
-    <style name="Theme.Kativa" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@color/kativa_background</item>
+    <style name="Theme.Kativa" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/kativa_window_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>

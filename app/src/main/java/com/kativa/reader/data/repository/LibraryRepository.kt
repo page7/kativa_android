@@ -7,8 +7,7 @@ import com.kativa.reader.core.network.KativaError
 import com.kativa.reader.core.network.KativaFailure
 import com.kativa.reader.core.network.Outcome
 import com.kativa.reader.data.mapper.ContentMapper
-import com.kativa.reader.data.remote.dto.SeriesFilterV2Dto
-import com.kativa.reader.data.remote.dto.SeriesFilterStatementDto
+import com.kativa.reader.domain.model.Bookmark
 import com.kativa.reader.domain.model.Chapter
 import com.kativa.reader.domain.model.ContentFormat
 import com.kativa.reader.domain.model.ReaderSession
@@ -52,6 +51,9 @@ class LibraryRepository @Inject constructor(
      *
      * The library restriction is always injected as the first statement
      * (`SeriesFilterField.Libraries = 19`) so a user filter can never escape the library scope.
+     * `WantToRead(26)` is only honoured by the server as a *top-level* pre-pass
+     * (`SeriesRepository.ApplyWantToReadFilter`), never inside the And/Or group, so it is sent in
+     * the same flat list — the server splits it out itself.
      *
      * @param forceRefresh bypass the in-memory cache (used by pull-to-refresh / after mutations)
      */
@@ -65,7 +67,6 @@ class LibraryRepository @Inject constructor(
         val cacheKey = seriesCache.key(
             activeServerStore.activeId,
             "lib", libraryId, page, pageSize,
-            filter.combination.apiValue,
             filter.sort.apiValue,
             filter.ascending,
             filter.statements.joinToString(";") { "${it.field.apiValue}:${it.comparison.apiValue}:${it.value}" },
@@ -76,14 +77,7 @@ class LibraryRepository @Inject constructor(
         }
 
         return try {
-            val userStatements = filter.statements.map { it.toDto() }
-            val body = filter.toDto().copy(
-                // Library scope first; user statements are additive under the same combination.
-                statements = listOf(
-                    SeriesFilterStatementDto(field = 19, comparison = 0, value = libraryId.toString()),
-                ) + userStatements,
-                combination = 1,
-            )
+            val body = filter.toLibraryScopedDto(libraryId)
             val response = apiFactory.series().seriesForLibrary(
                 pageNumber = page,
                 pageSize = pageSize,
@@ -264,6 +258,27 @@ class LibraryRepository @Inject constructor(
     suspend fun bookmarks(chapterId: Int): List<Int> =
         runCatching { apiFactory.reader().chapterBookmarks(chapterId).map { it.page } }
             .getOrDefault(emptyList())
+
+    /**
+     * Every bookmark of the user, for the "My bookmarks" screen.
+     *
+     * Kavita ignores paging here and returns the whole list, so the screen does its own
+     * presentation. Only a series-name filter is supported server-side; the body must still be a
+     * `SeriesFilterV2Dto` because the server enumerates `Statements` unconditionally.
+     */
+    suspend fun allBookmarks(nameQuery: String = ""): Outcome<List<Bookmark>> = try {
+        val body = SeriesFilter.Default
+            .withNameQuery(nameQuery)
+            .toDto()
+        Outcome.Success(
+            apiFactory.reader().allBookmarks(body).map(ContentMapper::bookmark),
+        )
+    } catch (t: Throwable) {
+        Outcome.Failure(KativaFailure(ErrorMapper.from(t)))
+    }
+
+    fun bookmarkPageUrl(chapterId: Int, pageNum: Int, imageOffset: Int = 0): String? =
+        coverUrlBuilder.bookmarkPage(chapterId, pageNum, imageOffset)
 
     suspend fun addBookmark(chapterId: Int, seriesId: Int, volumeId: Int, page: Int): Outcome<Unit> = try {
         apiFactory.reader().addBookmark(

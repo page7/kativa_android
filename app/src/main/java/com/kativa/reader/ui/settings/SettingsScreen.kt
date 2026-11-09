@@ -20,10 +20,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,9 +35,11 @@ import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kativa.reader.R
+import com.kativa.reader.core.designsystem.KativaColors
 import com.kativa.reader.core.designsystem.KativaIcon
 import com.kativa.reader.core.designsystem.KativaIcons
-import com.kativa.reader.core.designsystem.KativaColors
+import com.kativa.reader.core.designsystem.KativaSwitch
+import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.designsystem.ThemeMode
 
 /** P15 — settings groups: startup, servers, appearance, language, about. */
@@ -57,7 +57,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            KativaTopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -92,7 +92,7 @@ fun SettingsScreen(
                 title = stringResource(R.string.settings_privacy_mode),
                 subtitle = stringResource(R.string.settings_privacy_mode_desc),
                 trailing = {
-                    Switch(
+                    KativaSwitch(
                         checked = state.privacyMode,
                         onCheckedChange = viewModel::setPrivacyMode,
                     )
