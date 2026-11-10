@@ -2,7 +2,7 @@
 
 > 每次发布把对应段落原样粘贴到 GitHub Release 正文。
 > 版本号唯一事实来源是 `app/build.gradle.kts` 的 `versionName` / `versionCode`。
-> 当前两个版本均标记为 **Pre-release**（GitHub 上勾选 *Set as a pre-release*）。
+> 当前所有版本均标记为 **Pre-release**（GitHub 上勾选 *Set as a pre-release*）。
 
 | 版本 | versionCode | 日期 | 类型 |
 | --- | --- | --- | --- |
