@@ -4,9 +4,9 @@
       Dark-theme window/splash backdrop.
 
       This exists purely so the *system* splash window (Android 12+, created from the activity
-      theme before the process can run any code) uses the dark backdrop. KativaApp mirrors the
+      theme before the process can run any code) uses the dark backdrop. KavitaApp mirrors the
       user's theme choice into `AppCompatDelegate.setDefaultNightMode`, so "app theme = Dark"
       selects this file even when the device itself is in light mode. See AGENTS.md §6.
     -->
-    <color name="kativa_window_background">#FF0B0B0F</color>
+    <color name="kavita_window_background">#FF0B0B0F</color>
 </resources>

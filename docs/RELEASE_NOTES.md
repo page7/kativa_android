@@ -6,13 +6,51 @@
 
 | 版本 | versionCode | 日期 | 类型 |
 | --- | --- | --- | --- |
+| v1.2.0 | 30 | 2026-11-10 | Pre-release |
 | v1.1.0 | 29 | 2026-11-10 | Pre-release |
 | v1.0.0 | 26 | 2026-11-09 | Pre-release |
 
-> 附件命名与 tag 一致：`Kativa-v1.1.0.apk` / `Kativa-v1.0.0.apk`。
-> `:app:packageDebugApk` 现在直接输出这个文件名（不再带 `-debug`），包名也统一为 `com.kativa.reader`
-> —— 因此本版本 APK 会**覆盖安装**旧的 `com.kativa.reader.debug`，升级前请先卸载旧包。
-> 下面两段正文可直接粘贴，不含构建类型信息。
+> 附件命名与 tag 一致：`Kavita-v1.2.0.apk` / `Kavita-v1.1.0.apk` / `Kavita-v1.0.0.apk`。
+> `:app:packageDebugApk` 直接输出这个文件名（不带 `-debug`）。包名自 v1.2.0 起为 `com.kavita.reader`
+> （v1.0.0–v1.1.0 误写为 `com.kativa.reader`）—— 因此 **v1.2.0 无法覆盖升级旧版**，升级前请先卸载。
+> 下面各段正文可直接粘贴，不含构建类型信息。
+
+---
+
+## v1.2.0
+
+**建议 Release 标题**：`v1.2.0 (Pre-release)`
+
+```markdown
+## Kavita for Android v1.2.0 · Pre-release
+
+> Kavita 自建阅读服务器的第三方 Android 原生客户端（非官方）。
+> versionCode 30 · Android 8.0+ (minSdk 26)
+> 本版本为预发布版本，欢迎试用并反馈问题。
+
+本版是**纯命名修正版**：项目名此前误写为 Kativa，现统一纠正为 **Kavita**。
+
+### 变更
+
+- **应用包名**：`com.kativa.reader` → `com.kavita.reader`。
+- **应用内标识**：所有 `Kativa*` 类名与设计系统组件（主题、图标、顶栏、滑块、开关、输入框、进度条、导航）统一改为 `Kavita*`；主题名 `Theme.Kavita`。
+- **深链**：`kativa://...` → `kavita://...`。
+- **网络标识**：`User-Agent: Kavita/<version> (Android <api>; Mobile)`，请求头 `X-Kavita-Client: kavita-android`。
+- **本地存储键**：DataStore 文件与 Room 数据库统一为 `kavita_*` 前缀。
+- **仓库地址**：<https://github.com/page7/kavita_android>。
+- 功能与 UI 与 v1.1.0 完全一致，无行为变更。
+
+### 升级注意（包名变更，必须卸载）
+
+- 包名变了，系统会把新旧两版视为两个独立应用，**无法覆盖安装**。
+- 请先卸载旧的 `com.kativa.reader`（或 `com.kativa.reader.debug`），再安装本版，然后重新添加服务器并登录。
+- 本 App 不缓存书库内容，卸载不会丢失阅读进度（进度保存在你的 Kavita 服务器上）。
+
+### 质量
+
+- 单元测试 **283 个用例全绿**（改名后全量重跑）。
+- 冷启动冒烟通过：`pidof com.kavita.reader` 非空、logcat 无 `FATAL EXCEPTION`、首屏服务器表单正常渲染、带异常参数的 `kavita://setup` 深链不崩。
+```
 
 ---
 
@@ -21,7 +59,7 @@
 **建议 Release 标题**：`v1.1.0 (Pre-release)`
 
 ```markdown
-## Kativa for Android v1.1.0 · Pre-release
+## Kavita for Android v1.1.0 · Pre-release
 
 > Kavita 自建阅读服务器的第三方 Android 原生客户端（非官方）。
 > versionCode 29 · Android 8.0+ (minSdk 26)
@@ -50,7 +88,7 @@
 
 ### 升级注意（包名变更）
 
-- 从本版本起 debug 构建不再使用 `com.kativa.reader.debug` 包名，统一为 `com.kativa.reader`。
+- 从本版本起 debug 构建不再使用 `.debug` 后缀，包名为 `com.kativa.reader`（v1.2.0 起已更正为 `com.kavita.reader`）。
 - 旧包与旧数据不会自动迁移：请先卸载旧的 `.debug` 版本再安装本版，然后重新添加服务器并登录。
 
 ### 质量
@@ -67,7 +105,7 @@
 **建议 Release 标题**：`v1.0.0 (Pre-release)`
 
 ```markdown
-## Kativa for Android v1.0.0 · Pre-release
+## Kavita for Android v1.0.0 · Pre-release
 
 > Kavita 自建阅读服务器的第三方 Android 原生客户端（非官方）。
 > versionCode 26 · Android 8.0+ (minSdk 26)

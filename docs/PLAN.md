@@ -1,4 +1,4 @@
-# Kativa Android · 整体规划
+# Kavita Android · 整体规划
 
 > 配套文档：`../AGENTS.md`（工程契约）、`FLOWS.md`（使用流程）、`PAGES.md`（页面设计）、`FEATURES.md`（功能规划）、`API.md`（接口清单）、`ASSETS.md`（素材清单）。
 
@@ -40,7 +40,7 @@
 ## 2. 信息架构
 
 ```
-Kativa
+Kavita
 ├─ 启动
 │  ├─ Splash（读会话 → StartupRouter）
 │  ├─ Welcome（仅 logo；无服务器时出现）
@@ -88,7 +88,7 @@ Kativa
 
 ### 2.2 导航层级与返回行为
 
-- 深链：`kativa://series/{id}`、`kativa://reader/{chapterId}`、`kativa://library/{id}`、`kativa://list/{id}`、`kativa://collection/{id}`。
+- 深链：`kavita://series/{id}`、`kavita://reader/{chapterId}`、`kavita://library/{id}`、`kavita://list/{id}`、`kavita://collection/{id}`。
 - 深链进入时若无当前服务器上下文 → 先落到服务器选择页。
 - 从"继续阅读"进入阅读器，返回键先回系列详情（不是首页），再次返回回首页。
 - 底部 tab 切换保留各自返回栈（`saveState/restoreState`），重复点击当前 tab = 回到该 tab 根 + 滚动到顶。
@@ -126,7 +126,7 @@ Compose Screen ──(event)──▶ ViewModel ──▶ UseCase ──▶ Repo
       └────── UiState ◀─────────┘  (StateFlow + immutable data class)
 ```
 
-- 列表页统一 `UiState`：`Initial | Loading | Content(items, endReached) | Empty | Error(KativaError)`。
+- 列表页统一 `UiState`：`Initial | Loading | Content(items, endReached) | Empty | Error(KavitaError)`。
 - 阅读器独立状态机（`ReaderUiState`）：`Preparing → Ready(page,maxPages) → Saving → Finished`。
 - 跨页面共享：当前服务器（`ActiveServerStore.current: StateFlow<ServerProfile?>`）、登录用户（按 serverId 的 `SessionStore`）、隐私模式开关、主题、语言。
 

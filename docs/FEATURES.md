@@ -209,7 +209,7 @@
 - **F-27 相关作品**：`GET /api/Series/all-related`，`RelationKind` 分组（Prequel/Sequel/SpinOff/Adaptation…）。
 - **F-30 首页自定义**：`GET /api/Stream/dashboard?visibleOnly=false` + `POST /api/Stream/update-dashboard-stream` / `update-dashboard-position`（拖拽排序）。仅对 `isProvided` 流允许显隐。
 - **F-31 智能筛选**：`POST /api/Filter/update/series`、`GET /api/Filter`、`POST /api/Filter/encode/series`、`POST /api/Filter/decode`；创建后可加到首页/侧边。
-- **F-32 二维码配置导入**：扫码解析 `kativa://setup?url=…&apiKey=…` → 直接进 F-01 的 ServerSetup（预填）。
+- **F-32 二维码配置导入**：扫码解析 `kavita://setup?url=…&apiKey=…` → 直接进 F-01 的 ServerSetup（预填）。
 - **F-29 浏览**：`GET /api/Metadata/genres|tags`、`POST /api/Person/all`（分页）、`GET /api/Person?name=` 人物详情 + `GET /api/Person/series-known-for?personId=` 作品列表。
 - **F-33 阅读历史**：`GET /api/Stats/reading-history`（分页）；按系列查看 `reading-history/series/{id}`。
 

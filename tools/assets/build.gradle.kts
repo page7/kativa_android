@@ -14,7 +14,7 @@ kotlin {
 }
 
 application {
-    mainClass.set("com.kativa.tools.assets.GenerateAssetsKt")
+    mainClass.set("com.kavita.tools.assets.GenerateAssetsKt")
 }
 
 dependencies {

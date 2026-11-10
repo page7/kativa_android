@@ -1,0 +1,78 @@
+package com.kavita.reader.ui.reader
+
+import com.kavita.reader.domain.model.PageLayout
+import com.kavita.reader.domain.model.ReaderMode
+import com.kavita.reader.domain.model.ReadingDirection
+import com.kavita.reader.domain.model.ScalingOption
+
+/**
+ * Reader settings, resolved from the server reading profile when available and otherwise from
+ * these defaults. Kept small and serialisable-free: persistence is the caller's problem.
+ *
+ * Persistence (M2.5): the user-visible values live in [com.kavita.reader.core.settings.ReaderSettingsStore]
+ * as a *series → global default → app default* chain, keyed by `serverId + seriesId`. [brightness]
+ * is deliberately **not** persisted — it depends on the room the user is in, not on the title.
+ *
+ * Mirrors `UserReadingProfileDto` fields the mobile reader actually honours
+ * (docs/API.md §4). Unsupported options are deliberately absent rather than faked: every field
+ * here must be read by the renderer, otherwise it is a dead control (see `ReaderSettingsContract`).
+ */
+data class ReaderSettings(
+    val readingDirection: ReadingDirection = ReadingDirection.LeftToRight,
+    val readerMode: ReaderMode = ReaderMode.LeftRight,
+    val layoutMode: PageLayout = PageLayout.Single,
+    val scalingOption: ScalingOption = ScalingOption.FitToHeight,
+    /** Skip pairing page 1 so the rest of the chapter spreads evenly. */
+    val coverOffset: Boolean = true,
+    /** Background behind pages; black is the safe default for comics. */
+    val backgroundColor: String = "#000000",
+    /** In-session brightness multiplier, 0.2..1.0. Never persisted to the server. */
+    val brightness: Float = 1f,
+    /** Show a faint page number in the corner. */
+    val showPageNumber: Boolean = true,
+    /** Let the volume keys turn pages instead of changing media volume. Off unless opted in. */
+    val volumeKeyPaging: Boolean = false,
+    /**
+     * Lock the reading session to landscape.
+     *
+     * Honoured by `ReaderOrientationEffect` in the reader screen: it sets the activity's
+     * `requestedOrientation` while the reader is composed and restores the sensor default on exit,
+     * so the rest of the app stays orientation-free.
+     */
+    val forceLandscape: Boolean = false,
+) {
+    val isWebtoon: Boolean get() = readerMode == ReaderMode.Webtoon
+
+    val isVerticalPaging: Boolean get() = readerMode == ReaderMode.UpDown
+
+    /**
+     * A facing pair only exists in horizontal paging. Vertical paging stacks one page per screen
+     * and Webtoon is a continuous strip, so neither can render a spread — pairing pages there
+     * used to stack two pages inside a single vertical slot.
+     */
+    val isDoublePage: Boolean get() = readerMode == ReaderMode.LeftRight && layoutMode != PageLayout.Single
+
+    /** RTL affects tap zones / pager order, not slot construction. */
+    val isRightToLeft: Boolean get() = readingDirection == ReadingDirection.RightToLeft
+
+    /**
+     * True when the reading direction actually changes anything.
+     *
+     * Direction is a *horizontal* concept: it mirrors tap zones, the pager order and the order of
+     * a facing pair. Vertical paging and Webtoon scroll top-to-bottom regardless, so showing the
+     * control there would be a dead switch. The settings sheet hides it in those modes.
+     */
+    val readingDirectionApplies: Boolean get() = readerMode == ReaderMode.LeftRight
+
+    /**
+     * Page layout only means something when pages are paired side by side. Webtoon is a single
+     * continuous strip, and vertical paging stacks one page per screen; a "double page" there
+     * would either be meaningless or put two pages on top of each other.
+     */
+    val pageLayoutApplies: Boolean get() = readerMode == ReaderMode.LeftRight
+
+    companion object {
+        val Default = ReaderSettings()
+    }
+}
+

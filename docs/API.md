@@ -14,7 +14,7 @@
 | 认证 | `Authorization: Bearer <jwt>`；图片/媒体用 `?apiKey=<authKey>` |
 | 内容类型 | `application/json`（错误体可能是 `text/plain`） |
 | 分页 | query `pageNumber`(1 起) + `pageSize`；**不传 pageSize 时服务端返回全部**（`int.MaxValue`） |
-| 设备 | `X-Device-Id: <uuid>`；`User-Agent: Kativa/<ver> (Android <api>; Mobile)` |
+| 设备 | `X-Device-Id: <uuid>`；`User-Agent: Kavita/<ver> (Android <api>; Mobile)` |
 | 时间 | ISO-8601 UTC 字符串 |
 | 图片 | **隐私模式开启时不请求任何图片端点**（客户端短路，不发请求） |
 
@@ -75,9 +75,9 @@
 - 业务请求返回 401 且请求带有 `Authorization` 时，`SessionExpiryInterceptor` 广播
   "会话过期" 并清除该服务器的 token；`Account/login` / `refresh-token` / `Plugin/authenticate`
   的 401 **不**走这条路径（密码错同样是 401）。
-- 只持久化 `username`（`kativa_accounts`），**永不**持久化密码或 API Key。
+- 只持久化 `username`（`kavita_accounts`），**永不**持久化密码或 API Key。
 
-### `POST /api/Plugin/authenticate?apiKey=&pluginName=Kativa` ✅ 匿名
+### `POST /api/Plugin/authenticate?apiKey=&pluginName=Kavita` ✅ 匿名
 - 备选登录：返回 `UserDto{username, token, refreshToken, apiKey, kavitaVersion}`（无 roles/preferences）。
 - 适合"只拿到 key"的旧版服务端；登录后仍需 `GET /api/Account` 补全。
 

@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.kativa.reader"
+    namespace = "com.kavita.reader"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.kativa.reader"
+        applicationId = "com.kavita.reader"
         minSdk = 26
         targetSdk = 35
         /**
@@ -24,8 +24,8 @@ android {
          *
          * Bump [versionCode] on every artifact, even for a same-version rebuild that you hand out.
          */
-        versionCode = 29
-        versionName = "1.1.0"
+        versionCode = 30
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         @Suppress("UnstableApiUsage")
@@ -37,7 +37,7 @@ android {
             // No `applicationIdSuffix`/"-debug" suffix: release artifacts are published as
             // pre-releases straight from the debug build (there is no signing config yet), and the
             // package name must match the release notes. Consequence: an APK built here replaces a
-            // `com.kativa.reader.debug` install rather than coexisting with it, so uninstall the old
+            // `com.kavita.reader.debug` install rather than coexisting with it, so uninstall the old
             // one before upgrading.
             isMinifyEnabled = false
         }
@@ -79,10 +79,10 @@ android {
  * Publishes the APK to `dist/` using a name derived from the build's own `versionName`.
  *
  * Why this exists: release artifacts were previously copied by hand into `dist/` with invented
- * names (`Kativa-v0.3.10-M2-debug.apk`) while `versionName` still said `0.1.0`. Nothing tied the
+ * names (`Kavita-v0.3.10-M2-debug.apk`) while `versionName` still said `0.1.0`. Nothing tied the
  * two together, so the file name drifted from the version the app actually reported.
  *
- * The artifact is named `Kativa-v<versionName>.apk` with no variant suffix, because the build is
+ * The artifact is named `Kavita-v<versionName>.apk` with no variant suffix, because the build is
  * shipped as-is to GitHub pre-releases (see `docs/RELEASE_NOTES.md`). There is no signing config
  * yet, so the shipped APK is still the debug-signed build.
  *
@@ -97,7 +97,7 @@ tasks.register<Copy>("packageDebugApk") {
     val variant = "debug"
     val appVersionName = android.defaultConfig.versionName ?: "0.0.0"
     val appVersionCode = android.defaultConfig.versionCode ?: 0
-    val artifactName = "Kativa-v$appVersionName.apk"
+    val artifactName = "Kavita-v$appVersionName.apk"
     val apkDir = layout.buildDirectory.dir("outputs/apk/$variant")
     val distDir = rootProject.layout.projectDirectory.dir("dist").asFile
 
@@ -173,12 +173,12 @@ dependencies {
 // Regenerates every PNG in app/src/main/res from assets/manifest.json (+ assigns/*.svg).
 // See docs/ASSETS.md.
 tasks.register<JavaExec>("generateAssets") {
-    group = "kativa"
+    group = "kavita"
     description = "Render placeholder/provided SVGs from assets/manifest.json into Android res/ PNGs."
     val repoRoot = rootProject.layout.projectDirectory.asFile
     workingDir = repoRoot
     classpath = project(":tools:assets").extensions.getByType<SourceSetContainer>()["main"].runtimeClasspath
-    mainClass.set("com.kativa.tools.assets.GenerateAssetsKt")
+    mainClass.set("com.kavita.tools.assets.GenerateAssetsKt")
     args(repoRoot.absolutePath)
     dependsOn(":tools:assets:classes")
 }

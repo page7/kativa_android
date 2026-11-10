@@ -20,6 +20,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Kativa"
+rootProject.name = "Kavita"
 include(":app")
 include(":tools:assets")

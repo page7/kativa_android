@@ -56,7 +56,7 @@ app/src/main/res/
 
 ### 1.1 颜色规范（重要：图标**不要自己上色**）
 
-24dp 图标在 App 内统一走 `KativaIcon` → Material3 `Icon(tint = …)`，tint 的本质是
+24dp 图标在 App 内统一走 `KavitaIcon` → Material3 `Icon(tint = …)`，tint 的本质是
 `ColorFilter(BlendMode.SrcIn)`：**保留 alpha、丢弃 RGB**。所以源图里画成什么颜色，
 到屏幕上都会变成当前主题色（暗色顶栏 `onSurface`、亮色顶栏 `onPrimaryContainer`、阅读器内
 `Color.White`、隐私开关激活态 `BrandPrimary` / 亮色顶栏上的 `OnBrand`）。
@@ -190,7 +190,7 @@ app/src/main/res/
 | `cover_fallback` | 无封面时的通用封面 → `CoverImage` 空白 URL 分支 | 2:3 | `drawable-nodpi/cover_fallback.png` | 正式（`assets/svg/cover_fallback.svg`） |
 | `empty_shelf` | 书架/流列表空态（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_shelf.png` | 正式（`assets/svg/empty_shelf.svg`） |
 | `empty_search` | 搜索无结果（`EmptyState.illustration`） | 512×512 | `drawable-nodpi/empty_search.png` | 正式（`assets/svg/empty_search.svg`） |
-| `empty_network` | 无网络/超时/DNS/明文拦截（`KativaError.illustration`） | 512×512 | `drawable-nodpi/empty_network.png` | 正式（`assets/svg/empty_network.svg`） |
+| `empty_network` | 无网络/超时/DNS/明文拦截（`KavitaError.illustration`） | 512×512 | `drawable-nodpi/empty_network.png` | 正式（`assets/svg/empty_network.svg`） |
 | `error_generic` | 通用错误（`ErrorState` 默认插图） | 256×256 | `drawable-nodpi/error_generic.png` | 正式（`assets/svg/error_generic.svg`） |
 
 ### 2.5 格式与徽标（可选，M2 起）
@@ -240,7 +240,7 @@ app/src/main/res/
 | --- | --- |
 | 2026-09-02 | 初版清单（占位阶段） |
 | 2026-11-05 | M0 落地：清单迁到 `assets/manifest.json`（43 项）；生成器改为 `tools/assets` 子工程；应用图标改用 `assigns/kavita.svg` |
-| 2026-11-06 | 清理零引用素材：移除 `logo_wordmark` 与 8 个无消费方图标（`ic_add`/`ic_arrow_right`/`ic_check`/`ic_lock`/`ic_play`/`ic_refresh`/`ic_server`/`ic_swap`），清单 50 → 41 项、res PNG 218 → 177；`KativaIcons.Add` 一并删除 |
+| 2026-11-06 | 清理零引用素材：移除 `logo_wordmark` 与 8 个无消费方图标（`ic_add`/`ic_arrow_right`/`ic_check`/`ic_lock`/`ic_play`/`ic_refresh`/`ic_server`/`ic_swap`），清单 50 → 41 项、res PNG 218 → 177；`KavitaIcons.Add` 一并删除 |
 | 2026-11-06 | **素材接线**：全部保留素材均有消费方——`CoverImage` 改用 `privacy_placeholder`/`cover_fallback` 真实图；`EmptyState`/`ErrorState` 新增 `illustration` 参数并接 `empty_shelf`/`empty_search`/`empty_network`/`error_generic`；阅读器接入 `ic_prev_chapter`/`ic_next_chapter`/`ic_settings_reader`/`ic_toc`/`ic_double_page`/`ic_webtoon`/`ic_brightness`/`ic_volume`；补齐音量键翻页功能（`VolumeKeyPaging` + 设置开关 + 单测）。同时修正 2.4 表中不存在的 `empty_offline`（实现用的是 `empty_network`） |
 | 2026-11-06 | 修复「正式 SVG 放了不生效」：生成器改为逐条按 ID 解析（`assets/svg/<id>.svg` → `assigns/<id>.svg` → `assigns/kavita.svg` → 占位），并打印每条来源与仍占位清单；新增 §1.1 颜色规范（图标单色透明底、由运行期 tint 上色；全彩大图必须透明底） |
 | 2026-11-06 | **应用改名 Kavita Comic + 品牌图标**：`app_name` 四语言改为 `Kavita Comic`；launcher 三项改用 `assigns/logo.svg`。新增清单字段 `bleed`（`launcher-foreground` 专用，默认 `safe`；`full` = 108dp 铺满——**本项目不使用**，因为只有中间 72dp 可见，铺满会把标记放大 1.5 倍）；新增 `mipmap-anydpi-v26/ic_launcher{,_round}.xml` 自适应图标与 `@color/ic_launcher_background`（同色，仅填被裁掉的边缘）。`checkAssetsRegistered` 的白名单加入 `logo.svg`（品牌源被多个条目共享，本就不是清单 ID） |

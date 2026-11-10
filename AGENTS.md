@@ -1,6 +1,6 @@
 # AGENTS.md
 
-> 本文件是 **Kativa for Android** 的工程宪法：给 AI 代理与人类贡献者的执行契约。
+> 本文件是 **Kavita for Android** 的工程宪法：给 AI 代理与人类贡献者的执行契约。
 > 动手写代码前必须读完；与本文件冲突的实现一律视为缺陷。
 > 产品/页面/流程规划见 `docs/PLAN.md`、`docs/PAGES.md`、`docs/FLOWS.md`、`docs/FEATURES.md`、`docs/API.md`、`docs/ASSETS.md`。
 
@@ -10,7 +10,7 @@
 
 | 项目 | 说明 |
 | --- | --- |
-| 产品名 | **Kativa**（Android 客户端） |
+| 产品名 | **Kavita**（Android 客户端） |
 | 目标 | Kavita 自建阅读服务器的第三方原生客户端，一间"随身漫画/电子书图书馆" |
 | 上游服务端 | [Kavita](https://github.com/Kareadita/Kavita)，API 兼容基线 **v0.9.1.x** |
 | 关系 | **非官方**第三方客户端，与 Kareadita 团队无隶属关系，不得使用其图标/商标暗示官方身份 |
@@ -47,7 +47,7 @@
 | 构建 | Gradle Kotlin DSL + `gradle/libs.versions.toml` 版本目录 |
 
 > 版本号以 `gradle/libs.versions.toml` 为唯一事实来源，本文件不锁定小版本。
-> `minSdk 26`、`targetSdk 35`、`compileSdk 35`；`applicationId = "com.kativa.reader"`（改名只改 `app/build.gradle.kts` 一处 + 包名迁移脚本）。
+> `minSdk 26`、`targetSdk 35`、`compileSdk 35`；`applicationId = "com.kavita.reader"`（改名只改 `app/build.gradle.kts` 一处 + 包名迁移脚本）。
 
 **禁止**引入：Firebase/GA 等第三方埋点、任何把书库元数据上传到外部的 SDK、自动更新 SDK。
 
@@ -74,14 +74,14 @@ core/        网络客户端、鉴权、图片、设计系统、素材、通用�
 包结构：
 
 ```
-com.kativa.reader
-├─ KativaApp.kt                  @HiltAndroidApp
+com.kavita.reader
+├─ KavitaApp.kt                  @HiltAndroidApp
 ├─ MainActivity.kt
 ├─ core/
 │  ├─ network/                   OkHttp、Retrofit、AuthInterceptor、TokenAuthenticator、PaginationInterceptor
 │  ├─ auth/                      ServerProfileStore（多服务器）、SessionManager（DataStore + Keystore 加密）
 │  │                             AuthRepository、StartupRouter（决定启动进哪个服务器）
-│  ├─ image/                     KativaImageLoader、CoverUrlBuilder、PrivacyMask（隐私模式短路请求）
+│  ├─ image/                     KavitaImageLoader、CoverUrlBuilder、PrivacyMask（隐私模式短路请求）
 │  ├─ designsystem/              Theme、Color、Type、Shape、通用组件（SeriesCard/ProgressBadge/EmptyState…）
 │  ├─ assets/                    素材注册表（见 docs/ASSETS.md；占位素材 → 正式素材批量替换）
 │  ├─ util/                      文件、格式化、Result 封装
@@ -99,7 +99,7 @@ com.kativa.reader
 │  ├─ repository/                接口
 │  └─ usecase/                   GetHomeStreams、ContinueReading、SyncProgress、ResolveStartupServer…
 └─ ui/
-   ├─ navigation/                KativaNavHost、Destinations、DeepLinks
+   ├─ navigation/                KavitaNavHost、Destinations、DeepLinks
    ├─ servers/  auth/  onboarding/     服务器选择、登录、欢迎页
    ├─ home/  library/  series/  reader/  discover/  me/  search/  settings/
    └─ common/
@@ -123,12 +123,12 @@ com.kativa.reader
 | 场景 | 做法 |
 | --- | --- |
 | 首选登录 | `POST /api/Account/login` `{username,password}` → `UserDto{token,refreshToken,apiKey,authKeys[]}` |
-| API Key 登录 | `POST /api/Account/login` `{apiKey}`，或 `POST /api/Plugin/authenticate?apiKey=&pluginName=Kativa`（返回 token，便于旧版/无密码场景） |
+| API Key 登录 | `POST /api/Account/login` `{apiKey}`，或 `POST /api/Plugin/authenticate?apiKey=&pluginName=Kavita`（返回 token，便于旧版/无密码场景） |
 | 业务请求 | `Authorization: Bearer <token>` |
 | 刷新 | `POST /api/Account/refresh-token` `{token,refreshToken}` → 新 `{token,refreshToken}`；用 OkHttp `Authenticator` 做**单飞（single-flight）**刷新，失败即登出 |
 | 主动刷新 | 解析 JWT `exp`，提前 5 分钟刷新（避免阅读中 401） |
 | 图片/媒体 URL | **必须**带 `?apiKey=<imageKey>`（服务端从 query 取 key），并同时带 Bearer 头 |
-| 设备标识 | 每个请求带 `X-Device-Id: <本地生成的 UUID>`；`User-Agent: Kativa/<version> (Android <api>; Mobile)` |
+| 设备标识 | 每个请求带 `X-Device-Id: <本地生成的 UUID>`；`User-Agent: Kavita/<version> (Android <api>; Mobile)` |
 
 **imageKey 选取顺序**：`authKeys.firstOrNull { it.name == "image-only" }?.key` → `user.apiKey`（OPDS key）→ 若无，调用 `POST /api/Account/create-auth-key` `{name:"image-only",keyLength:32}` 后落库。
 **会话按服务器隔离**：`SessionStore` 的 key 是 `serverId`，token/refreshToken/imageKey 分服务器保存；切换服务器 = 切换会话上下文，**不得**把 A 服务器的 token 发给 B。
@@ -156,7 +156,7 @@ com.kativa.reader
 - 401 → 走刷新；刷新失败 → 全局 `SessionExpired` 事件 → 回登录页（保留服务器地址）。
 - 403/404/400 → 映射为"无权限/内容已被删除/请求无效"，不重试。
 - Kavita 错误体**多为纯文本**（本地化字符串，偶尔 JSON）。先按 `application/json` 尝试解析 `{message}`/`{errors}`，否则取 `body.string()` 原文展示。
-- 网络异常 → 统一 `KativaError`：`Network / Timeout / Unauthorized / Forbidden / NotFound / BadRequest / Server / Parse / Unknown`，UI 只消费这层。
+- 网络异常 → 统一 `KavitaError`：`Network / Timeout / Unauthorized / Forbidden / NotFound / BadRequest / Server / Parse / Unknown`，UI 只消费这层。
 - 重试策略：GET 指数退避（0.5s/1s/2s，最多 3 次）；写操作**不自动重试**，由用户点按或进度同步队列处理。
 - 日志：debug 打印 URL/状态码/耗时；**永不**打印 token、apiKey、密码（自定义 `redactHeader("Authorization","x-api-key","Cookie")`）。
 
@@ -204,8 +204,8 @@ com.kativa.reader
 ## 6. 设计系统
 
 - **主题色**：主色 `#4AC694`（薄荷绿）；深色主题色 `#2D7A56`。浅色主题用主色，深色主题用深主题色作为主色（对比度需过 WCAG AA）。M3 动态取色**关闭**（避免破坏封面视觉），封面主色可作为详情页渐变背景（`SeriesDto.primaryColor/secondaryColor`）。
-- **顶栏**：全应用只有 `core/designsystem/KativaTopAppBar`，屏幕禁止直接用 Material `TopAppBar`。亮色主题顶栏铺满品牌色 `#4AC694`，文字/图标用 `onPrimaryContainer`（近黑，`#07130E`）——白字配薄荷绿只有 ~2.2:1，不过 AA。品牌色顶上不能再用薄荷绿做强调色，改用 `LocalOnBrandSurface`（`kativaTopBarIconTint()`）切到墨色。`TopBarContractTest` 守卫这两条。
-- **填充件一律用主题色（不加深）**：主按钮、选中态分段控件、开关轨道、首页「搜索」大卡等**大面积填充**用 `#4AC694` + 墨色 `OnBrand` 内容，**不要**用深绿 `#2D7A56`（它只用于浅色主题的 `primary` 文案/图标墨色与暗色主题容器）。开关统一走 `core/designsystem/KativaSwitch`。小指示器（RadioButton 圆点等）保留 `primary`，因为薄荷绿细环在白底上对比不足。
+- **顶栏**：全应用只有 `core/designsystem/KavitaTopAppBar`，屏幕禁止直接用 Material `TopAppBar`。亮色主题顶栏铺满品牌色 `#4AC694`，文字/图标用 `onPrimaryContainer`（近黑，`#07130E`）——白字配薄荷绿只有 ~2.2:1，不过 AA。品牌色顶上不能再用薄荷绿做强调色，改用 `LocalOnBrandSurface`（`kavitaTopBarIconTint()`）切到墨色。`TopBarContractTest` 守卫这两条。
+- **填充件一律用主题色（不加深）**：主按钮、选中态分段控件、开关轨道、首页「搜索」大卡等**大面积填充**用 `#4AC694` + 墨色 `OnBrand` 内容，**不要**用深绿 `#2D7A56`（它只用于浅色主题的 `primary` 文案/图标墨色与暗色主题容器）。开关统一走 `core/designsystem/KavitaSwitch`。小指示器（RadioButton 圆点等）保留 `primary`，因为薄荷绿细环在白底上对比不足。
 - **暗色优先**（阅读产品），支持跟随系统。
 - **隐私模式**（全局开关，主界面右上角）：
   - 开启后**所有封面/缩略图不发起网络请求**，直接渲染纯色占位图——暗色主题 `#3A3A3A`、浅色主题 `#E9EBEF`（`#3A3A3A` 在白色卡片里像个黑洞）——来自素材表 `privacy_placeholder` 的淡色水印叠在该底色上，卡片布局与进度信息保持不变。底色由 `PrivacyCoverPlaceholder` 按 `LocalDarkTheme` 选取 `PrivacyFill`/`PrivacyFillLight`。
@@ -293,7 +293,7 @@ java.lang.IllegalStateException: You need to use a Theme.AppCompat theme
 #### 一次性命令（本地模拟器）
 
 ```bash
-# 1. 启动模拟器（本机 AVD：KativaTest，android-36，WHPX 加速）
+# 1. 启动模拟器（本机 AVD：KativaTest，android-36，WHPX 加速；AVD 名未随包名改名）
 "D:\Program\Android SDK\emulator\emulator.exe" -avd KativaTest -no-snapshot -gpu swiftshader_indirect -no-audio &
 
 # 2. 等启动完成
@@ -303,10 +303,10 @@ adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
 # 3. 装 + 冷启动 + 看是否存活
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb logcat -c
-adb shell am force-stop com.kativa.reader
-adb shell am start -n com.kativa.reader/com.kativa.reader.MainActivity
+adb shell am force-stop com.kavita.reader
+adb shell am start -n com.kavita.reader/com.kavita.reader.MainActivity
 sleep 8
-adb shell pidof com.kativa.reader        # 必须非空
+adb shell pidof com.kavita.reader        # 必须非空
 adb logcat -d | grep "FATAL EXCEPTION"         # 必须为空
 
 # 4. 校验首屏真的渲染了
@@ -340,7 +340,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 ```bash
 # 需要 JDK 17；本机路径：D:\tools\jdk-17.0.21+9
 ./gradlew :app:assembleDebug          # 构建
-./gradlew :app:packageDebugApk        # 构建并输出到 dist/Kativa-v<versionName>.apk
+./gradlew :app:packageDebugApk        # 构建并输出到 dist/Kavita-v<versionName>.apk
 ./gradlew :app:testDebugUnitTest      # 单测
 ./gradlew :app:generateAssets         # 从 assets/manifest.json 生成全部 PNG 素材
 ./gradlew :app:checkAssetsRegistered  # 校验 res/ 下没有未登记素材
@@ -359,7 +359,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 - PR 必须包含：改动动机、截图/录屏（UI）、测试说明、`docs/` 是否需同步。
 - `local.properties`、签名文件、任何服务器地址/token **不得入库**。
 - Release 构建：混淆 + 资源压缩；崩溃日志仅本地可选导出，不上传。
-- **发布命名**：APK 统一为 `Kativa-v<versionName>.apk`（不带变体后缀），包名统一 `com.kativa.reader`（debug 不再加 `.debug`）；发布正文见 `docs/RELEASE_NOTES.md`。当前无签名配置，发布物即为 debug 签名构建。
+- **发布命名**：APK 统一为 `Kavita-v<versionName>.apk`（不带变体后缀），包名统一 `com.kavita.reader`（debug 不再加 `.debug`）；发布正文见 `docs/RELEASE_NOTES.md`。当前无签名配置，发布物即为 debug 签名构建。
 
 ---
 
@@ -408,14 +408,14 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 
 | 问题 | 根因 | 修复 |
 | --- | --- | --- |
-| **所有封面不显示** | `coil-network-okhttp` 只是普通 JVM 依赖，其 `ServiceLoader` target **在 Android 上不生效**；从未显式注册 `OkHttpNetworkFetcherFactory`，Coil 对每个 http(s) 请求静默失败 | `KativaApp.newImageLoader` 显式 `add(OkHttpNetworkFetcherFactory(...))`，复用同一个 OkHttp（沿用明文门禁），并显式配置内存/磁盘缓存 |
+| **所有封面不显示** | `coil-network-okhttp` 只是普通 JVM 依赖，其 `ServiceLoader` target **在 Android 上不生效**；从未显式注册 `OkHttpNetworkFetcherFactory`，Coil 对每个 http(s) 请求静默失败 | `KavitaApp.newImageLoader` 显式 `add(OkHttpNetworkFetcherFactory(...))`，复用同一个 OkHttp（沿用明文门禁），并显式配置内存/磁盘缓存 |
 | **"查看更多"列表滚动几下闪退** | 「最近更新」按**章节**分组，同一系列会在不同页重复出现；用 `series.id` 作 Compose key → 重复 key 崩溃 | 列表 key 改为分页位置派生的唯一值（`s{page}_{index}`），保留条目身份稳定性 |
 | **系列详情显示 "One or more validation errors occurred"** | 该文案是 ASP.NET `ValidationProblemDetails`，被当成普通 message 直接展示；且 `hasProgress`/`continuePoint` 失败会拖垮整页 | `ErrorMapper` 解析 `errors` 字段映射为 `字段: 原因`；详情页把进度/想读降级为**可选增强**，失败不再阻断渲染 |
 | 首页缺资料库入口 | 首页只有流，没有库 | 新增库文件夹卡片，改为 2 列网格 |
 | 系列列表重复请求 | 无缓存 | 新增 `SeriesListCache`（按 serverId+参数签名、TTL 2 分钟、上限 40 条、不缓存失败） |
 | **API Key 登录恒 400 "One or more validation errors occurred"** | `LoginRequest` 的 `username`/`password` 声明了 `= ""` 默认值，而 kotlinx.serialization **默认省略等于默认值的字段**，实际只发 `{"apiKey":"…"}`；Kavita 的 `LoginDto` 把二者标记为必填 → 400 | 新增 `WireJson`（`encodeDefaults = true`）作为唯一序列化入口，并用 `WireSerializationTest` 断言**精确线上负载**。MockWebServer 抓不到这类 bug：它验证的是"意图"，而字段是被编码器静默丢弃的 |
 | **保存服务器后登录仍走 https**（`SSLException: Unable to parse TLS packet header`） | 裸 `host:port` 默认补 `https://`（正确的安全默认），但自建 Kavita 常只开明文；此前只有"测试连接"按钮会回退 http，保存与登录都不会 | 在 `ServerSetupViewModel.save()` 中对未验证的 https 档案先探测：https 失败且判定为 TLS 错误时再探 http，**只有真的通了才**填入 `http://` 并开启该服务器的明文开关，同时给出警告并要求用户**再点一次保存确认**（不静默降级，符合 §4.1）。请求层**不做**自动降级 |
-| **搜索箱是 Material 的盒式 `OutlinedTextField`，方框+四角在顶栏里显得笨重** | 直接用了 Material 默认外形，没走设计系统 | 新增 `core/designsystem/KativaTextField.kt: KativaUnderlineField`（`BasicTextField` + `decorationBox`，只有底部一条横线：静止 1dp `outline`、聚焦 2dp `primary` 带动画；`heightIn(min=48.dp)` 保住点击区；清除按钮由调用方 `trailingIcon` 传入）。搜索页改用该组件 |
+| **搜索箱是 Material 的盒式 `OutlinedTextField`，方框+四角在顶栏里显得笨重** | 直接用了 Material 默认外形，没走设计系统 | 新增 `core/designsystem/KavitaTextField.kt: KavitaUnderlineField`（`BasicTextField` + `decorationBox`，只有底部一条横线：静止 1dp `outline`、聚焦 2dp `primary` 带动画；`heightIn(min=48.dp)` 保住点击区；清除按钮由调用方 `trailingIcon` 传入）。搜索页改用该组件 |
 | **输入框在空态与输入态高度不一致（下划线上下跳）** | 组件高度由子节点撑开：空态没有尾随 Clear 按钮，行高只有一行文字；输入后 `IconButton` 把行撑到 48dp，整个字段长约 6dp，横线随之位移。同时下划线参与布局、`1dp↔2dp` 的聚焦动画本身也会挤动一像素 | 高度改为**与内容无关**：`fieldHeight = max(48dp, 行高 + 4dp + 2dp)`，行高从 `typography.bodyLarge.lineHeight × fontScale` 推导（大字号自动变高、不裁切）；下划线放进独立的 2dp 槽位，粗细变化不再影响布局。真机实测 font1.0 `y=88..220 h=132`、font2.0 `y=79..228 h=149`，空/输入/清空三态**像素级一致** |
 | **中文内容搜不到，被怀疑是编码问题** | **不是编码问题**（日志里 `queryString=%E8%83%BD%E5%8A%9B`，服务端 200 正常）。两个真实原因：① Kavita 的 `/Search/search` 只搜 `includeInSearch=true` 的资料库（`GetLibraryIdsForUserIdAsync(QueryContext.Search)`），而用户中文漫画所在的「系列」库 `includeInSearch=false`；② 服务端只做 SQL `LIKE %q%` 子串匹配，**不做简繁/异体折叠**（`樂園`→命中、`乐园`→0；`女兒`→命中、`女儿`→0）。同为 CJK 的日文假名可正常命中 | 按产品决定**不改搜索行为**，只把机制写进 `docs/API.md` §6（含自查 `includeInSearch` 的方法与简繁限制），并修正 `docs/FLOWS.md` 中过期的"≥ 2 字符"门槛 |
 | 首页搜索按钮无障碍标签写成 "View all" | `HomeScreen` 里搜索 `IconButton` 误用了 `R.string.home_view_all` | 改用 `R.string.search_title`（四语言已有该键）；TalkBack 与自动化都能正确定位 |
@@ -425,11 +425,11 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | **搜索页显示 `Type at least %1$d characters` / `No results for "%1$s"`** | 带格式参数的字符串被 `stringResource(R.string.x)` **无参调用**，占位符原样渲染。可编译、无 lint 报错、不崩溃 | 两处都补上参数；新增 `ThemeContractTest` 守卫：扫描全部 Kotlin 源，凡调用含 `%` 的字符串却未传参即判失败（已反向验证该守卫确实能抓到本 bug） |
 | **首页左右留白不一致（文件夹比流区更内缩）** | `LazyVerticalGrid` 外层 16dp + `SectionHeader`/`LazyRow` 各自内部 16dp → 叠加成 32dp | 统一为**单一** 16dp：只在网格 `contentPadding` 设边距，流区与标题不再自带横向 padding。实测标题/流卡片/文件夹卡片左缘均为 44px(=16dp) |
 | **隐私模式在 2-3 级页面失效（详情/搜索/流列表封面照常加载）** | 两层错误叠加：① `ThemeViewModel` 用**嵌套 collect**（`active.collect { isPrivacyMode(id).collect { … } }`），内层永不结束 → 外层收不到「选择服务器」那次发射，`LocalPrivacyMode` 恒为 `false`；② 首页把 `coverUrl` 手动置 `null` 所以"看着对"，而二级页走 `CoverImage` 默认值就漏了。探针 `cache/image_cache` 生成封面文件即为铁证 | 隐私状态收敛到 `PrivacyModeState`（用 `combine`，进程级 scope，不依赖 ViewModel），`ThemeViewModel` 只做镜像；去掉各屏幕的 `privacyMode` 参数，统一由 `LocalPrivacyMode` 决定；再注册 `PrivacyGuardInterceptor` 在 Coil 层按路径兜底（`/Reader/image` 永不拦）。新增 `PrivacyModeStateTest` + `PrivacyGuardInterceptorTest`，真机验证 首页/详情/搜索/流列表 四级 `cache` 均无封面文件 |
-| **阅读器进度条与亮度条"很丑"** | 两处都是**裸 `material3.Slider`**，零定制。M3 1.3 的滑块 token 是"16dp 厚轨道 + 4×44dp 竖条拇指 + 轨道末端 4dp stop dot"，且**未激活轨道取 `secondaryContainer`** —— 本主题没定义该 token，于是掉进 Material 默认紫灰 `#4A4458`；`LinearProgressIndicator` 同版本也自带 4dp 间隙 + 末端圆点，在封面卡 3dp 细条上就是一颗乱入的亮点 | 新增 `core/designsystem/KativaSlider`（4dp 细轨 + 14dp 圆点，保留官方拖拽/48dp 触摸区/TalkBack 语义）与 `KativaProgressBar`（Canvas 自绘，无间隙无圆点），替换 4 处调用；`KativaTheme` 补齐 `secondaryContainer`/`inverseSurface`/`surfaceContainer*` 等 token 防再掉默认色 |
+| **阅读器进度条与亮度条"很丑"** | 两处都是**裸 `material3.Slider`**，零定制。M3 1.3 的滑块 token 是"16dp 厚轨道 + 4×44dp 竖条拇指 + 轨道末端 4dp stop dot"，且**未激活轨道取 `secondaryContainer`** —— 本主题没定义该 token，于是掉进 Material 默认紫灰 `#4A4458`；`LinearProgressIndicator` 同版本也自带 4dp 间隙 + 末端圆点，在封面卡 3dp 细条上就是一颗乱入的亮点 | 新增 `core/designsystem/KavitaSlider`（4dp 细轨 + 14dp 圆点，保留官方拖拽/48dp 触摸区/TalkBack 语义）与 `KavitaProgressBar`（Canvas 自绘，无间隙无圆点），替换 4 处调用；`KavitaTheme` 补齐 `secondaryContainer`/`inverseSurface`/`surfaceContainer*` 等 token 防再掉默认色 |
 | **亮度滑块是死控件** | `ReaderSettings.brightness` 只被 `setBrightness` 写入、Sheet 读取，**没有任何消费方**；拖了毫无效果 | 改为内容层暗色遮罩（`ReaderDim`）：遮罩画在页面之上、控件之下，`background` 不消费指针事件所以手势照常；不从系统窗口亮度下手，避免与用户自动亮度打架、退出时残留。同时补上 `keepScreenOn`（AGENTS §5 防息屏） |
 | **「显示页码」开关是死控件** | `showPageNumber` 同样只写不读 | 阅读器内容层渲染右下角极淡页码（`docs/PAGES.md` P08 早已要求），开关真正生效 |
 | **拖动阅读进度条时页面抖动、进度反复重写** | `onValueChange` 每帧调 `goToPage()`，pager 被动滚动且每帧重置 800ms 保存防抖；`updateSettings` 又对**所有**设置（含 brightness/pageNumber）无条件 `buildSlots` + 重映射阅读位置 | 滑块改为拖动期间只更新本地状态、`onValueChangeFinished` 才跳页一次；`ReaderViewModel` 拆出 `updateVisualSetting`，视觉类设置不再重建槽位 |
-| **阅读器顶部信息压住系统状态栏（时钟/电量与系列名重叠）** | `ReaderControls` 的上下条用 `Surface` 直接贴在 `TopCenter`/`BottomCenter`，阅读器本身是 edge-to-edge（`enableEdgeToEdge`），所以条带画在状态栏/导航栏**下面**，内容没有让出安全区 | 上下条改为 `TopChrome`/`BottomChrome`：**半透明 scrim（`KativaColors.ReaderScrim`，75% 黑）+ 20dp 渐变过渡**从屏幕边缘一直铺到内容，内容再叠 `WindowInsets.systemBars.only(Top/Bottom + Horizontal)` 让出安全区（同时覆盖横屏刘海）。沿用 §6「暗色优先」：阅读器内强制系统图标为浅色，退出时还原 |
+| **阅读器顶部信息压住系统状态栏（时钟/电量与系列名重叠）** | `ReaderControls` 的上下条用 `Surface` 直接贴在 `TopCenter`/`BottomCenter`，阅读器本身是 edge-to-edge（`enableEdgeToEdge`），所以条带画在状态栏/导航栏**下面**，内容没有让出安全区 | 上下条改为 `TopChrome`/`BottomChrome`：**半透明 scrim（`KavitaColors.ReaderScrim`，75% 黑）+ 20dp 渐变过渡**从屏幕边缘一直铺到内容，内容再叠 `WindowInsets.systemBars.only(Top/Bottom + Horizontal)` 让出安全区（同时覆盖横屏刘海）。沿用 §6「暗色优先」：阅读器内强制系统图标为浅色，退出时还原 |
 | **拖动进度条偶尔变成翻页** | 上下条只是 `Surface` + 文案/按钮，**本身没有 pointer-input 节点**；落在条带内边距、或滑块拇指与 48dp 触摸区之间的空隙的按压，命中测试直接穿透到下层 pager，横向位移就被判成翻页手势 | 给条带的实心区域挂一个**惰性命中节点**（`readerChromeTouchGuard`：只 `awaitFirstDown` 不消费），让条带成为该区域的命中目标、pager 彻底收不到这些事件；**不能**改成消费事件——那会让 `clickable` 在 Final pass 取消点击，返回/书签/设置按钮全废。`ChapterEndBar` 一并补上安全区内边距 |
 | **切到上下连续滚动（Webtoon）后再也打不开设置** | Webtoon 分支里写了 `return@Box`，提前退出外层 `Box` lambda。而 `ReaderSettingsSheet` 就组合在**同一个 `Box` lambda 的下面**，于是被整体跳过：设置抽屉永远打不开，用户被困在滚动模式无法恢复 | 改为 if/else，两个分支都**落到**共享的 overlay/controls/settings；分页渲染抽成 `PagedReader`。同时把模式判定收敛到 `ReaderChrome`（`showsSettingsSheet`/`usesContinuousScroll`/`webtoonStartIndex`）并加 `ReaderModeSettingsTest` 守卫——已反向验证：把 `showsSettingsSheet` 改回依赖模式，测试立刻失败 |
 | 切模式时进度被重置回第 1 页 | `WebtoonReader` 的 `LazyColumn` 无 `initialFirstVisibleItemIndex`，切换后从列表顶部开始，`LaunchedEffect(visiblePage)` 立刻把"第 1 页"写回，等于把章节进度倒退并落盘 | `startPage` 由 `ReaderChrome.webtoonStartIndex(state.pageIndex, totalPages)` 钳制后传入；实测 `seek=8 → webtoon=7 → horizontal=7`，进度不再倒退 |
@@ -440,20 +440,20 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | **加入想读后「仅收藏」筛选仍为空** | `SeriesListCache` 有 2 分钟 TTL，而「收藏」= 想读，属于服务端用户状态；`ShelfRepository` 的 add/remove 只调了接口，没有失效任何缓存，于是筛选命中旧页 | `ShelfRepository.add/removeToWantToRead` 成功后调用 `seriesCache.clearServer(activeId)`（只清当前服务器，符合 §4.1 的会话隔离）。真机验证：详情页「加入想读」→ 回列表 → 仅收藏筛选立即返回该系列 |
 | 切筛选时旧请求回包覆盖新结果 | `LibraryGridViewModel.load()` 无请求序号，慢返回的旧条件结果会盖掉新条件 | 加单调 `requestId`，回包与当前序号不符即丢弃；末页判定改用 `Pagination.totalItems` 精确计算，仅 header 缺失时才退回"短页"启发式 |
 | 排序没有方向，且方向会在字段间串味 | 面板只有排序字段，没有升/降序控件（`isAscending` 恒为 `true`） | 补回升序/降序两段式选择；`SeriesSort.defaultAscending` 定义各字段自然默认（名称升序、两个日期字段降序），`withSort()` 默认取该值，面板切换字段时同步重置方向——避免"按加入时间+升序"把最老的排最前 |
-| **浅色主题下所有列表的封面遮罩是一层灰蒙蒙的黑渐变、标题白字发灰** | `SeriesPosterCard`（首页流/库网格/搜索/书架/书签/流列表共用的唯一列表卡片）把底部渐变写死为 `Color.Black.copy(alpha = 0.72f)` + `Color.White` 标题——这是深色主题的正确做法，浅色主题下黑纱罩在白卡上就成了灰色遮罩，白字也失去对比 | 新增 `KativaColors.PosterScrimDark/PosterScrimLight`（黑 72% / 白 90%，均 ≥72% 不透明以压住封面），`SeriesPosterCard` 按 `LocalDarkTheme` 三处分叉：遮罩、标题（浅色改 `Color.Black`）、副标题与进度条轨道同步反色；深色主题取值不变。新增 `PosterScrimContractTest` 守卫（已反向验证：把遮罩改回写死黑色立即 FAIL）；阅读器 chrome 与详情页 hero 渐变属常暗/品牌色场景，不在本次范围 |
+| **浅色主题下所有列表的封面遮罩是一层灰蒙蒙的黑渐变、标题白字发灰** | `SeriesPosterCard`（首页流/库网格/搜索/书架/书签/流列表共用的唯一列表卡片）把底部渐变写死为 `Color.Black.copy(alpha = 0.72f)` + `Color.White` 标题——这是深色主题的正确做法，浅色主题下黑纱罩在白卡上就成了灰色遮罩，白字也失去对比 | 新增 `KavitaColors.PosterScrimDark/PosterScrimLight`（黑 72% / 白 90%，均 ≥72% 不透明以压住封面），`SeriesPosterCard` 按 `LocalDarkTheme` 三处分叉：遮罩、标题（浅色改 `Color.Black`）、副标题与进度条轨道同步反色；深色主题取值不变。新增 `PosterScrimContractTest` 守卫（已反向验证：把遮罩改回写死黑色立即 FAIL）；阅读器 chrome 与详情页 hero 渐变属常暗/品牌色场景，不在本次范围 |
 
 ### M2 阅读器设置作用域（产品反馈，2026-11）
 
 | 变更 | 说明 |
 | --- | --- |
 | **阅读设置此前无任何持久化** | `ReaderUiState.settings` 恒为 `ReaderSettings.Default`，切章节/退出即归零；跨章节时旧 entry 被 `popUpTo` 弹出、新 ViewModel 重建，设置连"本次会话"都保不住。服务端 `/api/reading-profile/*` 虽已文档化但从未接入（属 M3 范围） |
-| **改为按系列本地持久化** | 新增 `core/settings/ReaderSettingsStore`（复用 `kativa_settings` DataStore，**不能**再开同名 delegate）+ `StoredReaderSettings`/`ReaderSettingsCodec`（枚举存 Kavita `apiValue` 数字，未知值回落不抛）+ `ReaderSettingsLayers.resolve` 实现 **系列 → 全局默认 → App 默认** 三级回落；key = `reader_settings_<serverId>_<seriesId>`，删除服务器时一并清理 |
+| **改为按系列本地持久化** | 新增 `core/settings/ReaderSettingsStore`（复用 `kavita_settings` DataStore，**不能**再开同名 delegate）+ `StoredReaderSettings`/`ReaderSettingsCodec`（枚举存 Kavita `apiValue` 数字，未知值回落不抛）+ `ReaderSettingsLayers.resolve` 实现 **系列 → 全局默认 → App 默认** 三级回落；key = `reader_settings_<serverId>_<seriesId>`，删除服务器时一并清理 |
 | 亮度不持久化 | 亮度随环境而非作品变化，保持会话级（文案已写「仅本次阅读」）；`ReaderSettingsPersistence` 是唯一换算出口并显式丢弃该字段 |
 | 全局默认的写入口 | 设置页新增「阅读 → 默认阅读设置」，复用同一个 `ReaderSettingsSheet`（`showBrightness=false`、无恢复行），避免两套 UI 漂移；设置页的 `SettingsUiState` 用嵌套 `combine` 合并 `globalSettings` |
 | 抽屉新增「恢复本系列的阅读设置」 | 清掉系列 key 后回落到**全局**（不是出厂默认），并即时重映射槽位 |
 | 抽屉新增「横屏显示」（真生效） | `ReaderOrientationEffect`：`DisposableEffect(forceLandscape)` 设 `requestedOrientation = SENSOR_LANDSCAPE`（系统关自动旋转也生效），退出恢复原值；Manifest 已有 `configChanges=orientation\|screenSize`，旋转不重建 Activity。按 AGENTS §8.1 做了冷启动冒烟 |
 | 读设置必须早于首帧 | `load()` 在发布 session 的**同一次** `_state.update` 里先读持久化设置再 `buildSlots`，否则双页模式下会先按默认单页渲染再跳变、导致阅读位置闪一下 |
-| 验证 | 12 个新单测（round-trip / 编码默认值 / 损坏 JSON / 未知枚举 / 亮度不落库 / 三级回落 / key 隔离）；真机：改垂直+横屏 → 退到首页重进仍保留（`cur=2400x1080`）→ 退出恢复竖屏（`cur=1080x2400`）→ 恢复本系列回到出厂默认并解除横屏 → 设置页改全局双页 → 该系列继承双页 → 系列内改单页覆盖全局；`run-as cat kativa_settings.preferences_pb` 可见 `reader_settings_global` 与 `reader_settings_<uuid>_<seriesId>` 两条 JSON |
+| 验证 | 12 个新单测（round-trip / 编码默认值 / 损坏 JSON / 未知枚举 / 亮度不落库 / 三级回落 / key 隔离）；真机：改垂直+横屏 → 退到首页重进仍保留（`cur=2400x1080`）→ 退出恢复竖屏（`cur=1080x2400`）→ 恢复本系列回到出厂默认并解除横屏 → 设置页改全局双页 → 该系列继承双页 → 系列内改单页覆盖全局；`run-as cat kavita_settings.preferences_pb` 可见 `reader_settings_global` 与 `reader_settings_<uuid>_<seriesId>` 两条 JSON |
 
 ### M2 阅读器 UI 修复（测试反馈，2026-11）
 
@@ -482,7 +482,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | 变更 | 说明 |
 | --- | --- |
 | 搜索框提示文案 | 由「搜索系列、合集、阅读清单、人物…」改为单词 **Search / 搜索 / Rechercher / 検索**（四语言同步） |
-| 首页左上角 | 移除 `Hi, <用户名>` 问候语，改为**用户中心图标**（复用 `KativaIcons.Me`，无需新增素材），点击进入「Me」页；用户名只在 Me 页出现 |
+| 首页左上角 | 移除 `Hi, <用户名>` 问候语，改为**用户中心图标**（复用 `KavitaIcons.Me`，无需新增素材），点击进入「Me」页；用户名只在 Me 页出现 |
 | 顶部「最新观看历史」 | 移除 ContinueReading 大卡（`HomeStream.ContinueReading` 及其卡片一并删除，不留死代码）。On Deck 流本身仍承载继续阅读条目 |
 | 个人首页返回键 | 「Me」原本是底部页签、无返回概念；改为从首页用户中心图标进入后成了**入栈页面**，却没有退出路径（且全应用实际并未渲染底部栏，用户会被困住）。新增 `TopAppBar` 返回箭头：优先 `popBackStack()` 保留来路，仅当 Me 是栈底（深链/进程恢复）时才导航到 Home，避免 pop 直接退出应用 |
 | Me 右上角重复设置入口 | Me 页既顶栏有 Settings 图标、正文又有 Settings 行，两个入口同一页面 | 移除顶栏图标，只保留正文菜单行 |
@@ -491,8 +491,31 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | 资料库文件夹间距 | 与上方流区对齐到同一 16dp 栅格 |
 | **文件夹内封面缩进与背景** | 封面拼图原本铺满整个顶部区域、四格紧贴，卡片背景是实色 `surface`。改为：拼图四周内缩 4dp、封面之间同 4dp 间隙（**同一个 token `INSET`，两者永不漂移**）、封面格加 3dp 圆角、卡片背景改为半透明灰（深色主题白色蒙版 `#1FFFFFFF`，浅色主题黑色蒙版 `#14000000`，均可透出页面底色）。隐私占位图继承同一缩进 |
 | **隐私模式下文件夹内的遮罩图顶掉上边距、没有圆角** | `PrivacyCoverPlaceholder` 无条件带 `aspectRatio(2f/3f)`。poster 槽位（`SeriesPosterCard`/详情封面）的调用方本来就传了同一比例，所以看不出问题；但首页文件夹的槽位是**正方形**（`aspectRatio(1f)` + `padding(INSET)`），2:3 的占位图比槽位高，Compose 把它撑到槽位外，顶部 4dp 内边距被吃掉、圆角也被外层卡片的 16dp 方形裁剪顶替（像素实测：遮罩 `y=966..1445` 高 480px，而拼图槽位应为 `y=978..1434` 高 456px，宽度还只有 458px） | 组件改为**只填满调用方给的盒子**（去掉内部 `aspectRatio`），并新增 `shape` 参数（默认仍是 `PosterRadius`）；文件夹内传入与四宫格共用的 `MosaicCellShape`（3dp，**后被下方「圆角太小」一行改为 `PrivacyPanelShape` = 12dp**）。真机像素校验：遮罩变为 `458×458`、顶部起点 977（与 4dp 内边距一致）；`CoverImage` 的 poster 调用方各自保留比例，无回归。新增 `PrivacyPlaceholderSizingTest` 守卫（已反向验证：把 `aspectRatio` 加回去立即 FAIL） |
-| **隐私模式下文件夹遮罩图圆角太小** | `LibraryFolderCard` 在隐私模式下把四宫格的 `MosaicCellShape`（3dp）直接套给了一整块占位面板。四宫格的 3dp 是「小格子」的圆角，而隐私面板是**一整块**封面大小的面，两者尺度不同；3dp 在 166dp 宽的面板上几乎看不出来，视觉上就是一块方角灰板贴在 16dp 圆角卡片里 | 新增 `PrivacyPanelShape = RoundedCornerShape(KativaDimens.PosterRadius.dp)`（12dp，与全应用封面同源 token），隐私面板改用它；`MosaicCellShape` 只留给四宫格本身。真机像素校验（440dpi）：角落内缩从 3dp 的 ~6px 变为 12dp 的 ~28px，与 `SeriesPosterCard` 封面圆角一致；`PrivacyPlaceholderSizingTest` 改为断言 `shape = PrivacyPanelShape`、显式断言**不得**再出现 `shape = MosaicCellShape`，并新增一条断言 `PrivacyPanelShape` 必须由 `KativaDimens.PosterRadius` 派生（已反向验证：改回 `MosaicCellShape` 立即 FAIL） |
+| **隐私模式下文件夹遮罩图圆角太小** | `LibraryFolderCard` 在隐私模式下把四宫格的 `MosaicCellShape`（3dp）直接套给了一整块占位面板。四宫格的 3dp 是「小格子」的圆角，而隐私面板是**一整块**封面大小的面，两者尺度不同；3dp 在 166dp 宽的面板上几乎看不出来，视觉上就是一块方角灰板贴在 16dp 圆角卡片里 | 新增 `PrivacyPanelShape = RoundedCornerShape(KavitaDimens.PosterRadius.dp)`（12dp，与全应用封面同源 token），隐私面板改用它；`MosaicCellShape` 只留给四宫格本身。真机像素校验（440dpi）：角落内缩从 3dp 的 ~6px 变为 12dp 的 ~28px，与 `SeriesPosterCard` 封面圆角一致；`PrivacyPlaceholderSizingTest` 改为断言 `shape = PrivacyPanelShape`、显式断言**不得**再出现 `shape = MosaicCellShape`，并新增一条断言 `PrivacyPanelShape` 必须由 `KavitaDimens.PosterRadius` 派生（已反向验证：改回 `MosaicCellShape` 立即 FAIL） |
 | **文件夹统计数字全部显示 "4 series"** | 两层错误叠加：① `HomeViewModel` 用 `series.size`（预览图数量，上限 4）当总数；② 即便改用 `Pagination` 头也取不到——`PaginationInterceptor` 用 `ThreadLocal`，OkHttp 在自己的 dispatcher 线程写入、协程在另一线程读取，`consume()` **永远是 null**。`LibraryDto` 本身没有系列数字段，真实总数只存在于 `Pagination` 响应头 | API 改为返回 `retrofit2.Response<List<SeriesDto>>`，直接从 `response.headers()["Pagination"]` 解析 `totalItems`（天然按请求隔离，无线程问题）；新增 `SeriesPage{items,totalItems}` 并从 `totalOrPageSize` 兜底；`SeriesListCache` 一并缓存 `totalItems`，缓存命中不会退化。实测 4/40/85/71 与服务端一致；`PaginationInterceptor` 保留但已标注 **禁止用于读元数据** |
+
+### v1.2.0 命名修正（Kativa → Kavita，2026-11）
+
+项目名从前写成了 **Kativa**，正确应为 **Kavita**（与被对接的服务端同名）。本版一次性纠正，并把 GitHub 仓库从
+`page7/kativa_android` 迁到 `page7/kavita_android`。
+
+| 层 | 变更 |
+| --- | --- |
+| 包名 / applicationId | `com.kativa.reader` → **`com.kavita.reader`**；`tools/assets` 子工程同步为 `com.kavita.tools.assets`；Room schema 目录随之改名 |
+| 类名与文件 | `KativaApp`/`KativaTheme`/`KativaIcon(s)`/`KativaError`/`KativaDatabase`/`KativaNavHost`/`KativaTopAppBar`/`KativaSlider`/`KativaSwitch`/`KativaTextField`/`KativaProgressBar` 等全部改为 `Kavita*` |
+| 资源 | `Theme.Kativa` → `Theme.Kavita`；`@color/kativa_*` → `@color/kavita_*`（主题校验测试同步） |
+| 标识 | 深链 scheme `kativa://` → `kavita://`；`User-Agent: Kavita/<ver>`；`X-Kavita-Client: kavita-android` |
+| 本地存储 | DataStore `kavita_servers`/`kavita_sessions`/`kavita_accounts`/`kavita_settings`、镜像 prefs `kavita_theme_mirror`、Room 文件 `kavita.db` |
+| 文档 | `AGENTS.md`、`README.md`、`docs/*` 全文修正；仓库地址改为 <https://github.com/page7/kavita_android> |
+| 交付物 | APK 命名 `Kavita-v<versionName>.apk`（构建脚本已按此派生）；本版 `versionCode 30` / `versionName 1.2.0` |
+
+**升级必须卸载重装**：`applicationId` 变了，旧版 `com.kativa.reader` 无法覆盖升级，系统会视为两个独立应用；
+且旧数据目录不会迁移 —— 卸载旧版后重新添加服务器并登录即可（本 App 不缓存书库内容，无数据损失风险，仅需重新登录）。
+
+改名只做**字符串等长**的字节级替换（`kativa`→`kavita`、`Kativa`→`Kavita`），不触碰任何中文字符与换行，
+因此历史文档里的中文没有被破坏。验证：`testDebugUnitTest` **283 个全绿**；按 §8.1 做了完整冷启动冒烟
+（`pidof com.kavita.reader` = 2117、logcat 无 `FATAL EXCEPTION`、`uiautomator dump` 见首屏「Add server」表单、
+带坏参数的 `kavita://setup?url=notaurl` 深链不崩）。
 
 ### M1 落地记录
 
@@ -503,13 +526,13 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
   章节行/标记已读）、`MangaReaderScreen`（`HorizontalPager` + 三分区点击 + 双击书签 + 底部滑块 +
   章末"下一章"条）。
 - 导航：`library/{id}`、`series/{id}`、`reader/{chapterId}`；章间跳转用 `popUpTo` 替换栈顶，避免无限堆叠。
-- **图标合规**：移除 `material-icons-extended` 依赖，全部图标改由 `KativaIcon` + `KativaIcons` 从
+- **图标合规**：移除 `material-icons-extended` 依赖，全部图标改由 `KavitaIcon` + `KavitaIcons` 从
   素材清单生成（新增 `ic_expand_less/more`、`ic_sort`、`ic_visibility/off`、`ic_read/unread`）。
 
 ### M0 落地记录（供后续参考）
 
 - JDK：本机无 JDK 17，已安装到 `D:\tools\jdk-17.0.21+9`；`local.properties` 指向 `D:\Program\Android SDK`。
-- `applicationId = com.kativa.reader`（**debug 变体不再加 `.debug` 后缀**，见 §9 与 1.1.0 发布说明）；`minSdk 26 / target 35 / compile 35`。
+- `applicationId = com.kavita.reader`（**debug 变体不再加 `.debug` 后缀**，见 §9 与 1.1.0 发布说明）；`minSdk 26 / target 35 / compile 35`。
 - 已实现：`ServerRepository`（多服务器 + 自动登录单选）、`SessionStore`（按 serverId 隔离）、`ActiveServerStore`、
   `StartupRouter`、`ApiFactory`（按 baseUrl 缓存 Retrofit）、`AuthInterceptor`、`CleartextGateInterceptor`、
   `PaginationInterceptor`、`ErrorMapper`、`CoverUrlBuilder`、`PrivacyModeState`、四语言资源、`Splash/Welcome/

@@ -34,7 +34,7 @@
   - `OutlinedTextField`（URL）、命名输入框（可选，默认取 host）。
   - `Switch` 允许明文连接（该服务器独立）、`Switch` 启动时自动登录此服务器。
   - 主按钮「测试连接」→ 成功后变「保存并登录」。
-- **组件**：`UrlField`、`InlineError`、`TrustCertificateSheet`、`KativaPrimaryButton`。
+- **组件**：`UrlField`、`InlineError`、`TrustCertificateSheet`、`KavitaPrimaryButton`。
 - **状态**：空闲 / 测试中（按钮 loading）/ 成功（显示版本徽标）/ 失败（错误条 + 重试）。
 - **交互**：输入自动规范化（补协议、去尾斜杠、识别子路径）；粘贴含 apiKey 的 URL 自动拆解并填入。
   - **返回键**：首次进入（P00A 欢迎页 → 本页）**不显示**返回箭头，本页即启动根页；由 P01 添加服务器或编辑已有服务器进入时才显示，用于 pop 回上一页。
@@ -49,7 +49,7 @@
   - 大标题「选择服务器」。
   - 服务器卡片列表：名称、地址、登录状态徽标（已登录 / 需登录 / 无法连接）、最近使用时间。
   - 底部主按钮「+ 添加服务器」。
-- **组件**：`ServerCard`、`StatusPill`、`KativaPrimaryButton`、`EmptyState`。
+- **组件**：`ServerCard`、`StatusPill`、`KavitaPrimaryButton`、`EmptyState`。
 - **状态**：空（无服务器 → 直接进 P00A 欢迎页）/ 列表 / 连接中（卡片内 spinner）/ 单卡错误（红标 + 重试）。
 - **交互**：
   - 点卡片 → 会话有效进首页；否则进 P02 登录；连不上 → 卡片展开「编辑 / 重试 / 删除」。
@@ -154,7 +154,7 @@
   1. **内容层**：`HorizontalPager`（单页/双页）或 `LazyColumn`（Webtoon/上下）。
   2. **覆盖层**（点击中部显现）：顶部栏（返回、系列名、页码 `12 / 180`、书签、设置）、底部栏（上一章、进度滑块、下一章）。
   3. **手势层**：`pointerInput` 处理点击分区/滑动/双击/长按；与 pager 的滑动仲裁。
-- **组件**：`ReaderPage`、`ReaderTopBar`、`ReaderBottomBar`、`PageSlider`（`KativaSlider`；拖动时页码行实时显示目标页）、`ReaderSettingsSheet`、`ChapterTransitionBar`、`PageErrorPlaceholder`。
+- **组件**：`ReaderPage`、`ReaderTopBar`、`ReaderBottomBar`、`PageSlider`（`KavitaSlider`；拖动时页码行实时显示目标页）、`ReaderSettingsSheet`、`ChapterTransitionBar`、`PageErrorPlaceholder`。
 - **状态**：`Preparing`（黑屏 + 章节名 + 进度）/ `Ready` / `PageError` / `ChapterEnd` / `NoNetwork`。
 - **交互**
   - 单页 LTR/RTL、双页（按 `PageSplitOption`/`doublePairs` 配对，宽页独占）。
@@ -283,10 +283,10 @@
 | --- | --- |
 | `SeriesPosterCard` | 2:3 封面卡（标题、进度、未读点；隐私模式下封面为占位图） |
 | `SeriesListRow` | 列表视图的行 |
-| `ProgressRing` / `KativaProgressBar` | 进度（`KativaProgressBar` 用 Canvas 自绘，避免 M3 1.3 的轨道间隙与末端圆点） |
-| `KativaSlider` | 统一滑块（4dp 细轨 + 14dp 圆点，无拖动气泡：不加高布局） |
+| `ProgressRing` / `KavitaProgressBar` | 进度（`KavitaProgressBar` 用 Canvas 自绘，避免 M3 1.3 的轨道间隙与末端圆点） |
+| `KavitaSlider` | 统一滑块（4dp 细轨 + 14dp 圆点，无拖动气泡：不加高布局） |
 | `SectionHeader` | 区块标题 + 「查看全部」 |
-| `KativaPrimaryButton` / `SecondaryButton` | 主/次行动 |
+| `KavitaPrimaryButton` / `SecondaryButton` | 主/次行动 |
 | `TypePill` / `MetaChip` | 类型/元数据标签 |
 | `EmptyState` | 空态（图标 + 文案 + 行动） |
 | `ErrorState` | 错误（原因 + 重试） |
@@ -295,7 +295,7 @@
 | `ReaderSettingsSheet` | 阅读设置 |
 | `BottomActionSheet` | 长按菜单 |
 | `PrivacyToggle` | 顶栏隐私模式开关（眼睛/遮罩图标，激活高亮） |
-| `KativaTopAppBar` | **全应用唯一顶栏**（屏幕禁止直接用 Material `TopAppBar`）；亮色主题用品牌色 `#4AC694` 铺满，暗色主题用 `surface`；文字/图标用 `onPrimaryContainer`（白字配薄荷绿对比度仅 ~2.2:1，不过 AA）；在品牌色顶上发布 `LocalOnBrandSurface`，让内部强调色（隐私开关、筛选激活图标、搜索下划线）改用墨色而非薄荷绿 |
+| `KavitaTopAppBar` | **全应用唯一顶栏**（屏幕禁止直接用 Material `TopAppBar`）；亮色主题用品牌色 `#4AC694` 铺满，暗色主题用 `surface`；文字/图标用 `onPrimaryContainer`（白字配薄荷绿对比度仅 ~2.2:1，不过 AA）；在品牌色顶上发布 `LocalOnBrandSurface`，让内部强调色（隐私开关、筛选激活图标、搜索下划线）改用墨色而非薄荷绿 |
 | `PrivacyCoverPlaceholder` | 隐私模式封面占位（暗色 `#3A3A3A` / 亮色 `#E9EBEF` + 淡 logo 水印，2:3；底色由 `PrivacyFill`/`PrivacyFillLight` 决定） |
 | `ServerCard` / `StatusPill` | 服务器选择页卡片与状态徽标 |
 | `NoNetworkBanner` | 全局"无网络"提示条 |

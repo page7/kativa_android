@@ -6,14 +6,14 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class com.kativa.reader.**$$serializer { *; }
--keepclassmembers class com.kativa.reader.** {
+-keep,includedescriptorclasses class com.kavita.reader.**$$serializer { *; }
+-keepclassmembers class com.kavita.reader.** {
     *** Companion;
 }
--keepclasseswithmembers class com.kativa.reader.** {
+-keepclasseswithmembers class com.kavita.reader.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep class com.kativa.reader.data.remote.dto.** { *; }
+-keep class com.kavita.reader.data.remote.dto.** { *; }
 
 # Retrofit
 -keepattributes Signature, Exceptions

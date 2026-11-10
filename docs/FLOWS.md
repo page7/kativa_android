@@ -82,7 +82,7 @@ Login
      └─ 登录页已预填上次的账号，只需输入密码 → 成功后写回新 token
 ```
 
-- 密码/API Key **从不**落盘；只记住 `username`（`kativa_accounts` DataStore），登出/过期都不清。
+- 密码/API Key **从不**落盘；只记住 `username`（`kavita_accounts` DataStore），登出/过期都不清。
 - 401 拦截在 `SessionExpiryInterceptor`：跳过 `Account/login`、`Account/refresh-token`、`Plugin/authenticate`，避免把"密码错"当成"会话过期"。
 - 自动刷新（`Authenticator` + 单飞 + 提前 5 分钟）属于 **P1**，尚未实现；当前 token 过期即需重新登录（只需密码）。
 
@@ -137,7 +137,7 @@ Login
 外层收不到第二次发射 → 启动时 serverId 为 null，值恒为 `false`。
 
 渲染侧只有一个开关：`CoverImage` 的 `privacyMode` 默认取 `LocalPrivacyMode.current`
-（由 `KativaTheme` 从上述状态注入）。**屏幕不得再把 `privacyMode` 当参数往下传**——首页当初
+（由 `KavitaTheme` 从上述状态注入）。**屏幕不得再把 `privacyMode` 当参数往下传**——首页当初
 额外把 `coverUrl` 置 null，所以"看起来"生效，而系列详情/搜索/流列表走默认值就漏了。
 
 第三道闸：`PrivacyGuardInterceptor` 注册在 Coil 的 `ImageLoader` 上，按路径

@@ -1,9 +1,11 @@
-# kativa_android
+# kavita_android
 
 Kavita 自建阅读服务器的 **Android 原生客户端**（第三方，非官方）。
 
 > Kavita 是一个快速、自托管的数字图书馆服务端，支持漫画 / 电子书 / PDF。
 > 本项目只通过 Kavita REST API 与服务器交互。
+
+仓库：<https://github.com/page7/kavita_android>　包名：`com.kavita.reader`
 
 ## 文档
 
@@ -41,6 +43,9 @@ Kotlin · Jetpack Compose · Material 3 · Hilt · Retrofit/OkHttp · kotlinx.se
 首次运行：选择/添加服务器（如 `https://kavita.example.com`），使用账号密码或
 「用户设置 → Auth Keys」生成的 API Key 登录。
 
+> **v1.2.0 起包名为 `com.kavita.reader`**（此前误写为 `com.kativa.reader`）。旧版无法覆盖升级，
+> 请先卸载旧版再安装；本地不缓存书库内容，重新添加服务器并登录即可。
+
 ## 交付前必做：启动冒烟
 
 编译通过不等于能启动。改过主题、Manifest、Activity 基类、DI、Room、资源目录中的任意一项后，
@@ -49,10 +54,10 @@ Kotlin · Jetpack Compose · Material 3 · Hilt · Retrofit/OkHttp · kotlinx.se
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb logcat -c
-adb shell am force-stop com.kativa.reader
-adb shell am start -n com.kativa.reader/com.kativa.reader.MainActivity
+adb shell am force-stop com.kavita.reader
+adb shell am start -n com.kavita.reader/com.kavita.reader.MainActivity
 sleep 8
-adb shell pidof com.kativa.reader          # 必须非空
+adb shell pidof com.kavita.reader          # 必须非空
 adb logcat -d | grep "FATAL EXCEPTION"           # 必须为空
 ```
 

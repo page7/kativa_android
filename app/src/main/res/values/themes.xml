@@ -12,12 +12,12 @@
       of always flashing near-black.
 
       The user-selected theme still wins once the app is running: MainActivity re-applies the
-      window background from the stored preference, and on API 33+ KativaApp calls
+      window background from the stored preference, and on API 33+ KavitaApp calls
       `UiModeManager.setApplicationNightMode` so the *next* launch's system splash matches too.
       See AGENTS.md §6/§8.1.
     -->
-    <style name="Theme.Kativa" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <item name="android:windowBackground">@color/kativa_window_background</item>
+    <style name="Theme.Kavita" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/kavita_window_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>

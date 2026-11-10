@@ -1,0 +1,925 @@
+package com.kavita.reader.ui.reader
+
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.VerticalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import com.kavita.reader.R
+import com.kavita.reader.core.designsystem.KavitaColors
+import com.kavita.reader.core.designsystem.KavitaIcon
+import com.kavita.reader.core.designsystem.KavitaIcons
+import com.kavita.reader.core.designsystem.KavitaPrimaryButton
+import com.kavita.reader.core.designsystem.KavitaSecondaryButton
+import com.kavita.reader.core.designsystem.KavitaSlider
+import com.kavita.reader.ui.common.message
+import kotlin.math.roundToInt
+
+/**
+ * P08 —manga reader.
+ *
+ * Layout: full-bleed pager + tap-to-toggle overlay. Deliberately no bottom navigation, no
+ * download affordance, and the privacy toggle is absent: privacy mode only masks covers, never
+ * the pages being read (AGENTS.md §5/§6).
+ */
+@Composable
+fun MangaReaderScreen(
+    onBack: () -> Unit,
+    onOpenChapter: (Int) -> Unit,
+    viewModel: ReaderViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // Hardware key events only reach the composition through the focused node, so the reader
+    // claims focus while it is on screen (AGENTS.md §5: 音量键翻页（可关）).
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(state.loading) {
+        if (!state.loading) {
+            runCatching { focusRequester.requestFocus() }
+        }
+    }
+
+    // Flush queued progress whenever the app comes back to the foreground.
+    LifecycleStartEffect(Unit) {
+        viewModel.onAppResumed()
+        onStopOrDispose { viewModel.onAppPaused() }
+    }
+
+    // "阅读时强制横屏" (AGENTS.md §5): the sheet's switch is wired to a real orientation change.
+    ReaderOrientationEffect(state.settings.forceLandscape)
+
+    // AGENTS.md §5: 防息屏. Kept as a plain view flag rather than a window flag so it is cleared
+    // automatically when the reader leaves composition.
+    //
+    // The reader is always dark, so the system icon appearance is forced to light while it is on
+    // screen: `KavitaTheme` otherwise hands dark icons to a light-themed app, which would be
+    // invisible over the black scrim behind the status bar. The previous value is restored on
+    // exit so every other screen keeps the theme's own choice.
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        val window = (view.context as? Activity)?.window
+        val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+        val previousLightStatus = controller?.isAppearanceLightStatusBars
+        val previousLightNav = controller?.isAppearanceLightNavigationBars
+        controller?.apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+        onDispose {
+            view.keepScreenOn = false
+            if (controller != null) {
+                previousLightStatus?.let { controller.isAppearanceLightStatusBars = it }
+                previousLightNav?.let { controller.isAppearanceLightNavigationBars = it }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .focusRequester(focusRequester)
+            .focusable()
+            .then(
+                if (state.settings.volumeKeyPaging) {
+                    Modifier.onPreviewKeyEvent { event ->
+                        viewModel.handleVolumeKey(event.nativeKeyEvent)
+                    }
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
+        when {
+            state.loading -> ReaderLoading()
+
+            state.blockReason == ReaderBlockReason.NoNetwork -> ReaderMessage(
+                title = stringResource(R.string.reader_no_network),
+                action = stringResource(R.string.common_retry) to viewModel::load,
+                onBack = onBack,
+            )
+
+            state.blockReason == ReaderBlockReason.UnsupportedFormat -> ReaderMessage(
+                title = stringResource(R.string.reader_unsupported_format),
+                action = null,
+                onBack = onBack,
+            )
+
+            state.error != null -> ReaderMessage(
+                title = state.error!!.message(),
+                action = stringResource(R.string.common_retry) to viewModel::load,
+                onBack = onBack,
+            )
+
+            state.session != null -> {
+                val session = state.session!!
+                val pageUrls = state.pageUrls
+                val settings = state.settings
+
+                // Webtoon is a completely different composition (continuous scroll), not a pager
+                // variant, so it branches here rather than inside the pager (AGENTS.md §5).
+                //
+                // Both branches must fall through to the shared overlay/controls/settings below.
+                // An earlier version wrote `return@Box` for the Webtoon case, which skipped the
+                // `ReaderSettingsSheet` composed further down in this same Box lambda: switching to
+                // scroll mode then made the sheet unreachable and trapped the user in it
+                // (ReaderChrome.showsSettingsSheet / ReaderModeSettingsTest).
+                if (ReaderChrome.usesContinuousScroll(settings.readerMode)) {
+                    WebtoonReader(
+                        pageUrls = pageUrls,
+                        totalPages = session.totalPages,
+                        startPage = ReaderChrome.webtoonStartIndex(
+                            pageIndex = state.pageIndex,
+                            totalPages = session.totalPages,
+                        ),
+                        onPageVisible = viewModel::onPageChanged,
+                        onTap = viewModel::toggleControls,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    PagedReader(
+                        state = state,
+                        pageUrls = pageUrls,
+                        context = context,
+                        onGoToPage = viewModel::goToPage,
+                        onToggleControls = viewModel::toggleControls,
+                    )
+                }
+
+                ReaderOverlay(state)
+
+                if (state.controlsVisible) {
+                    ReaderControls(
+                        state = state,
+                        onBack = onBack,
+                        onSeek = viewModel::goToPage,
+                        onToggleBookmark = viewModel::toggleBookmark,
+                        onPrevChapter = viewModel::requestPrevChapter,
+                        onNextChapter = viewModel::requestNextChapter,
+                        onOpenSettings = viewModel::openSettings,
+                    )
+                }
+
+                // "Chapter finished" is a pager concept: in continuous scroll the last page is
+                // simply the bottom of the list, and a floating bar there would cover content.
+                if (state.isLastPage && !state.controlsVisible &&
+                    !ReaderChrome.usesContinuousScroll(settings.readerMode)
+                ) {
+                    ChapterEndBar(
+                        onNextChapter = { viewModel.requestNextChapter() },
+                        onBack = onBack,
+                    )
+                }
+
+                ReaderNavigationEffect(state, viewModel, onOpenChapter)
+            }
+        }
+
+        if (ReaderChrome.showsSettingsSheet(state.settingsSheetVisible, state.settings.readerMode)) {
+            ReaderSettingsSheet(
+                settings = state.settings,
+                onDismiss = viewModel::closeSettings,
+                onReadingDirection = viewModel::setReadingDirection,
+                onReaderMode = viewModel::setReaderMode,
+                onPageLayout = viewModel::setPageLayout,
+                onScaling = viewModel::setScaling,
+                onCoverOffset = viewModel::setCoverOffset,
+                onBrightness = viewModel::setBrightness,
+                onShowPageNumber = viewModel::setShowPageNumber,
+                onVolumeKeyPaging = viewModel::setVolumeKeyPaging,
+                onForceLandscape = viewModel::setForceLandscape,
+                onReset = viewModel::resetSeriesSettings,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReaderNavigationEffect(
+    state: ReaderUiState,
+    viewModel: ReaderViewModel,
+    onOpenChapter: (Int) -> Unit,
+) {
+    LaunchedEffect(state.pendingChapterNavigation) {
+        state.pendingChapterNavigation?.let { target ->
+            viewModel.consumeNavigationTarget()
+            onOpenChapter(target)
+        }
+    }
+}
+
+/**
+ * Locks the reading session to landscape while [forceLandscape] is on.
+ *
+ * This is a real activity-orientation change, not a layout hint: `SCREEN_ORIENTATION_SENSOR_LANDSCAPE`
+ * also works when the user has auto-rotate off, which is what "阅读时强制横屏" promises. The
+ * manifest declares no `screenOrientation`, so restoring `UNSPECIFIED` on exit returns every other
+ * screen to the sensor.
+ *
+ * `MainActivity` already handles `orientation|screenSize` in `configChanges`, so rotating here does
+ * not recreate the activity and the reading position survives the switch.
+ */
+@Composable
+private fun ReaderOrientationEffect(forceLandscape: Boolean) {
+    val context = LocalContext.current
+    DisposableEffect(context, forceLandscape) {
+        val activity = context as? Activity
+        if (activity == null) {
+            onDispose { }
+        } else {
+            val previous = activity.requestedOrientation
+            activity.requestedOrientation = if (forceLandscape) {
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+            onDispose {
+                // Only undo our own lock: if something else changed the orientation meanwhile, the
+                // last writer wins rather than being clobbered by a stale value.
+                if (forceLandscape) {
+                    activity.requestedOrientation = if (previous == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE ||
+                        previous == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    ) {
+                        previous
+                    } else {
+                        ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Luminance scrim + optional faint page marker, drawn below the controls and above the pages. */
+@Composable
+private fun ReaderOverlay(state: ReaderUiState) {
+    val dim = ReaderDim.alphaFor(state.settings.brightness)
+    if (dim <= 0f && !state.settings.showPageNumber) return
+
+    Box(Modifier.fillMaxSize()) {
+        if (dim > 0f) {
+            // Drawn above the pages, below the controls. `background` does not consume pointer
+            // input, so tap zones and paging gestures keep working through the scrim.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = dim)),
+            )
+        }
+        if (state.settings.showPageNumber) {
+            Text(
+                text = "${state.displayPage}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.35f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    // Keep the marker out of the system navigation bar strip.
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(
+                            WindowInsetsSides.Bottom + WindowInsetsSides.End,
+                        ),
+                    )
+                    .padding(end = 12.dp, bottom = 12.dp),
+            )
+        }
+    }
+}
+
+/** Paged (single/double page) reading: horizontal or vertical pager plus tap zones. */
+@Composable
+private fun PagedReader(
+    state: ReaderUiState,
+    pageUrls: List<String>,
+    context: android.content.Context,
+    onGoToPage: (Int) -> Unit,
+    onToggleControls: () -> Unit,
+) {
+    val settings = state.settings
+    val pagerState = rememberPagerState(
+        initialPage = state.currentSlot,
+        pageCount = { state.slotCount },
+    )
+
+    // Zoom is per page and per reading session: turning the page or re-pairing the layout starts
+    // from the fitted page again, so a magnified crop can never leak onto the next page. Keying the
+    // state resets it *synchronously*; a `LaunchedEffect` would render one frame of the old zoom.
+    val zoomState = rememberReaderZoomState(state.currentSlot, settings.readerMode, settings.layoutMode)
+    val zoomed = zoomState.isZoomed
+
+    // Keep the pager and the VM in sync in both directions.
+    LaunchedEffect(pagerState.currentPage) {
+        val slotPages = state.slotPages(pagerState.currentPage)
+        // Persist the leading page of a double spread; that is what the user sees first.
+        slotPages.firstOrNull()?.let { page -> onGoToPage(page - 1) }
+    }
+    LaunchedEffect(state.currentSlot) {
+        if (pagerState.currentPage != state.currentSlot && !pagerState.isScrollInProgress) {
+            pagerState.scrollToPage(state.currentSlot)
+        }
+    }
+
+    val goNext = {
+        if (pagerState.currentPage < state.slotCount - 1) {
+            onGoToPage(state.slotPages(pagerState.currentPage + 1).firstOrNull()?.minus(1) ?: 0)
+        }
+    }
+    val goPrev = {
+        if (pagerState.currentPage > 0) {
+            onGoToPage(state.slotPages(pagerState.currentPage - 1).firstOrNull()?.minus(1) ?: 0)
+        }
+    }
+
+    // Taps on the chrome bars never reach this node: the bars own a hit-test node of their own
+    // (see `readerChromeTouchGuard`), which is what stops a seek drag on the progress slider from
+    // being arbitrated into a page swipe.
+    val rtl = settings.readingDirectionApplies && settings.isRightToLeft
+    val pagerModifier = Modifier
+        .fillMaxSize()
+        // `zoomState` must be a key. It is recreated when the page turns (that is how zoom is reset
+        // synchronously, see above), and `pointerInput` only rebuilds its handler when a key
+        // changes: without it the closure kept calling the *previous* page's discarded state, so a
+        // double tap after paging flipped a zombie object and the new page never magnified.
+        .pointerInput(
+            settings.readerMode,
+            settings.layoutMode,
+            settings.readingDirection,
+            zoomed,
+            zoomState,
+        ) {
+            detectTapGestures(
+                onTap = { offset ->
+                    // While magnified the tap zones would page away from the crop the user just
+                    // zoomed into, so a tap only reveals/hides the chrome there.
+                    if (zoomed) {
+                        onToggleControls()
+                        return@detectTapGestures
+                    }
+                    val third = size.width / 3f
+                    // Tap zones follow the reading direction: in RTL the left third advances,
+                    // mirroring how manga is read. Vertical paging has no horizontal direction, so
+                    // it keeps LTR tap zones (`rtl` is false there).
+                    when {
+                        offset.x < third -> if (rtl) goNext() else goPrev()
+                        offset.x > third * 2 -> if (rtl) goPrev() else goNext()
+                        else -> onToggleControls()
+                    }
+                },
+                // Double tap magnifies around the tapped point, or returns to the original size.
+                // The bookmark affordance lives in the toolbar so the gesture is free for zoom
+                // (AGENTS.md §5, docs/FLOWS.md). Kept on this node rather than inside
+                // `ZoomablePage`: `detectTapGestures` consumes the down event, which would swallow
+                // the three tap zones above.
+                onDoubleTap = { offset ->
+                    zoomState.toggleDoubleTap(
+                        pivot = offset,
+                        viewport = Size(size.width.toFloat(), size.height.toFloat()),
+                    )
+                },
+            )
+        }
+
+    if (settings.isVerticalPaging) {
+        VerticalPager(
+            state = pagerState,
+            modifier = pagerModifier,
+            // Vertical reading always advances downwards; RTL would be meaningless here.
+            reverseLayout = false,
+            // Panning a magnified page and swiping to the next one would fight over the same drag.
+            userScrollEnabled = !zoomed,
+        ) { index ->
+            PagerSlotContent(
+                state = state,
+                slotIndex = index,
+                pageUrls = pageUrls,
+                context = context,
+                zoomState = zoomState,
+                isActiveSlot = index == pagerState.currentPage,
+            )
+        }
+    } else {
+        HorizontalPager(
+            state = pagerState,
+            modifier = pagerModifier,
+            reverseLayout = rtl,
+            // See VerticalPager: paging is suspended while the page is magnified.
+            userScrollEnabled = !zoomed,
+        ) { index ->
+            PagerSlotContent(
+                state = state,
+                slotIndex = index,
+                pageUrls = pageUrls,
+                context = context,
+                zoomState = zoomState,
+                isActiveSlot = index == pagerState.currentPage,
+            )
+        }
+    }
+}
+
+/** One pager slot: a single page, or a facing pair in double-page mode. */
+@Composable
+private fun PagerSlotContent(
+    state: ReaderUiState,
+    slotIndex: Int,
+    pageUrls: List<String>,
+    context: android.content.Context,
+    /** Drives the double-tap magnification shared by every mode ([ZoomablePage]). */
+    zoomState: ReaderZoomState,
+    /**
+     * Only the page the user is actually looking at shows the magnification. Pager pre-composes
+     * the neighbours, and letting them share the same scale would make a magnified crop flash on
+     * the adjacent page while a swipe settles.
+     */
+    isActiveSlot: Boolean,
+) {
+    val pages = state.slotPages(slotIndex)
+    val total = state.totalPages
+    // Honours the sheet's "image scaling" choice; previously every page was hard-coded to Fit and
+    // the control did nothing (AGENTS.md §6 dead-control rule).
+    val scale = ReaderScaling.contentScale(state.settings.scalingOption)
+
+    // The gestures (double tap, pan, pinch) and the clip both live inside `ZoomablePage`, so paged
+    // reading and the Webtoon strip share exactly one implementation.
+    ZoomablePage(
+        zoomState = zoomState,
+        active = isActiveSlot,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        if (pages.size <= 1) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(pageUrls.getOrNull((pages.firstOrNull() ?: 1) - 1)).build(),
+                contentDescription = stringResource(
+                    R.string.reader_page,
+                    pages.firstOrNull() ?: 1,
+                    total,
+                ),
+                contentScale = scale,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                // RTL puts the later page on the left, which is how right-to-left spreads read.
+                // Slots in double-page mode only exist for horizontal paging, so `isRightToLeft`
+                // is meaningful here.
+                val ordered = if (state.settings.isRightToLeft) pages.reversed() else pages
+                ordered.forEach { page ->
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(pageUrls.getOrNull(page - 1)).build(),
+                        contentDescription = stringResource(R.string.reader_page, page, total),
+                        contentScale = scale,
+                        modifier = Modifier.weight(1f).fillMaxSize(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Continuous vertical scroll used by Webtoon mode. */
+@Composable
+private fun WebtoonReader(
+    pageUrls: List<String>,
+    totalPages: Int,
+    /** 0-based page to start at, i.e. the reading position carried over when switching modes. */
+    startPage: Int,
+    onPageVisible: (Int) -> Unit,
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    // Seeded from the current reading position. Without this the list always started at page 1
+    // and immediately wrote that position back, so switching into Webtoon silently rewound the
+    // chapter — and the user's saved progress with it.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = startPage.coerceAtLeast(0))
+
+    // Same double-tap magnification as the pager, applied to the strip: the layer scale does not
+    // change layout, so the scroll position is untouched and leaving zoom resumes exactly where the
+    // user was.
+    val zoomState = rememberReaderZoomState()
+    val zoomed = zoomState.isZoomed
+
+    // Report the first mostly-visible page so progress matches what the user is looking at.
+    val visiblePage by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo.visibleItemsInfo
+            info.firstOrNull { item ->
+                item.offset + item.size / 2 >= 0
+            }?.index?.plus(1) ?: (startPage + 1).coerceAtLeast(1)
+        }
+    }
+    LaunchedEffect(visiblePage) { onPageVisible(visiblePage - 1) }
+
+    Box(
+        // Keyed on the state object as well as `zoomed`: the same rule as the pager's node — a
+        // `pointerInput` closure keeps whatever it captured until a key changes, so a state that is
+        // ever recreated must be listed here or the handler silently keeps the stale instance.
+        modifier = modifier.pointerInput(zoomed, zoomState) {
+            detectTapGestures(
+                onTap = { onTap() },
+                // Double tap is handled here (not in `ZoomablePage`) so the single tap keeps
+                // working: `detectTapGestures` owns the down event of this node.
+                onDoubleTap = { offset ->
+                    zoomState.toggleDoubleTap(
+                        pivot = offset,
+                        viewport = Size(size.width.toFloat(), size.height.toFloat()),
+                    )
+                },
+            )
+        },
+    ) {
+        ZoomablePage(zoomState = zoomState, modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                // While magnified a drag pans the crop instead of scrolling the strip.
+                userScrollEnabled = !zoomed,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(totalPages) { index ->
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(pageUrls.getOrNull(index)).build(),
+                        contentDescription = stringResource(R.string.reader_page, index + 1, totalPages),
+                        // Webtoon strips are width-bound by definition, so this stays FillWidth regardless
+                        // of `scalingOption`; that is why the sheet hides the scaling control in this mode
+                        // rather than offering a choice the renderer would ignore.
+                        contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReaderLoading() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(color = KavitaColors.BrandPrimary)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.reader_preparing),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReaderMessage(
+    title: String,
+    action: Pair<String, () -> Unit>?,
+    onBack: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            Spacer(Modifier.height(20.dp))
+            if (action != null) {
+                KavitaPrimaryButton(text = action.first, onClick = action.second)
+                Spacer(Modifier.height(10.dp))
+            }
+            KavitaSecondaryButton(text = stringResource(R.string.common_back), onClick = onBack)
+        }
+    }
+}
+
+@Composable
+private fun ReaderControls(
+    state: ReaderUiState,
+    onBack: () -> Unit,
+    onSeek: (Int) -> Unit,
+    onToggleBookmark: () -> Unit,
+    onPrevChapter: () -> Unit,
+    onNextChapter: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val session = state.session ?: return
+    Box(Modifier.fillMaxSize()) {
+        TopChrome {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Content clears the status bar (and a notch/cutout in landscape), while the
+                    // scrim above it keeps painting behind the system bar strip.
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(
+                            WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                        ),
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    KavitaIcon(icon = KavitaIcons.Back, contentDescription = stringResource(R.string.common_back), tint =  Color.White,
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = session.seriesName,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = com.kavita.reader.ui.common.EntityTitles.chapterCompact(session),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (state.canBookmark) {
+                    IconButton(onClick = onToggleBookmark) {
+                        KavitaIcon(
+                            icon = if (state.pageIndex in state.bookmarkedPages) {
+                                KavitaIcons.BookmarkFilled
+                            } else {
+                                KavitaIcons.Bookmark
+                            },
+                            contentDescription = stringResource(R.string.reader_bookmark),
+                            tint = if (state.pageIndex in state.bookmarkedPages) {
+                                KavitaColors.BrandPrimary
+                            } else {
+                                Color.White
+                            },
+                        )
+                    }
+                }
+                IconButton(onClick = onOpenSettings) {
+                    KavitaIcon(
+                        icon = KavitaIcons.SettingsReader,
+                        contentDescription = stringResource(R.string.reader_settings),
+                        tint = Color.White,
+                    )
+                }
+            }
+        }
+
+        BottomChrome {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Content clears the navigation bar (and the gesture handle), while the scrim
+                    // keeps painting behind it.
+                    .windowInsetsPadding(
+                        WindowInsets.systemBars.only(
+                            WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
+                        ),
+                    )
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            ) {
+                var dragValue by remember { mutableStateOf<Float?>(null) }
+
+                // Page counter on its own text-only line. It used to share a `Row` with the
+                // chapter arrows, so it inherited their 48dp touch-target height; that plus the
+                // slider's old 22dp bubble row is what opened the huge gap above the track.
+                // While dragging it reports the page under the thumb, which is also why the
+                // floating bubble is gone: the counter already does that job, one line up.
+                Text(
+                    text = stringResource(
+                        R.string.reader_page,
+                        dragValue?.roundToInt()?.plus(1) ?: state.displayPage,
+                        state.totalPages,
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 2.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onPrevChapter, enabled = true) {
+                        KavitaIcon(
+                            icon = KavitaIcons.PrevChapter,
+                            contentDescription = stringResource(R.string.reader_prev_chapter),
+                            tint = Color.White,
+                        )
+                    }
+                    KavitaSlider(
+                        value = dragValue ?: state.pageIndex.toFloat(),
+                        // While dragging only the local state moves: driving the pager from every
+                        // frame made the pages jitter and restarted the 800ms progress debounce
+                        // continuously. The jump happens once, on release.
+                        onValueChange = { dragValue = it },
+                        onValueChangeFinished = {
+                            dragValue?.let { onSeek(it.roundToInt()) }
+                            dragValue = null
+                        },
+                        valueRange = 0f..((state.totalPages - 1).coerceAtLeast(0)).toFloat(),
+                        activeColor = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.22f),
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = onNextChapter) {
+                        KavitaIcon(
+                            icon = KavitaIcons.NextChapter,
+                            contentDescription = stringResource(R.string.reader_next_chapter),
+                            tint = Color.White,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Top reader chrome: a translucent scrim that reaches the very top of the screen (drawing behind
+ * the status bar) while its *content* is inset below the status bar, plus a short fade so the
+ * boundary with the artwork is not a hard cut.
+ *
+ * Only the solid part is opaque to touch: the gradient tail stays transparent so a tap or swipe
+ * that lands there still reaches the pager.
+ */
+@Composable
+private fun BoxScope.TopChrome(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .fillMaxWidth(),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                // Touches on the bar must not fall through to the pager underneath: this plain
+                // container has no gesture node of its own, so without the guard a press on the
+                // bar's padding hit-tested straight through and became a page swipe.
+                .readerChromeTouchGuard()
+                .background(KavitaColors.ReaderScrim),
+        ) {
+            content()
+        }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(ChromeFadeHeight)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(KavitaColors.ReaderScrim, Color.Transparent),
+                    ),
+                ),
+        )
+    }
+}
+
+/** Bottom reader chrome: fade into the bar, then a scrim behind the navigation bar too. */
+@Composable
+private fun BoxScope.BottomChrome(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth(),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(ChromeFadeHeight)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, KavitaColors.ReaderScrim),
+                    ),
+                ),
+        )
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .readerChromeTouchGuard()
+                .background(KavitaColors.ReaderScrim),
+        ) {
+            content()
+        }
+    }
+}
+
+/**
+ * Makes a chrome bar a hit-test target without intercepting anything.
+ *
+ * Compose hit-tests overlapping siblings from the top down and stops at the first sibling that
+ * owns a pointer-input node. The bars were previously plain layout containers, so a touch on the
+ * bar's padding or in the gap between the slider's thumb and its 48dp strip found no node there
+ * and fell straight through to the pager below — which read the slide as a page swipe.
+ *
+ * The fix is an inert gesture node: it is never consumed, so the back/bookmark/settings buttons
+ * and the progress slider keep their own handling (consuming here would make `clickable` cancel
+ * the tap on the Final pass), while the pager underneath stops receiving the touch at all.
+ */
+private fun Modifier.readerChromeTouchGuard(): Modifier = pointerInput(Unit) {
+    awaitEachGesture { awaitFirstDown(requireUnconsumed = false) }
+}
+
+/** Height of the gradient tail that softens the chrome/page boundary. */
+private val ChromeFadeHeight = 20.dp
+
+@Composable
+private fun ChapterEndBar(
+    onNextChapter: () -> Unit,
+    onBack: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        Surface(
+            color = Color.Black.copy(alpha = 0.8f),
+            modifier = Modifier
+                .fillMaxWidth()
+                // Clear the navigation bar *and* the bottom chrome it sits under.
+                .windowInsetsPadding(
+                    WindowInsets.systemBars.only(
+                        WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
+                    ),
+                )
+                .padding(16.dp),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.reader_chapter_finished),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f),
+                )
+                KavitaPrimaryButton(
+                    text = stringResource(R.string.reader_next_chapter),
+                    onClick = onNextChapter,
+                )
+                IconButton(onClick = onBack) {
+                    KavitaIcon(icon = KavitaIcons.Back, contentDescription = stringResource(R.string.common_back), tint =  Color.White,
+                    )
+                }
+            }
+        }
+    }
+}

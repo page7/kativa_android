@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Light-theme window/splash backdrop (the default qualifier; see values-night for dark). -->
-    <color name="kativa_window_background">#FFFAFAFB</color>
+    <color name="kavita_window_background">#FFFAFAFB</color>
 
-    <color name="kativa_background">#FF0B0B0F</color>
-    <color name="kativa_surface">#FF15151C</color>
-    <color name="kativa_primary">#FF4AC694</color>
-    <color name="kativa_primary_deep">#FF2D7A56</color>
-    <color name="kativa_privacy">#FF3A3A3A</color>
-    <color name="kativa_privacy_light">#FFE9EBEF</color>
+    <color name="kavita_background">#FF0B0B0F</color>
+    <color name="kavita_surface">#FF15151C</color>
+    <color name="kavita_primary">#FF4AC694</color>
+    <color name="kavita_primary_deep">#FF2D7A56</color>
+    <color name="kavita_privacy">#FF3A3A3A</color>
+    <color name="kavita_privacy_light">#FFE9EBEF</color>
 
     <!--
       Adaptive launcher icon background. Matches the fill of assigns/logo.svg (#44D39D) so the
