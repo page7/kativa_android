@@ -124,6 +124,9 @@
     <string name="settings_privacy_mode_desc">隐藏所有封面，不加载网络图片</string>
     <string name="settings_language">语言</string>
     <string name="settings_language_system">跟随系统</string>
+    <string name="settings_group_reader">阅读</string>
+    <string name="settings_reader_defaults">默认阅读设置</string>
+    <string name="settings_reader_defaults_desc">新系列首次打开时使用；单个系列在阅读器里单独调整</string>
     <string name="settings_group_about">关于</string>
     <string name="settings_version">版本</string>
     <string name="settings_logout">退出登录</string>
@@ -188,6 +191,9 @@
     <string name="reader_setting_brightness">亮度（仅本次阅读）</string>
     <string name="reader_brightness_percent">%1$d%%</string>
     <string name="reader_setting_page_number">显示页码</string>
+    <string name="reader_setting_landscape">横屏显示</string>
+    <string name="reader_setting_landscape_desc">进入阅读时强制横屏，退出后恢复</string>
+    <string name="reader_setting_reset_series">恢复本系列的阅读设置</string>
     <string name="reader_setting_volume_keys">音量键翻页</string>
     <string name="reader_setting_volume_keys_desc">开启后音量上/下键翻上/下一页，不再调节媒体音量</string>
 
@@ -272,7 +278,7 @@
     <!-- Bookmarks -->
     <string name="bookmarks_title">我的书签</string>
     <string name="bookmarks_empty_title">还没有书签</string>
-    <string name="bookmarks_empty_body">在阅读器里双击页面即可添加书签</string>
+    <string name="bookmarks_empty_body">在阅读器顶部栏点书签按钮即可添加</string>
     <string name="bookmark_chapter_page">%1$s · 第 %2$d 页</string>
     <string name="bookmark_page_number">第 %1$d 页</string>
     <!-- Home folders / stream view -->

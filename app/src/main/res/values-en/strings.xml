@@ -125,6 +125,9 @@
     <string name="settings_privacy_mode_desc">Hide all covers and skip loading remote images</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_system">Follow system</string>
+    <string name="settings_group_reader">Reading</string>
+    <string name="settings_reader_defaults">Default reading settings</string>
+    <string name="settings_reader_defaults_desc">Used the first time a series is opened; each series can be overridden in the reader</string>
     <string name="settings_group_about">About</string>
     <string name="settings_version">Version</string>
     <string name="settings_logout">Sign out</string>
@@ -189,6 +192,9 @@
     <string name="reader_setting_brightness">Brightness (this session only)</string>
     <string name="reader_brightness_percent">%1$d%%</string>
     <string name="reader_setting_page_number">Show page number</string>
+    <string name="reader_setting_landscape">Landscape mode</string>
+    <string name="reader_setting_landscape_desc">Force landscape while reading; restores on exit</string>
+    <string name="reader_setting_reset_series">Restore this series\' reading settings</string>
     <string name="reader_setting_volume_keys">Volume-key paging</string>
     <string name="reader_setting_volume_keys_desc">Use volume up/down to turn pages instead of changing media volume</string>
 
@@ -273,7 +279,7 @@
     <!-- Bookmarks -->
     <string name="bookmarks_title">My bookmarks</string>
     <string name="bookmarks_empty_title">No bookmarks yet</string>
-    <string name="bookmarks_empty_body">Double-tap a page in the reader to bookmark it</string>
+    <string name="bookmarks_empty_body">Tap the bookmark button in the reader\'s top bar to add one</string>
     <string name="bookmark_chapter_page">%1$s · page %2$d</string>
     <string name="bookmark_page_number">Page %1$d</string>
     <!-- Home folders / stream view -->

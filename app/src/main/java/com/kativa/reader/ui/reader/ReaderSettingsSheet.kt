@@ -1,6 +1,5 @@
 package com.kativa.reader.ui.reader
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,12 +10,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,8 +26,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kativa.reader.R
 import com.kativa.reader.core.designsystem.KativaColors
-import com.kativa.reader.core.designsystem.KativaIcon
-import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.KativaSlider
 import com.kativa.reader.core.designsystem.KativaSwitch
 import com.kativa.reader.core.designsystem.SegmentedChoice
@@ -42,6 +40,11 @@ import kotlin.math.roundToInt
  *
  * Only options the mobile reader actually implements are exposed. Anything from the server
  * reading profile that is not honoured here is omitted rather than shown as a dead switch.
+ *
+ * The same composable backs two entry points:
+ *  - the in-reader drawer, which edits the **current series** and offers "restore this series";
+ *  - the settings screen, which edits the **global defaults** and hides the session-only
+ *    brightness row ([showBrightness] = false) because there is no reading session to dim.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +59,12 @@ fun ReaderSettingsSheet(
     onBrightness: (Float) -> Unit,
     onShowPageNumber: (Boolean) -> Unit,
     onVolumeKeyPaging: (Boolean) -> Unit,
+    onForceLandscape: (Boolean) -> Unit,
+    title: String? = null,
+    /** Null in the global-defaults mode: there is no per-series value to drop there. */
+    onReset: (() -> Unit)? = null,
+    /** False in the global-defaults mode: brightness never leaves the reading session. */
+    showBrightness: Boolean = true,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -73,13 +82,12 @@ fun ReaderSettingsSheet(
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Text(
-                text = stringResource(R.string.reader_settings),
+                text = title ?: stringResource(R.string.reader_settings),
                 style = MaterialTheme.typography.titleMedium,
             )
 
             SettingBlock(
                 label = stringResource(R.string.reader_setting_mode),
-                icon = KativaIcons.Webtoon,
             ) {
                 SegmentedChoice(
                     options = listOf(
@@ -112,7 +120,6 @@ fun ReaderSettingsSheet(
             if (settings.pageLayoutApplies) {
                 SettingBlock(
                     label = stringResource(R.string.reader_setting_layout),
-                    icon = KativaIcons.DoublePage,
                 ) {
                     SegmentedChoice(
                         options = listOf(
@@ -151,30 +158,41 @@ fun ReaderSettingsSheet(
                 )
             }
 
-            SettingBlock(
-                label = stringResource(R.string.reader_setting_brightness),
-                icon = KativaIcons.Brightness,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    KativaSlider(
-                        value = settings.brightness,
-                        onValueChange = onBrightness,
-                        valueRange = 0.2f..1f,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(
-                            R.string.reader_brightness_percent,
-                            (settings.brightness * 100).roundToInt(),
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(40.dp),
-                        textAlign = TextAlign.End,
-                    )
+            if (showBrightness) {
+                SettingBlock(
+                    label = stringResource(R.string.reader_setting_brightness),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        KativaSlider(
+                            value = settings.brightness,
+                            onValueChange = onBrightness,
+                            valueRange = 0.2f..1f,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.reader_brightness_percent,
+                                (settings.brightness * 100).roundToInt(),
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(40.dp),
+                            textAlign = TextAlign.End,
+                        )
+                    }
                 }
             }
+
+            // "横屏显示" sits above the page-number toggle (docs/PAGES.md P08).
+            // Landscape locking is a real activity-orientation change, not a layout hint: the reader
+            // screen applies it while composed and restores the previous value on exit.
+            SwitchRow(
+                title = stringResource(R.string.reader_setting_landscape),
+                subtitle = stringResource(R.string.reader_setting_landscape_desc),
+                checked = settings.forceLandscape,
+                onCheckedChange = onForceLandscape,
+            )
 
             SwitchRow(
                 title = stringResource(R.string.reader_setting_page_number),
@@ -188,8 +206,21 @@ fun ReaderSettingsSheet(
                 subtitle = stringResource(R.string.reader_setting_volume_keys_desc),
                 checked = settings.volumeKeyPaging,
                 onCheckedChange = onVolumeKeyPaging,
-                icon = KativaIcons.Volume,
             )
+
+            // Only the per-series mode can reset: the global layer *is* the fallback target.
+            if (onReset != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                TextButton(
+                    onClick = onReset,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(R.string.reader_setting_reset_series),
+                        color = KativaColors.BrandPrimary,
+                    )
+                }
+            }
 
             Spacer(Modifier.height(24.dp))
         }
@@ -199,25 +230,14 @@ fun ReaderSettingsSheet(
 @Composable
 private fun SettingBlock(
     label: String,
-    @DrawableRes icon: Int? = null,
     content: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                KativaIcon(
-                    icon = icon,
-                    contentDescription = null,
-                    tint = KativaColors.BrandPrimary,
-                )
-                Spacer(Modifier.width(8.dp))
-            }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = KativaColors.BrandPrimary,
-            )
-        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = KativaColors.BrandPrimary,
+        )
         content()
     }
 }
@@ -228,20 +248,11 @@ private fun SwitchRow(
     subtitle: String?,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    @DrawableRes icon: Int? = null,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) {
-            KativaIcon(
-                icon = icon,
-                contentDescription = null,
-                tint = KativaColors.BrandPrimary,
-            )
-            Spacer(Modifier.width(8.dp))
-        }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             if (subtitle != null) {

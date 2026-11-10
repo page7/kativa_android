@@ -9,6 +9,10 @@ import com.kativa.reader.domain.model.ScalingOption
  * Reader settings, resolved from the server reading profile when available and otherwise from
  * these defaults. Kept small and serialisable-free: persistence is the caller's problem.
  *
+ * Persistence (M2.5): the user-visible values live in [com.kativa.reader.core.settings.ReaderSettingsStore]
+ * as a *series → global default → app default* chain, keyed by `serverId + seriesId`. [brightness]
+ * is deliberately **not** persisted — it depends on the room the user is in, not on the title.
+ *
  * Mirrors `UserReadingProfileDto` fields the mobile reader actually honours
  * (docs/API.md §4). Unsupported options are deliberately absent rather than faked: every field
  * here must be read by the renderer, otherwise it is a dead control (see `ReaderSettingsContract`).
@@ -28,6 +32,14 @@ data class ReaderSettings(
     val showPageNumber: Boolean = true,
     /** Let the volume keys turn pages instead of changing media volume. Off unless opted in. */
     val volumeKeyPaging: Boolean = false,
+    /**
+     * Lock the reading session to landscape.
+     *
+     * Honoured by `ReaderOrientationEffect` in the reader screen: it sets the activity's
+     * `requestedOrientation` while the reader is composed and restores the sensor default on exit,
+     * so the rest of the app stays orientation-free.
+     */
+    val forceLandscape: Boolean = false,
 ) {
     val isWebtoon: Boolean get() = readerMode == ReaderMode.Webtoon
 

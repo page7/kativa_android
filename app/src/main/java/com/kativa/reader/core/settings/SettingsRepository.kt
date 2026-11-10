@@ -15,7 +15,12 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "kativa_settings")
+/**
+ * Single DataStore for app preferences. `internal` because [ReaderSettingsStore] shares the same
+ * file — declaring a second delegate for the same name would throw at runtime
+ * ("multiple DataStores active for the same file").
+ */
+internal val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "kativa_settings")
 
 /**
  * App-level preferences: theme, language, and the persisted privacy-mode switch.

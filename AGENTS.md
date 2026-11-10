@@ -197,7 +197,7 @@ com.kativa.reader
 - 章节切换：`GET /api/Reader/next-chapter|prev-chapter?seriesId=&volumeId=&currentChapterId=`；读到最后一页且 `nextChapterId>0` 时显示"下一章"过渡页，不自动跳（可在设置开启自动）。
 - 阅读清单/合集进入时按清单顺序取下一章（`/api/ReadingList/next-chapter`），不按系列顺序。
 - 无网络 → 明确"需联网"状态，不显示假图片；封面按隐私模式策略处理（见 §6）。
-- 长按翻页区/双击：可配置（默认单击中部=菜单，双击=书签）。手势冲突处理见 `docs/PAGES.md`。
+- 手势：单击左/右区翻页、单击中部=菜单；**双击=放大当前页（放大后可拖动/捏合，缩回原比例或再次双击退出）**；书签只在顶部栏按钮。手势冲突处理见 `docs/PAGES.md`。
 
 ---
 
@@ -441,6 +441,19 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | 排序没有方向，且方向会在字段间串味 | 面板只有排序字段，没有升/降序控件（`isAscending` 恒为 `true`） | 补回升序/降序两段式选择；`SeriesSort.defaultAscending` 定义各字段自然默认（名称升序、两个日期字段降序），`withSort()` 默认取该值，面板切换字段时同步重置方向——避免"按加入时间+升序"把最老的排最前 |
 | **浅色主题下所有列表的封面遮罩是一层灰蒙蒙的黑渐变、标题白字发灰** | `SeriesPosterCard`（首页流/库网格/搜索/书架/书签/流列表共用的唯一列表卡片）把底部渐变写死为 `Color.Black.copy(alpha = 0.72f)` + `Color.White` 标题——这是深色主题的正确做法，浅色主题下黑纱罩在白卡上就成了灰色遮罩，白字也失去对比 | 新增 `KativaColors.PosterScrimDark/PosterScrimLight`（黑 72% / 白 90%，均 ≥72% 不透明以压住封面），`SeriesPosterCard` 按 `LocalDarkTheme` 三处分叉：遮罩、标题（浅色改 `Color.Black`）、副标题与进度条轨道同步反色；深色主题取值不变。新增 `PosterScrimContractTest` 守卫（已反向验证：把遮罩改回写死黑色立即 FAIL）；阅读器 chrome 与详情页 hero 渐变属常暗/品牌色场景，不在本次范围 |
 
+### M2 阅读器设置作用域（产品反馈，2026-11）
+
+| 变更 | 说明 |
+| --- | --- |
+| **阅读设置此前无任何持久化** | `ReaderUiState.settings` 恒为 `ReaderSettings.Default`，切章节/退出即归零；跨章节时旧 entry 被 `popUpTo` 弹出、新 ViewModel 重建，设置连"本次会话"都保不住。服务端 `/api/reading-profile/*` 虽已文档化但从未接入（属 M3 范围） |
+| **改为按系列本地持久化** | 新增 `core/settings/ReaderSettingsStore`（复用 `kativa_settings` DataStore，**不能**再开同名 delegate）+ `StoredReaderSettings`/`ReaderSettingsCodec`（枚举存 Kavita `apiValue` 数字，未知值回落不抛）+ `ReaderSettingsLayers.resolve` 实现 **系列 → 全局默认 → App 默认** 三级回落；key = `reader_settings_<serverId>_<seriesId>`，删除服务器时一并清理 |
+| 亮度不持久化 | 亮度随环境而非作品变化，保持会话级（文案已写「仅本次阅读」）；`ReaderSettingsPersistence` 是唯一换算出口并显式丢弃该字段 |
+| 全局默认的写入口 | 设置页新增「阅读 → 默认阅读设置」，复用同一个 `ReaderSettingsSheet`（`showBrightness=false`、无恢复行），避免两套 UI 漂移；设置页的 `SettingsUiState` 用嵌套 `combine` 合并 `globalSettings` |
+| 抽屉新增「恢复本系列的阅读设置」 | 清掉系列 key 后回落到**全局**（不是出厂默认），并即时重映射槽位 |
+| 抽屉新增「横屏显示」（真生效） | `ReaderOrientationEffect`：`DisposableEffect(forceLandscape)` 设 `requestedOrientation = SENSOR_LANDSCAPE`（系统关自动旋转也生效），退出恢复原值；Manifest 已有 `configChanges=orientation\|screenSize`，旋转不重建 Activity。按 AGENTS §8.1 做了冷启动冒烟 |
+| 读设置必须早于首帧 | `load()` 在发布 session 的**同一次** `_state.update` 里先读持久化设置再 `buildSlots`，否则双页模式下会先按默认单页渲染再跳变、导致阅读位置闪一下 |
+| 验证 | 12 个新单测（round-trip / 编码默认值 / 损坏 JSON / 未知枚举 / 亮度不落库 / 三级回落 / key 隔离）；真机：改垂直+横屏 → 退到首页重进仍保留（`cur=2400x1080`）→ 退出恢复竖屏（`cur=1080x2400`）→ 恢复本系列回到出厂默认并解除横屏 → 设置页改全局双页 → 该系列继承双页 → 系列内改单页覆盖全局；`run-as cat kativa_settings.preferences_pb` 可见 `reader_settings_global` 与 `reader_settings_<uuid>_<seriesId>` 两条 JSON |
+
 ### M2 阅读器 UI 修复（测试反馈，2026-11）
 
 - 验证方式：`adb shell input swipe` 在条带内边距/渐变区（y=2100/2150/2300/2340/2380）横划均**不再翻页**，
@@ -448,6 +461,20 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
   48px 系统栏之下；返回/书签/设置按钮点击正常，冷启动无 `FATAL EXCEPTION`。
 - 模式切换验证（真机）：进入阅读器 → 拖到第 8 页 → 切 Webtoon（显示第 7 页）→ **在滚动模式下连续打开设置 3 次全部成功**
   → 切回 Horizontal 仍停在第 7 页。修复前同一路径下设置抽屉完全打不开。
+
+### M2 阅读器交互调整（双击放大，2026-11）
+
+| 变更 | 说明 |
+| --- | --- |
+| **阅读设置抽屉去掉全部图标** | `SettingBlock`/`SwitchRow` 不再接收 `@DrawableRes icon`，只保留标题文字（品牌色）。图标与行内文字挤在一起时视觉噪音大，且部分图标（`ic_brightness`/`ic_volume`/`ic_double_page`/`ic_webtoon`）语义与控件并不完全对应。`ic_settings_reader` 仍用于阅读器顶栏入口，素材未删除 |
+| **双击 = 放大当前页** | 新增 `ui/reader/ReaderZoom.kt`（`ReaderZoom` 纯逻辑 + `ReaderZoomState` 状态）：双击以**双击点为中心**动画放大到 2.5×，再次双击回到原始比例；放大期间单指拖动、双指捏合（1×～5×），**捏回原始比例（`EXIT_SCALE`=1.05×）自动退出缩放**。缩放通过 `graphicsLayer` 在**绘制阶段**读取，拖动/动画不触发重组；外层 `clipToBounds()` 保证放大后的页面不溢出到相邻页与覆盖条 |
+| **手势仲裁** | 放大时 `HorizontalPager`/`VerticalPager`/Webtoon `LazyColumn` 的 `userScrollEnabled = false`，由页面自己接管拖动，避免两套手势系统抢同一次 drag；未放大时 pager 独占，翻页与三分区点击完全不变。放大状态下单击只切菜单，不翻页（否则会把用户刚放大的位置翻走） |
+| **缩放随页面复位** | `rememberReaderZoomState(state.currentSlot, readerMode, layoutMode)` 以 key 重建，翻页/切模式/切布局**同步**归零（不用 `LaunchedEffect`，否则会先渲染一帧旧缩放） |
+| **"只能放大一次" bug（已修）** | 初版用**动画中的 `scale`** 推断"当前是否已放大"，且 `Job.cancel()` 是异步的：动画中途再双击时读到的是过期状态，被取消的旧协程还会补写最后一帧把 `scale` 拉回 1.0，于是 `isZoomed` 与实际渲染分叉 —— 之后每次双击都被判定为"退出"，**再也不能放大**。修法：放大与否改由**同步的意图标志 `targetScale`** 决定（`isZoomed = isZoomed(targetScale)`），动画只负责把 `scale` 追上去；并加单调 `animationId`，被取消的动画帧发现自己不再是当前动画就直接丢弃，不会覆盖新意图。`panBy`/`scaleBy` 同样同步写意图 |
+| **"翻页后再也放不大" bug（已修）** | `rememberReaderZoomState(currentSlot, …)` 会**随翻页重建状态对象**（这是"翻页同步复位缩放"的实现方式），但 `pointerInput` 只在 key 变化时重建手势处理器；key 里没有 `zoomState`，所以翻页后闭包仍持有**上一页被丢弃的实例**，双击写到僵尸对象上，新页面永远不动。真机日志铁证：`compose slot=56 state=24854220` 而 `onDoubleTap state=39548202 slot=55`。修法：把 `zoomState` 加进 `pointerInput` 的 key（paged 与 Webtoon 两处），并新增 `ReaderZoomGestureTest` 直接解析 `pointerInput(...)` **参数列表**断言含 `zoomState`（只查整个代码块是无效的，因为回调体里本来就有这个名字） |
+| 书签入口收敛 | 双击不再用于书签（`docs/FEATURES.md` F-17 已同步），书签只在阅读器顶栏按钮；只读角色的隐藏逻辑不变 |
+| 文档 | `AGENTS.md` §5、`docs/PAGES.md` P08、`docs/FLOWS.md` 手势表同步更新 |
+| 验证 | `ReaderZoomTest`（20 个纯逻辑）+ `ReaderZoomGestureTest`（4 个源码契约），`testDebugUnitTest` **279 个全绿**。**反证已做两次**：① 把 `nextDoubleTapScale(targetScale)` 改回 `(scale)` → 2 条回归测试 FAIL；② 把 `pointerInput` 的 `zoomState` key 删掉 → `pager gesture modifier keys on the zoom state it captures` FAIL。真机（模拟器 1080×2400）：连续 **4 页**「放大→退出→翻页→再放大」全部成功（进入 `124.17/113.21/115.14/144.53`，退出 `0.02/0.04/0/0`）；Webtoon 模式同样「放大→退出→再放大」成功（`56.81`）；连续 4 轮同页进出成功（`130.77/83.33/81.23/81.26`，拖动 `~56-70` 且页码不变）。阅读设置抽屉 `uiautomator dump`：**ImageView 节点 = 0** |
 
 ### M2 首页布局调整（产品反馈）
 

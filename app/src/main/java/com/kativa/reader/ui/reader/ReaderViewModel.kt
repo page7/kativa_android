@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.kativa.reader.core.auth.ActiveServerStore
 import com.kativa.reader.core.network.KativaError
 import com.kativa.reader.core.network.Outcome
+import com.kativa.reader.core.settings.ReaderSettingsStore
 import com.kativa.reader.data.repository.LibraryRepository
 import com.kativa.reader.data.repository.ProgressRepository
 import com.kativa.reader.domain.model.ReaderKind
@@ -18,6 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -92,6 +94,7 @@ class ReaderViewModel @Inject constructor(
     private val libraryRepository: LibraryRepository,
     private val progressRepository: ProgressRepository,
     private val activeServerStore: ActiveServerStore,
+    private val readerSettingsStore: ReaderSettingsStore,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -143,13 +146,24 @@ class ReaderViewModel @Inject constructor(
                         }
                         return@launch
                     }
+                    // Resolve the persisted settings *before* publishing the session so the first
+                    // render already uses the right paging mode: publishing defaults first and
+                    // correcting afterwards made the chapter flash from page 1 to the real spread
+                    // and, in double-page mode, briefly remap the reading position.
+                    val restored = ReaderSettingsPersistence.toRenderModel(
+                        stored = readerSettingsStore
+                            .settingsFor(activeServerStore.activeId, session.seriesId)
+                            .first(),
+                        current = _state.value.settings,
+                    )
                     _state.update {
                         it.copy(
                             loading = false,
                             session = session,
                             pageUrls = buildPageUrls(session),
                             pageIndex = resolveStartPage(session),
-                            slots = buildSlots(session, it.settings),
+                            settings = restored,
+                            slots = buildSlots(session, restored),
                         )
                     }
                     loadBookmarks()
@@ -233,7 +247,29 @@ class ReaderViewModel @Inject constructor(
         updateVisualSetting { it.copy(brightness = value.coerceIn(0.2f, 1f)) }
 
     fun setShowPageNumber(enabled: Boolean) =
-        updateVisualSetting { it.copy(showPageNumber = enabled) }
+        updateSettings { it.copy(showPageNumber = enabled) }
+
+    fun setForceLandscape(enabled: Boolean) =
+        updateSettings { it.copy(forceLandscape = enabled) }
+
+    /**
+     * "Restore this series' defaults": drops the per-series override so the title falls back to the
+     * global defaults the user configured on the settings screen (AGENTS.md §6 空态必须有下一步;
+     * same idea here — the button must leave the user somewhere sensible, not at factory settings).
+     */
+    fun resetSeriesSettings() {
+        val seriesId = _state.value.session?.seriesId ?: return
+        viewModelScope.launch {
+            readerSettingsStore.clearSeries(activeServerStore.activeId, seriesId)
+            val restored = ReaderSettingsPersistence.toRenderModel(
+                stored = readerSettingsStore
+                    .settingsFor(activeServerStore.activeId, seriesId)
+                    .first(),
+                current = _state.value.settings,
+            )
+            applySettings { restored }
+        }
+    }
 
     /**
      * Volume-key paging (AGENTS.md §5: "音量键翻页（可关）").
@@ -250,10 +286,28 @@ class ReaderViewModel @Inject constructor(
      * Visual-only settings (brightness, page-number marker) use [updateVisualSetting] instead:
      * rebuilding the slot list on every brightness frame used to remap the reading position
      * continuously while the user dragged the slider.
+     *
+     * Every persisted setting is written to [ReaderSettingsStore] for the current series, so
+     * closing the reader or opening the next chapter keeps the choice. Brightness goes through
+     * [updateVisualSetting] and is therefore never stored (it depends on the room, not the title).
      */
     private fun updateSettings(transform: (ReaderSettings) -> ReaderSettings) {
+        val next = applySettings(transform)
+        persistSettings(next)
+    }
+
+    /**
+     * Applies a transformation to the settings, remapping the reading position when needed, and
+     * returns the value that was actually committed.
+     *
+     * The transform runs inside `update` (not on a snapshot taken before it) so concurrent changes
+     * cannot be lost; the returned value is what was written by the last successful attempt.
+     */
+    private fun applySettings(transform: (ReaderSettings) -> ReaderSettings): ReaderSettings {
+        var committed = _state.value.settings
         _state.update { current ->
             val next = transform(current.settings)
+            committed = next
             val session = current.session
             if (session == null) {
                 current.copy(settings = next)
@@ -270,6 +324,22 @@ class ReaderViewModel @Inject constructor(
                     pageIndex = (leading - 1).coerceIn(0, (session.totalPages - 1).coerceAtLeast(0)),
                 )
             }
+        }
+        return committed
+    }
+
+    /**
+     * Stores the per-series override. Fire-and-forget on purpose: a failed DataStore write must not
+     * break reading, and the in-memory value already reflects the user's choice.
+     */
+    private fun persistSettings(settings: ReaderSettings) {
+        val seriesId = _state.value.session?.seriesId ?: return
+        viewModelScope.launch {
+            readerSettingsStore.setSeries(
+                serverId = activeServerStore.activeId,
+                seriesId = seriesId,
+                value = ReaderSettingsPersistence.toStored(settings),
+            )
         }
     }
 

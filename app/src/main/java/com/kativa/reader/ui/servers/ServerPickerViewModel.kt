@@ -61,6 +61,7 @@ class ServerPickerViewModel @Inject constructor(
     private val rememberedAccounts: RememberedAccountStore,
     private val activeServerStore: ActiveServerStore,
     private val authRepository: com.kativa.reader.data.repository.AuthRepository,
+    private val readerSettingsStore: com.kativa.reader.core.settings.ReaderSettingsStore,
 ) : ViewModel() {
 
     val uiState: StateFlow<ServerPickerUiState> =
@@ -118,6 +119,8 @@ class ServerPickerViewModel @Inject constructor(
             sessionStore.clear(serverId)
             // Deleting the server also forgets its account: it is the user's "forget this server".
             rememberedAccounts.clear(serverId)
+            // ...and its per-series reader settings, which are keyed by server id (AGENTS.md §4.1).
+            runCatching { readerSettingsStore.clearServer(serverId) }
             if (activeServerStore.activeId == serverId) activeServerStore.clear()
         }
     }

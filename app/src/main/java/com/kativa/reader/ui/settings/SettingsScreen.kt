@@ -41,6 +41,7 @@ import com.kativa.reader.core.designsystem.KativaIcons
 import com.kativa.reader.core.designsystem.KativaSwitch
 import com.kativa.reader.core.designsystem.KativaTopAppBar
 import com.kativa.reader.core.designsystem.ThemeMode
+import com.kativa.reader.ui.reader.ReaderSettingsSheet
 
 /** P15 — settings groups: startup, servers, appearance, language, about. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,6 +55,7 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showReaderDefaults by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -106,6 +108,14 @@ fun SettingsScreen(
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            GroupTitle(stringResource(R.string.settings_group_reader))
+            SettingRow(
+                title = stringResource(R.string.settings_reader_defaults),
+                subtitle = stringResource(R.string.settings_reader_defaults_desc),
+                onClick = { showReaderDefaults = true },
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             GroupTitle(stringResource(R.string.settings_group_about))
             SettingRow(
                 title = stringResource(R.string.settings_version),
@@ -118,6 +128,27 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    if (showReaderDefaults) {
+        // Reuses the reader drawer so the two surfaces can never drift apart. Global mode:
+        // no per-series reset (the global layer *is* the fallback) and no brightness row
+        // (brightness is session-only and never leaves the reader).
+        ReaderSettingsSheet(
+            settings = state.readerSettings,
+            title = stringResource(R.string.settings_reader_defaults),
+            showBrightness = false,
+            onDismiss = { showReaderDefaults = false },
+            onReadingDirection = { viewModel.updateReaderDefaults { s -> s.copy(readingDirection = it) } },
+            onReaderMode = { viewModel.updateReaderDefaults { s -> s.copy(readerMode = it) } },
+            onPageLayout = { viewModel.updateReaderDefaults { s -> s.copy(layoutMode = it) } },
+            onScaling = { viewModel.updateReaderDefaults { s -> s.copy(scalingOption = it) } },
+            onCoverOffset = { viewModel.updateReaderDefaults { s -> s.copy(coverOffset = it) } },
+            onBrightness = {},
+            onShowPageNumber = { viewModel.updateReaderDefaults { s -> s.copy(showPageNumber = it) } },
+            onVolumeKeyPaging = { viewModel.updateReaderDefaults { s -> s.copy(volumeKeyPaging = it) } },
+            onForceLandscape = { viewModel.updateReaderDefaults { s -> s.copy(forceLandscape = it) } },
+        )
     }
 
     if (showThemeDialog) {

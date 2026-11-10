@@ -125,6 +125,9 @@
     <string name="settings_privacy_mode_desc">すべての表紙を隠し、リモート画像を読み込みません</string>
     <string name="settings_language">言語</string>
     <string name="settings_language_system">システムに従う</string>
+    <string name="settings_group_reader">読書</string>
+    <string name="settings_reader_defaults">既定の読書設定</string>
+    <string name="settings_reader_defaults_desc">シリーズを初めて開くときに使います（シリーズごとにリーダーで個別変更できます）</string>
     <string name="settings_group_about">アプリについて</string>
     <string name="settings_version">バージョン</string>
     <string name="settings_logout">ログアウト</string>
@@ -189,6 +192,9 @@
     <string name="reader_setting_brightness">明るさ（今回の読書のみ）</string>
     <string name="reader_brightness_percent">%1$d%%</string>
     <string name="reader_setting_page_number">ページ番号を表示</string>
+    <string name="reader_setting_landscape">横向き表示</string>
+    <string name="reader_setting_landscape_desc">読書中は横向きに固定し、終了時に元に戻します</string>
+    <string name="reader_setting_reset_series">このシリーズの設定を初期化</string>
     <string name="reader_setting_volume_keys">音量キーでページ送り</string>
     <string name="reader_setting_volume_keys_desc">音量の上下キーでページを送ります（メディア音量は変更しません）</string>
 
@@ -273,7 +279,7 @@
     <!-- Bookmarks -->
     <string name="bookmarks_title">ブックマーク</string>
     <string name="bookmarks_empty_title">ブックマークはまだありません</string>
-    <string name="bookmarks_empty_body">リーダーでページをダブルタップすると追加できます</string>
+    <string name="bookmarks_empty_body">リーダー上部のブックマークボタンから追加できます</string>
     <string name="bookmark_chapter_page">%1$s · %2$d ページ</string>
     <string name="bookmark_page_number">%1$d ページ</string>
     <!-- Home folders / stream view -->

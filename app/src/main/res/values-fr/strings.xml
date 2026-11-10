@@ -125,6 +125,9 @@
     <string name="settings_privacy_mode_desc">Masquer toutes les couvertures et ne pas charger d\'images distantes</string>
     <string name="settings_language">Langue</string>
     <string name="settings_language_system">Suivre le système</string>
+    <string name="settings_group_reader">Lecture</string>
+    <string name="settings_reader_defaults">Réglages de lecture par défaut</string>
+    <string name="settings_reader_defaults_desc">Utilisés à la première ouverture d\'une série ; chaque série peut être ajustée dans le lecteur</string>
     <string name="settings_group_about">À propos</string>
     <string name="settings_version">Version</string>
     <string name="settings_logout">Se déconnecter</string>
@@ -189,6 +192,9 @@
     <string name="reader_setting_brightness">Luminosité (cette session uniquement)</string>
     <string name="reader_brightness_percent">%1$d%%</string>
     <string name="reader_setting_page_number">Afficher le numéro de page</string>
+    <string name="reader_setting_landscape">Mode paysage</string>
+    <string name="reader_setting_landscape_desc">Force le paysage pendant la lecture, puis restaure à la sortie</string>
+    <string name="reader_setting_reset_series">Rétablir les réglages de cette série</string>
     <string name="reader_setting_volume_keys">Pages avec les touches de volume</string>
     <string name="reader_setting_volume_keys_desc">Utilise volume haut/bas pour tourner les pages au lieu de régler le son</string>
 
@@ -273,7 +279,7 @@
     <!-- Bookmarks -->
     <string name="bookmarks_title">Mes signets</string>
     <string name="bookmarks_empty_title">Aucun signet</string>
-    <string name="bookmarks_empty_body">Double-touchez une page dans le lecteur pour ajouter un signet</string>
+    <string name="bookmarks_empty_body">Touchez le bouton signet dans la barre supérieure du lecteur pour en ajouter un</string>
     <string name="bookmark_chapter_page">%1$s · page %2$d</string>
     <string name="bookmark_page_number">Page %1$d</string>
     <!-- Home folders / stream view -->

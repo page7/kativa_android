@@ -1,6 +1,7 @@
 package com.kativa.reader.ui.reader
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -45,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -100,6 +102,9 @@ fun MangaReaderScreen(
         viewModel.onAppResumed()
         onStopOrDispose { viewModel.onAppPaused() }
     }
+
+    // "阅读时强制横屏" (AGENTS.md §5): the sheet's switch is wired to a real orientation change.
+    ReaderOrientationEffect(state.settings.forceLandscape)
 
     // AGENTS.md §5: 防息屏. Kept as a plain view flag rather than a window flag so it is cleared
     // automatically when the reader leaves composition.
@@ -197,11 +202,6 @@ fun MangaReaderScreen(
                         context = context,
                         onGoToPage = viewModel::goToPage,
                         onToggleControls = viewModel::toggleControls,
-                        // Double-tap is the second bookmark affordance and must obey the same
-                        // role check as the toolbar icon (docs/FEATURES.md F-17).
-                        onToggleBookmark = {
-                            if (state.canBookmark) viewModel.toggleBookmark()
-                        },
                     )
                 }
 
@@ -246,6 +246,8 @@ fun MangaReaderScreen(
                 onBrightness = viewModel::setBrightness,
                 onShowPageNumber = viewModel::setShowPageNumber,
                 onVolumeKeyPaging = viewModel::setVolumeKeyPaging,
+                onForceLandscape = viewModel::setForceLandscape,
+                onReset = viewModel::resetSeriesSettings,
             )
         }
     }
@@ -261,6 +263,48 @@ private fun ReaderNavigationEffect(
         state.pendingChapterNavigation?.let { target ->
             viewModel.consumeNavigationTarget()
             onOpenChapter(target)
+        }
+    }
+}
+
+/**
+ * Locks the reading session to landscape while [forceLandscape] is on.
+ *
+ * This is a real activity-orientation change, not a layout hint: `SCREEN_ORIENTATION_SENSOR_LANDSCAPE`
+ * also works when the user has auto-rotate off, which is what "阅读时强制横屏" promises. The
+ * manifest declares no `screenOrientation`, so restoring `UNSPECIFIED` on exit returns every other
+ * screen to the sensor.
+ *
+ * `MainActivity` already handles `orientation|screenSize` in `configChanges`, so rotating here does
+ * not recreate the activity and the reading position survives the switch.
+ */
+@Composable
+private fun ReaderOrientationEffect(forceLandscape: Boolean) {
+    val context = LocalContext.current
+    DisposableEffect(context, forceLandscape) {
+        val activity = context as? Activity
+        if (activity == null) {
+            onDispose { }
+        } else {
+            val previous = activity.requestedOrientation
+            activity.requestedOrientation = if (forceLandscape) {
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+            onDispose {
+                // Only undo our own lock: if something else changed the orientation meanwhile, the
+                // last writer wins rather than being clobbered by a stale value.
+                if (forceLandscape) {
+                    activity.requestedOrientation = if (previous == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE ||
+                        previous == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    ) {
+                        previous
+                    } else {
+                        ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                }
+            }
         }
     }
 }
@@ -308,13 +352,18 @@ private fun PagedReader(
     context: android.content.Context,
     onGoToPage: (Int) -> Unit,
     onToggleControls: () -> Unit,
-    onToggleBookmark: () -> Unit,
 ) {
     val settings = state.settings
     val pagerState = rememberPagerState(
         initialPage = state.currentSlot,
         pageCount = { state.slotCount },
     )
+
+    // Zoom is per page and per reading session: turning the page or re-pairing the layout starts
+    // from the fitted page again, so a magnified crop can never leak onto the next page. Keying the
+    // state resets it *synchronously*; a `LaunchedEffect` would render one frame of the old zoom.
+    val zoomState = rememberReaderZoomState(state.currentSlot, settings.readerMode, settings.layoutMode)
+    val zoomed = zoomState.isZoomed
 
     // Keep the pager and the VM in sync in both directions.
     LaunchedEffect(pagerState.currentPage) {
@@ -345,9 +394,25 @@ private fun PagedReader(
     val rtl = settings.readingDirectionApplies && settings.isRightToLeft
     val pagerModifier = Modifier
         .fillMaxSize()
-        .pointerInput(settings.readerMode, settings.layoutMode, settings.readingDirection) {
+        // `zoomState` must be a key. It is recreated when the page turns (that is how zoom is reset
+        // synchronously, see above), and `pointerInput` only rebuilds its handler when a key
+        // changes: without it the closure kept calling the *previous* page's discarded state, so a
+        // double tap after paging flipped a zombie object and the new page never magnified.
+        .pointerInput(
+            settings.readerMode,
+            settings.layoutMode,
+            settings.readingDirection,
+            zoomed,
+            zoomState,
+        ) {
             detectTapGestures(
                 onTap = { offset ->
+                    // While magnified the tap zones would page away from the crop the user just
+                    // zoomed into, so a tap only reveals/hides the chrome there.
+                    if (zoomed) {
+                        onToggleControls()
+                        return@detectTapGestures
+                    }
                     val third = size.width / 3f
                     // Tap zones follow the reading direction: in RTL the left third advances,
                     // mirroring how manga is read. Vertical paging has no horizontal direction, so
@@ -358,7 +423,17 @@ private fun PagedReader(
                         else -> onToggleControls()
                     }
                 },
-                onDoubleTap = { onToggleBookmark() },
+                // Double tap magnifies around the tapped point, or returns to the original size.
+                // The bookmark affordance lives in the toolbar so the gesture is free for zoom
+                // (AGENTS.md §5, docs/FLOWS.md). Kept on this node rather than inside
+                // `ZoomablePage`: `detectTapGestures` consumes the down event, which would swallow
+                // the three tap zones above.
+                onDoubleTap = { offset ->
+                    zoomState.toggleDoubleTap(
+                        pivot = offset,
+                        viewport = Size(size.width.toFloat(), size.height.toFloat()),
+                    )
+                },
             )
         }
 
@@ -368,12 +443,16 @@ private fun PagedReader(
             modifier = pagerModifier,
             // Vertical reading always advances downwards; RTL would be meaningless here.
             reverseLayout = false,
+            // Panning a magnified page and swiping to the next one would fight over the same drag.
+            userScrollEnabled = !zoomed,
         ) { index ->
             PagerSlotContent(
                 state = state,
                 slotIndex = index,
                 pageUrls = pageUrls,
                 context = context,
+                zoomState = zoomState,
+                isActiveSlot = index == pagerState.currentPage,
             )
         }
     } else {
@@ -381,12 +460,16 @@ private fun PagedReader(
             state = pagerState,
             modifier = pagerModifier,
             reverseLayout = rtl,
+            // See VerticalPager: paging is suspended while the page is magnified.
+            userScrollEnabled = !zoomed,
         ) { index ->
             PagerSlotContent(
                 state = state,
                 slotIndex = index,
                 pageUrls = pageUrls,
                 context = context,
+                zoomState = zoomState,
+                isActiveSlot = index == pagerState.currentPage,
             )
         }
     }
@@ -399,6 +482,14 @@ private fun PagerSlotContent(
     slotIndex: Int,
     pageUrls: List<String>,
     context: android.content.Context,
+    /** Drives the double-tap magnification shared by every mode ([ZoomablePage]). */
+    zoomState: ReaderZoomState,
+    /**
+     * Only the page the user is actually looking at shows the magnification. Pager pre-composes
+     * the neighbours, and letting them share the same scale would make a magnified crop flash on
+     * the adjacent page while a swipe settles.
+     */
+    isActiveSlot: Boolean,
 ) {
     val pages = state.slotPages(slotIndex)
     val total = state.totalPages
@@ -406,31 +497,39 @@ private fun PagerSlotContent(
     // the control did nothing (AGENTS.md §6 dead-control rule).
     val scale = ReaderScaling.contentScale(state.settings.scalingOption)
 
-    if (pages.size <= 1) {
-        AsyncImage(
-            model = ImageRequest.Builder(context).data(pageUrls.getOrNull((pages.firstOrNull() ?: 1) - 1)).build(),
-            contentDescription = stringResource(
-                R.string.reader_page,
-                pages.firstOrNull() ?: 1,
-                total,
-            ),
-            contentScale = scale,
-            modifier = Modifier.fillMaxSize(),
-        )
-        return
-    }
-
-    Row(Modifier.fillMaxSize()) {
-        // RTL puts the later page on the left, which is how right-to-left spreads read. Slots in
-        // double-page mode only exist for horizontal paging, so `isRightToLeft` is meaningful here.
-        val ordered = if (state.settings.isRightToLeft) pages.reversed() else pages
-        ordered.forEach { page ->
+    // The gestures (double tap, pan, pinch) and the clip both live inside `ZoomablePage`, so paged
+    // reading and the Webtoon strip share exactly one implementation.
+    ZoomablePage(
+        zoomState = zoomState,
+        active = isActiveSlot,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        if (pages.size <= 1) {
             AsyncImage(
-                model = ImageRequest.Builder(context).data(pageUrls.getOrNull(page - 1)).build(),
-                contentDescription = stringResource(R.string.reader_page, page, total),
+                model = ImageRequest.Builder(context).data(pageUrls.getOrNull((pages.firstOrNull() ?: 1) - 1)).build(),
+                contentDescription = stringResource(
+                    R.string.reader_page,
+                    pages.firstOrNull() ?: 1,
+                    total,
+                ),
                 contentScale = scale,
-                modifier = Modifier.weight(1f).fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
             )
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                // RTL puts the later page on the left, which is how right-to-left spreads read.
+                // Slots in double-page mode only exist for horizontal paging, so `isRightToLeft`
+                // is meaningful here.
+                val ordered = if (state.settings.isRightToLeft) pages.reversed() else pages
+                ordered.forEach { page ->
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(pageUrls.getOrNull(page - 1)).build(),
+                        contentDescription = stringResource(R.string.reader_page, page, total),
+                        contentScale = scale,
+                        modifier = Modifier.weight(1f).fillMaxSize(),
+                    )
+                }
+            }
         }
     }
 }
@@ -452,6 +551,12 @@ private fun WebtoonReader(
     // chapter — and the user's saved progress with it.
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = startPage.coerceAtLeast(0))
 
+    // Same double-tap magnification as the pager, applied to the strip: the layer scale does not
+    // change layout, so the scroll position is untouched and leaving zoom resumes exactly where the
+    // user was.
+    val zoomState = rememberReaderZoomState()
+    val zoomed = zoomState.isZoomed
+
     // Report the first mostly-visible page so progress matches what the user is looking at.
     val visiblePage by remember {
         derivedStateOf {
@@ -463,20 +568,43 @@ private fun WebtoonReader(
     }
     LaunchedEffect(visiblePage) { onPageVisible(visiblePage - 1) }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier.pointerInput(Unit) { detectTapGestures(onTap = { onTap() }) },
-    ) {
-        items(totalPages) { index ->
-            AsyncImage(
-                model = ImageRequest.Builder(context).data(pageUrls.getOrNull(index)).build(),
-                contentDescription = stringResource(R.string.reader_page, index + 1, totalPages),
-                // Webtoon strips are width-bound by definition, so this stays FillWidth regardless
-                // of `scalingOption`; that is why the sheet hides the scaling control in this mode
-                // rather than offering a choice the renderer would ignore.
-                contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
-                modifier = Modifier.fillMaxWidth(),
+    Box(
+        // Keyed on the state object as well as `zoomed`: the same rule as the pager's node — a
+        // `pointerInput` closure keeps whatever it captured until a key changes, so a state that is
+        // ever recreated must be listed here or the handler silently keeps the stale instance.
+        modifier = modifier.pointerInput(zoomed, zoomState) {
+            detectTapGestures(
+                onTap = { onTap() },
+                // Double tap is handled here (not in `ZoomablePage`) so the single tap keeps
+                // working: `detectTapGestures` owns the down event of this node.
+                onDoubleTap = { offset ->
+                    zoomState.toggleDoubleTap(
+                        pivot = offset,
+                        viewport = Size(size.width.toFloat(), size.height.toFloat()),
+                    )
+                },
             )
+        },
+    ) {
+        ZoomablePage(zoomState = zoomState, modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                // While magnified a drag pans the crop instead of scrolling the strip.
+                userScrollEnabled = !zoomed,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                items(totalPages) { index ->
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(pageUrls.getOrNull(index)).build(),
+                        contentDescription = stringResource(R.string.reader_page, index + 1, totalPages),
+                        // Webtoon strips are width-bound by definition, so this stays FillWidth regardless
+                        // of `scalingOption`; that is why the sheet hides the scaling control in this mode
+                        // rather than offering a choice the renderer would ignore.
+                        contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
     }
 }
