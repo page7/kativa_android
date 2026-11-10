@@ -388,8 +388,11 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | **M0 骨架** | ✅ 已完成 | 工程搭建、设计系统（#4AC694/#2D7A56）、多服务器添加/选择、登录（密码 + API Key）、网络层（分页/错误/明文门禁）、首页三流 + 继续阅读大卡、隐私模式开关、四语言、素材管线 | 构建通过、32 个单测通过、多服务器可添加/选择/登录、首页展示 On Deck、隐私模式可开关 |
 | **M1 可读** | ✅ 已完成 | 库内系列网格（排序 + 无限滚动）、系列详情（卷折叠/章节/标记已读）、漫画阅读器（单页翻页/分区点击/页码跳转/书签/章节切换）、进度同步（防抖 + Room 写后队列 + 断网补传）、图片 URL 按会话生成 | 构建通过、54 个单测通过、可完整读完一卷并跨设备续读 |
 | **M2 好用** | ✅ 已完成 | 双页/上下/Webtoon 三种模式 + 阅读设置抽屉（方向/布局/缩放/封面单独/亮度）；哨兵编号修复（`-100000`/`100000` 不再外泄，散章卷显示"全一章/单话"）；搜索（防抖/分组/历史）；筛选与排序面板（字段/比较符/条件 chips）；合集；阅读清单；想读（含系列详情加入/移出）；**我的书签**（我的页入口 + 书签页缩略图网格 + 直达书签页） | 构建通过、103 个单测通过、lint 0 error、四语言 261 条对齐 |
-| **M3 完善** | ⬜ | EPUB/PDF 阅读器、阅读配置（Reading Profiles）、统计、批注/评分、平板双栏、素材正式替换 | 功能对齐 Web 端读者主路径；占位素材替换完成 |
+| **M3 完善** | ⬜ | EPUB/PDF 阅读器、阅读配置（Reading Profiles）、统计、批注/评分、平板双栏、素材正式替换；**另加 §11 记录的真缺陷**（阅读清单详情、首页流接 dashboard、Token 刷新、只读角色收敛写操作、TOFU 证书） | 功能对齐 Web 端读者主路径；占位素材替换完成 |
 | **M4 打磨** | ⬜ | 性能、无障碍、截图测试、Play 上架物料 | 冷启动 < 2s，滚动 60fps |
+
+> **功能完成度以 `docs/FEATURES.md` §7 为准**：那里是 v1.2.0 逐条回代码核对后的真实状态（含 6 项上修、9 项降级）。
+> 上面的 M2 范围列写的是"做过什么"，不代表每项都做完了 —— 例如「阅读清单」只做了列表且行点击无响应。
 
 ### M2 落地记录
 
@@ -493,29 +496,6 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 | **隐私模式下文件夹内的遮罩图顶掉上边距、没有圆角** | `PrivacyCoverPlaceholder` 无条件带 `aspectRatio(2f/3f)`。poster 槽位（`SeriesPosterCard`/详情封面）的调用方本来就传了同一比例，所以看不出问题；但首页文件夹的槽位是**正方形**（`aspectRatio(1f)` + `padding(INSET)`），2:3 的占位图比槽位高，Compose 把它撑到槽位外，顶部 4dp 内边距被吃掉、圆角也被外层卡片的 16dp 方形裁剪顶替（像素实测：遮罩 `y=966..1445` 高 480px，而拼图槽位应为 `y=978..1434` 高 456px，宽度还只有 458px） | 组件改为**只填满调用方给的盒子**（去掉内部 `aspectRatio`），并新增 `shape` 参数（默认仍是 `PosterRadius`）；文件夹内传入与四宫格共用的 `MosaicCellShape`（3dp，**后被下方「圆角太小」一行改为 `PrivacyPanelShape` = 12dp**）。真机像素校验：遮罩变为 `458×458`、顶部起点 977（与 4dp 内边距一致）；`CoverImage` 的 poster 调用方各自保留比例，无回归。新增 `PrivacyPlaceholderSizingTest` 守卫（已反向验证：把 `aspectRatio` 加回去立即 FAIL） |
 | **隐私模式下文件夹遮罩图圆角太小** | `LibraryFolderCard` 在隐私模式下把四宫格的 `MosaicCellShape`（3dp）直接套给了一整块占位面板。四宫格的 3dp 是「小格子」的圆角，而隐私面板是**一整块**封面大小的面，两者尺度不同；3dp 在 166dp 宽的面板上几乎看不出来，视觉上就是一块方角灰板贴在 16dp 圆角卡片里 | 新增 `PrivacyPanelShape = RoundedCornerShape(KavitaDimens.PosterRadius.dp)`（12dp，与全应用封面同源 token），隐私面板改用它；`MosaicCellShape` 只留给四宫格本身。真机像素校验（440dpi）：角落内缩从 3dp 的 ~6px 变为 12dp 的 ~28px，与 `SeriesPosterCard` 封面圆角一致；`PrivacyPlaceholderSizingTest` 改为断言 `shape = PrivacyPanelShape`、显式断言**不得**再出现 `shape = MosaicCellShape`，并新增一条断言 `PrivacyPanelShape` 必须由 `KavitaDimens.PosterRadius` 派生（已反向验证：改回 `MosaicCellShape` 立即 FAIL） |
 | **文件夹统计数字全部显示 "4 series"** | 两层错误叠加：① `HomeViewModel` 用 `series.size`（预览图数量，上限 4）当总数；② 即便改用 `Pagination` 头也取不到——`PaginationInterceptor` 用 `ThreadLocal`，OkHttp 在自己的 dispatcher 线程写入、协程在另一线程读取，`consume()` **永远是 null**。`LibraryDto` 本身没有系列数字段，真实总数只存在于 `Pagination` 响应头 | API 改为返回 `retrofit2.Response<List<SeriesDto>>`，直接从 `response.headers()["Pagination"]` 解析 `totalItems`（天然按请求隔离，无线程问题）；新增 `SeriesPage{items,totalItems}` 并从 `totalOrPageSize` 兜底；`SeriesListCache` 一并缓存 `totalItems`，缓存命中不会退化。实测 4/40/85/71 与服务端一致；`PaginationInterceptor` 保留但已标注 **禁止用于读元数据** |
-
-### v1.2.0 命名修正（Kativa → Kavita，2026-11）
-
-项目名从前写成了 **Kativa**，正确应为 **Kavita**（与被对接的服务端同名）。本版一次性纠正，并把 GitHub 仓库从
-`page7/kativa_android` 迁到 `page7/kavita_android`。
-
-| 层 | 变更 |
-| --- | --- |
-| 包名 / applicationId | `com.kativa.reader` → **`com.kavita.reader`**；`tools/assets` 子工程同步为 `com.kavita.tools.assets`；Room schema 目录随之改名 |
-| 类名与文件 | `KativaApp`/`KativaTheme`/`KativaIcon(s)`/`KativaError`/`KativaDatabase`/`KativaNavHost`/`KativaTopAppBar`/`KativaSlider`/`KativaSwitch`/`KativaTextField`/`KativaProgressBar` 等全部改为 `Kavita*` |
-| 资源 | `Theme.Kativa` → `Theme.Kavita`；`@color/kativa_*` → `@color/kavita_*`（主题校验测试同步） |
-| 标识 | 深链 scheme `kativa://` → `kavita://`；`User-Agent: Kavita/<ver>`；`X-Kavita-Client: kavita-android` |
-| 本地存储 | DataStore `kavita_servers`/`kavita_sessions`/`kavita_accounts`/`kavita_settings`、镜像 prefs `kavita_theme_mirror`、Room 文件 `kavita.db` |
-| 文档 | `AGENTS.md`、`README.md`、`docs/*` 全文修正；仓库地址改为 <https://github.com/page7/kavita_android> |
-| 交付物 | APK 命名 `Kavita-v<versionName>.apk`（构建脚本已按此派生）；本版 `versionCode 30` / `versionName 1.2.0` |
-
-**升级必须卸载重装**：`applicationId` 变了，旧版 `com.kativa.reader` 无法覆盖升级，系统会视为两个独立应用；
-且旧数据目录不会迁移 —— 卸载旧版后重新添加服务器并登录即可（本 App 不缓存书库内容，无数据损失风险，仅需重新登录）。
-
-改名只做**字符串等长**的字节级替换（`kativa`→`kavita`、`Kativa`→`Kavita`），不触碰任何中文字符与换行，
-因此历史文档里的中文没有被破坏。验证：`testDebugUnitTest` **283 个全绿**；按 §8.1 做了完整冷启动冒烟
-（`pidof com.kavita.reader` = 2117、logcat 无 `FATAL EXCEPTION`、`uiautomator dump` 见首屏「Add server」表单、
-带坏参数的 `kavita://setup?url=notaurl` 深链不崩）。
 
 ### M1 落地记录
 
