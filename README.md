@@ -5,7 +5,7 @@ Kavita 自建阅读服务器的 **Android 原生客户端**（第三方，非官
 > Kavita 是一个快速、自托管的数字图书馆服务端，支持漫画 / 电子书 / PDF。
 > 本项目只通过 Kavita REST API 与服务器交互。
 
-仓库：<https://github.com/page7/kavita_android>　包名：`com.kavita.reader`
+仓库：<https://github.com/page7/kavita_android>　包名（临时）：`com.kavita.reader`
 
 ## 文档
 

@@ -2,6 +2,7 @@ package com.kavita.reader.ui.series
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,32 +15,43 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,6 +71,19 @@ import com.kavita.reader.domain.model.PublicationStatus
 import com.kavita.reader.domain.model.SeriesDetail
 import com.kavita.reader.domain.model.Volume
 import com.kavita.reader.ui.common.EntityTitles
+import kotlinx.coroutines.launch
+
+/** Width of the hero poster. The action row is pinned to this cover's bottom edge. */
+private val HeroCoverWidth = 120.dp
+
+/**
+ * Poster height implied by [KavitaDimens.PosterAspect].
+ *
+ * Derived from the same tokens the cover uses, so the two cannot drift: if the poster aspect
+ * changes, the metadata column minimum follows automatically and the buttons stay on the cover's
+ * bottom edge.
+ */
+private val HeroCoverHeight = HeroCoverWidth / KavitaDimens.PosterAspect
 
 /** P06 · series detail with collapsible volumes and a single, obvious primary action. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,8 +95,22 @@ fun SeriesDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
+    val copiedMessage = stringResource(R.string.series_title_copied)
+
+    // Errors used to be written into `state.message` and never shown anywhere, so a failed
+    // mark-read looked like a no-op. One host shows both those failures and the "copied"
+    // confirmation.
+    LaunchedEffect(state.message) {
+        val message = state.message ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.consumeMessage()
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             KavitaTopAppBar(
                 title = {
@@ -135,6 +174,10 @@ fun SeriesDetailScreen(
                                 },
                                 inWantToRead = state.inWantToRead,
                                 onToggleWantToRead = viewModel::toggleWantToRead,
+                                onCopyTitle = {
+                                    clipboard.setText(AnnotatedString(detail.name))
+                                    scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+                                },
                             )
                         }
 
@@ -230,10 +273,12 @@ private fun SeriesHero(
     onPrimary: () -> Unit,
     inWantToRead: Boolean,
     onToggleWantToRead: () -> Unit,
+    onCopyTitle: () -> Unit,
 ) {
     val accent = runCatching {
         Color(android.graphics.Color.parseColor(detail.primaryColor ?: "#2D7A56"))
     }.getOrElse { KavitaColors.BrandPrimaryDeep }
+    val copyActionLabel = stringResource(R.string.series_copy_title)
 
     Box(
         Modifier
@@ -245,41 +290,79 @@ private fun SeriesHero(
             )
             .padding(16.dp),
     ) {
-        Row {
+        Row(verticalAlignment = Alignment.Bottom) {
             CoverImage(
                 url = coverUrl,
                 contentDescription = detail.name,
-                modifier = Modifier.width(120.dp).aspectRatio(KavitaDimens.PosterAspect),
+                modifier = Modifier.width(HeroCoverWidth).aspectRatio(KavitaDimens.PosterAspect),
             )
             Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = detail.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = listOfNotNull(
-                        formatLabel(detail.format),
-                        detail.libraryName.takeIf { it.isNotBlank() },
-                    ).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(
-                        R.string.series_read_progress,
-                        detail.readChapters,
-                        detail.totalChapters,
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
+            // The metadata block and the action row are the only two children, and the leftover
+            // vertical space is distributed *between* them (SpaceBetween). Because the column is
+            // at least as tall as the cover, this pins the buttons to the cover's bottom edge
+            // instead of leaving them floating mid-cover. When the text genuinely needs more room
+            // (very large font scale) the column grows instead of clipping — and the poster is
+            // bottom-aligned in the row, so its bottom edge keeps tracking the action row
+            // (AGENTS.md §6 forbids truncation, so growing is the only option).
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = HeroCoverHeight),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    // Long-press copies the title: series names are frequently pasted into chat
+                    // or the server's search box, and a long display name is painful to retype.
+                    //
+                    // `detectTapGestures` rather than `combinedClickable`: the latter requires a
+                    // click callback, which would register a semantics "click" action that does
+                    // nothing when a TalkBack user activates the title. The explicit
+                    // CustomAccessibilityAction below exposes the same copy affordance instead.
+                    val haptics = LocalHapticFeedback.current
+                    Text(
+                        text = detail.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .pointerInput(detail.name) {
+                                detectTapGestures(
+                                    onLongPress = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onCopyTitle()
+                                    },
+                                )
+                            }
+                            .semantics {
+                                customActions = listOf(
+                                    CustomAccessibilityAction(label = copyActionLabel) {
+                                        onCopyTitle()
+                                        true
+                                    },
+                                )
+                            },
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = listOfNotNull(
+                            formatLabel(detail.format),
+                            detail.libraryName.takeIf { it.isNotBlank() },
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.series_read_progress,
+                            detail.readChapters,
+                            detail.totalChapters,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 // FlowRow so the heart wraps to a second line at large font scales instead of
                 // squeezing (and clipping) the primary label — AGENTS.md §6 forbids truncation.
                 FlowRow(

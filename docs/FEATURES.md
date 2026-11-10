@@ -96,10 +96,11 @@
 
 ### F-03 首页流
 - 目标：`GET /api/Stream/dashboard?visibleOnly=true` 决定顺序，按 `streamType` 分别取数：`1 OnDeck`、`2 RecentlyUpdated`、`3 NewlyAdded`、`4 SmartFilter`。
-- 每流最多 20 条 + 「查看全部」。
+- 每流最多 **10 条** + 「查看全部」（产品反馈：首页流只是"扫一眼"的入口，全量列表在「查看全部」里）。
+  请求侧 `pageSize=10`（`HomeViewModel.STREAM_PAGE_SIZE`），映射侧再 `take(10)` 兜底，防止忽略分页参数的服务端渲染出无限长的一行。
 - **验收**：无任何流数据时首页显示引导而非空白；单流失败不影响其他流。
 - **实现状态（v1.2.0）**：🟨 **三条流是硬编码的**。`HomeViewModel` 直接并发调 `onDeck` / `recentlyUpdated` / `recentlyAdded`
-  （各 `pageSize=20`），**从不读 `Stream/dashboard`**；`SeriesRepository.dashboardStreams()` 已实现但**零调用点**。
+  （各 `pageSize=STREAM_PAGE_SIZE`=10，由 `HomeStreamLimitTest` 守卫），**从不读 `Stream/dashboard`**；`SeriesRepository.dashboardStreams()` 已实现但**零调用点**。
   后果：服务端里隐藏/重排/自定义的流不会反映到首页，`4 SmartFilter` 流也不会出现（那是 F-30 的前提）。
   单流失败确实不影响其他流（三个 `async` 各自 `Outcome` 判定）✅。
 

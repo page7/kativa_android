@@ -211,6 +211,8 @@
     <string name="series_special">Bonus</string>
     <string name="series_chapter_pages">%1$d pages</string>
     <string name="series_volume_progress">%1$d / %2$d pages</string>
+    <string name="series_title_copied">Titre copié</string>
+    <string name="series_copy_title">Copier le titre</string>
     <string name="library_series_count">%1$d séries</string>
     <string name="library_detail_empty">Cette bibliothèque est vide</string>
 

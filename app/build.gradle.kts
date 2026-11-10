@@ -24,7 +24,7 @@ android {
          *
          * Bump [versionCode] on every artifact, even for a same-version rebuild that you hand out.
          */
-        versionCode = 30
+        versionCode = 31
         versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

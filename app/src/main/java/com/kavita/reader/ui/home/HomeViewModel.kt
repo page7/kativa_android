@@ -104,9 +104,12 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             coroutineScope {
                 // Streams and folders are independent: one slow call must not blank the page.
-                val onDeck = async { seriesRepository.onDeck(pageSize = 20) }
-                val updated = async { seriesRepository.recentlyUpdated(pageSize = 20) }
-                val added = async { seriesRepository.recentlyAdded(pageSize = 20) }
+                // Each row is a horizontal peek, not a browsing surface: ten entries is what the
+                // width of a phone can hint at, and "View all" is one tap away. Ask the server for
+                // ten instead of trimming client-side so no extra payload is transferred.
+                val onDeck = async { seriesRepository.onDeck(pageSize = STREAM_PAGE_SIZE) }
+                val updated = async { seriesRepository.recentlyUpdated(pageSize = STREAM_PAGE_SIZE) }
+                val added = async { seriesRepository.recentlyAdded(pageSize = STREAM_PAGE_SIZE) }
                 val libraries = async { seriesRepository.libraries() }
 
                 val onDeckResult = onDeck.await()
@@ -118,15 +121,22 @@ class HomeViewModel @Inject constructor(
                     // The "continue reading" hero was removed by product decision: the top of the
                     // home screen must start with the streams (docs/PAGES.md P03). On Deck already
                     // carries the continue-reading entries inside its own row.
-                    (onDeckResult as? Outcome.Success)?.value?.takeIf { it.isNotEmpty() }?.let {
-                        add(HomeStream.OnDeck(it))
-                    }
-                    (updatedResult as? Outcome.Success)?.value?.takeIf { it.isNotEmpty() }?.let {
-                        add(HomeStream.RecentlyUpdated(it))
-                    }
-                    (addedResult as? Outcome.Success)?.value?.takeIf { it.isNotEmpty() }?.let {
-                        add(HomeStream.RecentlyAdded(it))
-                    }
+                    //
+                    // `take` is a belt-and-braces guard on top of `pageSize`: a server that ignores
+                    // the parameter (or one with no pagination at all) must still not render an
+                    // endless row on the home screen.
+                    (onDeckResult as? Outcome.Success)?.value?.take(STREAM_PAGE_SIZE)
+                        ?.takeIf { it.isNotEmpty() }?.let {
+                            add(HomeStream.OnDeck(it))
+                        }
+                    (updatedResult as? Outcome.Success)?.value?.take(STREAM_PAGE_SIZE)
+                        ?.takeIf { it.isNotEmpty() }?.let {
+                            add(HomeStream.RecentlyUpdated(it))
+                        }
+                    (addedResult as? Outcome.Success)?.value?.take(STREAM_PAGE_SIZE)
+                        ?.takeIf { it.isNotEmpty() }?.let {
+                            add(HomeStream.RecentlyAdded(it))
+                        }
                 }
 
                 val folders = (libraryResult as? Outcome.Success)?.value
@@ -168,7 +178,8 @@ class HomeViewModel @Inject constructor(
                         } else {
                             null
                         },
-                        onDeckCount = (onDeckResult as? Outcome.Success)?.value?.size ?: 0,
+                        onDeckCount = ((onDeckResult as? Outcome.Success)?.value?.size ?: 0)
+                            .coerceAtMost(STREAM_PAGE_SIZE),
                     )
                 }
             }
@@ -187,5 +198,13 @@ class HomeViewModel @Inject constructor(
 
     private companion object {
         const val PREVIEW_COVER_COUNT = 4
+
+        /**
+         * Entries per home stream row.
+         *
+         * Product decision: the home rows are a *peek*, so each shows at most ten series. The full
+         * list lives behind "View all" (docs/PAGES.md P03).
+         */
+        const val STREAM_PAGE_SIZE = 10
     }
 }

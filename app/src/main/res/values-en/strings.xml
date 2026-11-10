@@ -211,6 +211,8 @@
     <string name="series_special">Special</string>
     <string name="series_chapter_pages">%1$d pages</string>
     <string name="series_volume_progress">%1$d / %2$d pages</string>
+    <string name="series_title_copied">Title copied</string>
+    <string name="series_copy_title">Copy title</string>
     <string name="library_series_count">%1$d series</string>
     <string name="library_detail_empty">This library is empty</string>
 

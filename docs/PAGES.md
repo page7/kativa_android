@@ -80,9 +80,9 @@
 - **结构（自上而下）**
   1. `HomeTopBar`：问候 + **隐私模式开关** + 搜索图标（**无通知点、无通知中心**）。
   2. `ContinueReadingCard`：封面 + 进度环 + 系列/章节 + 「继续第 N 页」。
-  3. `StreamSection("On Deck")`：横向列表（20 条），标题右侧「查看全部」。
-  4. `StreamSection("最近更新")`：按章节更新时间，卡片显示"第 X 章 新增"。
-  5. `StreamSection("最近添加")`：新入库系列。
+  3. `StreamSection("On Deck")`：横向列表（最多 10 条），标题右侧「查看全部」。
+  4. `StreamSection("最近更新")`：按章节更新时间，卡片显示"第 X 章 新增"（最多 10 条）。
+  5. `StreamSection("最近添加")`：新入库系列（最多 10 条）。
   6. 智能筛选流（用户配置，默认不显示）。
   7. 底部留白（避免被导航遮挡）。
 - **组件**：`SeriesPosterCard`、`ProgressRing`、`SectionHeader`、`StreamRow`、`SkeletonRow`、`PrivacyToggle`。
@@ -123,6 +123,8 @@
 - **目标**：决定"读哪一章"并管理进度。
 - **结构**
   1. `SeriesHero`：背景 = 封面模糊 + primaryColor 渐变；前景封面 2:3（宽 120dp）+ 标题 + 元数据行（年份 · 状态 · 卷/章数 · 评分）+ 主按钮。
+     - **主按钮与想读永远贴在封面下沿**：底部动作区与封面同高（`heightIn(min = HeroCoverHeight)`，高度由 `KavitaDimens.PosterAspect` 派生）+ `Arrangement.SpaceBetween`，文案少时把空隙吃掉，文案多（大字号）时两者一起往下长，不裁切。
+     - **长按标题复制**：`detectTapGestures(onLongPress = …)` + 触感反馈 + Snackbar「已复制标题」。刻意不用 `combinedClickable(onClick = {})`——那会给标题注册一个"点击"无障碍动作，TalkBack 激活时什么都不发生；改用 `CustomAccessibilityAction("复制标题")` 提供等价入口。
   2. 进度条（整体）+ 「已读 X / Y 章」。
   3. `TabRow`：卷章 / 简介 / 相关 / 评论(M3)。
   4. 卷章列表：卷头（可折叠，显示卷号/名称/进度）→ 章行（章号 + 标题 + 页数 + 状态图标）。
