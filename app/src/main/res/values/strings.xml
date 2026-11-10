@@ -14,6 +14,7 @@
     <string name="common_add">添加</string>
     <string name="common_loading">加载中…</string>
     <string name="common_more">更多</string>
+    <string name="common_refresh">刷新</string>
     <string name="common_optional">可选</string>
     <string name="common_required">必填</string>
     <string name="common_test_connection">测试连接</string>

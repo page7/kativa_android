@@ -1,7 +1,6 @@
 package com.kavita.reader.ui.bookmarks
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +26,9 @@ import com.kavita.reader.R
 import com.kavita.reader.core.designsystem.EmptyState
 import com.kavita.reader.core.designsystem.KavitaIcon
 import com.kavita.reader.core.designsystem.KavitaIcons
+import com.kavita.reader.core.designsystem.KavitaPullToRefreshBox
 import com.kavita.reader.core.designsystem.KavitaTopAppBar
+import com.kavita.reader.core.designsystem.RefreshablePlaceholder
 import com.kavita.reader.core.designsystem.SeriesPosterCard
 import com.kavita.reader.ui.common.PrivacyToggle
 
@@ -74,20 +75,28 @@ fun BookmarksScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        KavitaPullToRefreshBox(
+            refreshing = state.refreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> com.kavita.reader.ui.common.KavitaErrorState(
-                    error = state.error!!,
-                    onRetry = viewModel::load,
-                )
+                state.error != null -> RefreshablePlaceholder {
+                    com.kavita.reader.ui.common.KavitaErrorState(
+                        error = state.error!!,
+                        onRetry = viewModel::load,
+                    )
+                }
 
-                state.isEmpty -> EmptyState(
-                    title = stringResource(R.string.bookmarks_empty_title),
-                    body = stringResource(R.string.bookmarks_empty_body),
-                    illustration = R.drawable.empty_shelf,
-                )
+                state.isEmpty -> RefreshablePlaceholder {
+                    EmptyState(
+                        title = stringResource(R.string.bookmarks_empty_title),
+                        body = stringResource(R.string.bookmarks_empty_body),
+                        illustration = R.drawable.empty_shelf,
+                    )
+                }
 
                 else -> LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 110.dp),

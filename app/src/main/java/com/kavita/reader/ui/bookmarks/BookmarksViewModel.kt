@@ -24,6 +24,8 @@ data class BookmarkItem(
 
 data class BookmarksUiState(
     val loading: Boolean = true,
+    /** Pull-to-refresh in flight; the grid stays visible. */
+    val refreshing: Boolean = false,
     val items: List<BookmarkItem> = emptyList(),
     val error: KavitaError? = null,
     val privacyMode: Boolean = false,
@@ -84,6 +86,7 @@ class BookmarksViewModel @Inject constructor(
                 is Outcome.Success -> _state.update {
                     it.copy(
                         loading = false,
+                        refreshing = false,
                         items = outcome.value.map { bookmark ->
                             BookmarkItem(
                                 bookmark = bookmark,
@@ -98,9 +101,16 @@ class BookmarksViewModel @Inject constructor(
                 }
 
                 is Outcome.Failure -> _state.update {
-                    it.copy(loading = false, error = outcome.failure.error)
+                    it.copy(loading = false, refreshing = false, error = outcome.failure.error)
                 }
             }
         }
+    }
+
+    /** Pull-to-refresh: reloads in place so the grid does not flash an empty loading state. */
+    fun refresh() {
+        if (_state.value.refreshing || _state.value.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        load(showSpinner = false)
     }
 }

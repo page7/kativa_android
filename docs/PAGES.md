@@ -87,7 +87,7 @@
   7. 底部留白（避免被导航遮挡）。
 - **组件**：`SeriesPosterCard`、`ProgressRing`、`SectionHeader`、`StreamRow`、`SkeletonRow`、`PrivacyToggle`。
 - **状态**：骨架屏（3 行占位）/ 内容 / 空（"书库还是空的" + 去书架）/ 错误（整页重试）。
-- **交互**：下拉刷新；点击卡片 → 系列详情；长按 → 快捷操作（标记已读、想读）；点击流标题 → 全量列表页；隐私模式开关切换 → 全屏封面立即变占位图。
+- **交互**：**下拉刷新**（改用 `KavitaPullToRefreshBox`；`onRefresh` 走 ViewModel 的 `refresh()`，不置 `loading`，内容原地刷新不丢滚动位置；空态/错误态由 `RefreshablePlaceholder` 包裹，保证也能下拉）；点击卡片 → 系列详情；长按 → 快捷操作（标记已读、想读）；点击流标题 → 全量列表页；隐私模式开关切换 → 全屏封面立即变占位图。
 - **接口**：`GET /api/Stream/dashboard?visibleOnly=true`、`POST /api/Series/on-deck`、`POST /api/Series/recently-updated-series`、`POST /api/Series/recently-added-v2`、`GET /api/Reader/get-progress`。
 
 ---
@@ -113,7 +113,7 @@
   - 底部：加载更多（滚动到 80% 自动请求）。
 - **组件**：`SeriesPosterCard`、`FilterChipRow`、`JumpBar`、`SortSheet`、`FilterSheet`。
 - **状态**：骨架网格 / 内容 / 空（"没有匹配的系列" + 清除筛选）/ 错误 / 加载更多失败（行内重试）。
-- **交互**：点击 → P06；长按 → 多选模式（批量标记已读/加入清单/想读）；下拉刷新。
+- **交互**：点击 → P06（长按 → 多选模式为 M2+）；**下拉刷新**（`refresh()` 走 `forceRefresh=true`，绕过 `SeriesListCache` 的 2 分钟 TTL，否则下拉只会把同一批旧数据再取回来）；空态/错误态同样可下拉。
 - **接口**：`POST /api/Series/v2`（含 `statements:[{field:19(Libraries),comparison:0,value:"<id>"}]`）、`GET /api/Library?libraryId=`。
 
 ---
@@ -124,7 +124,8 @@
 - **结构**
   1. `SeriesHero`：背景 = 封面模糊 + primaryColor 渐变；前景封面 2:3（宽 120dp）+ 标题 + 元数据行（年份 · 状态 · 卷/章数 · 评分）+ 主按钮。
      - **主按钮与想读永远贴在封面下沿**：底部动作区与封面同高（`heightIn(min = HeroCoverHeight)`，高度由 `KavitaDimens.PosterAspect` 派生）+ `Arrangement.SpaceBetween`，文案少时把空隙吃掉，文案多（大字号）时两者一起往下长，不裁切。
-     - **长按标题复制**：`detectTapGestures(onLongPress = …)` + 触感反馈 + Snackbar「已复制标题」。刻意不用 `combinedClickable(onClick = {})`——那会给标题注册一个"点击"无障碍动作，TalkBack 激活时什么都不发生；改用 `CustomAccessibilityAction("复制标题")` 提供等价入口。
+     - **长按标题复制**：`detectTapGestures(onLongPress = …)` + 触感反馈 + **Toast**「已复制标题」。刻意不用 `combinedClickable(onClick = {})`——那会给标题注册一个"点击"无障碍动作，TalkBack 激活时什么都不发生；改用 `CustomAccessibilityAction("复制标题")` 提供等价入口。确认类提示一律用 Toast（不需要动作、不占布局、不遮挡内容），Snackbar 只留给可能出现失败需要用户处理的情况。
+  2. **下拉刷新**：整页用 `KavitaPullToRefreshBox` 包裹，`onRefresh` 走 `refresh()`（不置 `loading`，内容原地刷新、不丢滚动位置）；空态/错误态套 `RefreshablePlaceholder`，保证这两种状态下也能下拉。
   2. 进度条（整体）+ 「已读 X / Y 章」。
   3. `TabRow`：卷章 / 简介 / 相关 / 评论(M3)。
   4. 卷章列表：卷头（可折叠，显示卷号/名称/进度）→ 章行（章号 + 标题 + 页数 + 状态图标）。
@@ -302,6 +303,9 @@
 | `ServerCard` / `StatusPill` | 服务器选择页卡片与状态徽标 |
 | `NoNetworkBanner` | 全局"无网络"提示条 |
 | `KavitaSnackbar` | 统一提示（含重试动作） |
+| `KavitaPullToRefreshBox` | 唯一的下拉刷新容器（品牌色指示器 + TalkBack「刷新」动作） |
+| `RefreshablePlaceholder` | 让空态/错误态也能下拉 |
+| `rememberToast` | 确认类提示（Toast，不是 Snackbar） |
 
 ---
 

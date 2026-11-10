@@ -55,6 +55,8 @@ data class StreamEntry(val key: String, val item: StreamItem)
 data class StreamUiState(
     val loading: Boolean = true,
     val loadingMore: Boolean = false,
+    /** Pull-to-refresh in flight; keeps the current grid visible instead of blanking it. */
+    val refreshing: Boolean = false,
     val entries: List<StreamEntry> = emptyList(),
     val page: Int = 1,
     val endReached: Boolean = false,
@@ -94,10 +96,15 @@ class StreamViewModel @Inject constructor(
         load(reset = true)
     }
 
-    fun load(reset: Boolean = false) {
+    fun load(reset: Boolean = false, showSpinner: Boolean = reset) {
         val nextPage = if (reset) 1 else _state.value.page + 1
         _state.update {
-            it.copy(loading = reset, loadingMore = !reset, error = null, page = nextPage)
+            it.copy(
+                loading = showSpinner,
+                loadingMore = !reset,
+                error = null,
+                page = nextPage,
+            )
         }
         viewModelScope.launch {
             val outcome: Outcome<List<SeriesSummary>> = when (kind) {
@@ -146,6 +153,7 @@ class StreamViewModel @Inject constructor(
                         it.copy(
                             loading = false,
                             loadingMore = false,
+                            refreshing = false,
                             entries = merged,
                             endReached = newEntries.size < PAGE_SIZE,
                         )
@@ -153,10 +161,28 @@ class StreamViewModel @Inject constructor(
                 }
 
                 is Outcome.Failure -> _state.update {
-                    it.copy(loading = false, loadingMore = false, error = outcome.failure.error)
+                    it.copy(
+                        loading = false,
+                        loadingMore = false,
+                        refreshing = false,
+                        error = outcome.failure.error,
+                    )
                 }
             }
         }
+    }
+
+    /**
+     * Pull-to-refresh.
+     *
+     * Does not raise [StreamUiState.loading] — that would replace the grid with a spinner and lose
+     * the scroll position for what is meant to be a lightweight reload.
+     */
+    fun refresh() {
+        val s = _state.value
+        if (s.refreshing || s.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        load(reset = true, showSpinner = false)
     }
 
     fun loadMore() {

@@ -26,6 +26,8 @@ data class LibraryListItem(
 
 data class LibraryUiState(
     val loading: Boolean = true,
+    /** Pull-to-refresh in flight; the list stays visible. */
+    val refreshing: Boolean = false,
     val items: List<LibraryListItem> = emptyList(),
     val error: KavitaError? = null,
     val privacyMode: Boolean = false,
@@ -56,22 +58,30 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun load() {
-        _state.update { it.copy(loading = true, error = null) }
+    fun load(showSpinner: Boolean = true) {
+        _state.update { it.copy(loading = showSpinner, error = null) }
         viewModelScope.launch {
             when (val outcome = seriesRepository.libraries()) {
                 is Outcome.Success -> _state.update {
                     it.copy(
                         loading = false,
+                        refreshing = false,
                         items = outcome.value.map { dto -> dto.toItem() },
                     )
                 }
 
                 is Outcome.Failure -> _state.update {
-                    it.copy(loading = false, error = outcome.failure.error)
+                    it.copy(loading = false, refreshing = false, error = outcome.failure.error)
                 }
             }
         }
+    }
+
+    /** Pull-to-refresh: reloads in place, keeping the list (and scroll position) visible. */
+    fun refresh() {
+        if (_state.value.refreshing || _state.value.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        load(showSpinner = false)
     }
 
     fun setPrivacyMode(enabled: Boolean) {

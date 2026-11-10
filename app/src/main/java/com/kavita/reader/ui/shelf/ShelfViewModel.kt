@@ -23,6 +23,8 @@ enum class ShelfKind { Collections, ReadingLists, WantToRead }
 
 data class ShelfUiState(
     val loading: Boolean = true,
+    /** Pull-to-refresh in flight; the rows stay visible. */
+    val refreshing: Boolean = false,
     val shelves: List<ShelfCollection> = emptyList(),
     val series: List<SeriesHit> = emptyList(),
     val error: KavitaError? = null,
@@ -96,11 +98,11 @@ class ShelfViewModel @Inject constructor(
             if (detailId > 0) {                // Collection detail: series inside it.
                 when (val outcome = shelfRepository.seriesInCollection(detailId)) {
                     is Outcome.Success -> _state.update {
-                        it.copy(loading = false, series = outcome.value)
+                        it.copy(loading = false, refreshing = false, series = outcome.value)
                     }
 
                     is Outcome.Failure -> _state.update {
-                        it.copy(loading = false, error = outcome.failure.error)
+                        it.copy(loading = false, refreshing = false, error = outcome.failure.error)
                     }
                 }
                 return@launch
@@ -109,35 +111,42 @@ class ShelfViewModel @Inject constructor(
             when (kind) {
                 ShelfKind.WantToRead -> when (val outcome = shelfRepository.wantToRead()) {
                     is Outcome.Success -> _state.update {
-                        it.copy(loading = false, series = outcome.value)
+                        it.copy(loading = false, refreshing = false, series = outcome.value)
                     }
 
                     is Outcome.Failure -> _state.update {
-                        it.copy(loading = false, error = outcome.failure.error)
+                        it.copy(loading = false, refreshing = false, error = outcome.failure.error)
                     }
                 }
 
                 ShelfKind.ReadingLists -> when (val outcome = shelfRepository.readingLists()) {
                     is Outcome.Success -> _state.update {
-                        it.copy(loading = false, shelves = outcome.value)
+                        it.copy(loading = false, refreshing = false, shelves = outcome.value)
                     }
 
                     is Outcome.Failure -> _state.update {
-                        it.copy(loading = false, error = outcome.failure.error)
+                        it.copy(loading = false, refreshing = false, error = outcome.failure.error)
                     }
                 }
 
                 ShelfKind.Collections -> when (val outcome = shelfRepository.collections()) {
                     is Outcome.Success -> _state.update {
-                        it.copy(loading = false, shelves = outcome.value)
+                        it.copy(loading = false, refreshing = false, shelves = outcome.value)
                     }
 
                     is Outcome.Failure -> _state.update {
-                        it.copy(loading = false, error = outcome.failure.error)
+                        it.copy(loading = false, refreshing = false, error = outcome.failure.error)
                     }
                 }
             }
         }
+    }
+
+    /** Pull-to-refresh: reloads in place so the rows do not flash an empty loading state. */
+    fun refresh() {
+        if (_state.value.refreshing || _state.value.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        load(showSpinner = false)
     }
 
     /** Removes a series from Want To Read, with a reload on success. */

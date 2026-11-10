@@ -37,7 +37,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,7 +63,10 @@ import com.kavita.reader.core.designsystem.KavitaIcon
 import com.kavita.reader.core.designsystem.KavitaIcons
 import com.kavita.reader.core.designsystem.KavitaPrimaryButton
 import com.kavita.reader.core.designsystem.KavitaProgressBar
+import com.kavita.reader.core.designsystem.KavitaPullToRefreshBox
 import com.kavita.reader.core.designsystem.KavitaTopAppBar
+import com.kavita.reader.core.designsystem.RefreshablePlaceholder
+import com.kavita.reader.core.designsystem.rememberToast
 import com.kavita.reader.domain.model.Chapter
 import com.kavita.reader.domain.model.ContentFormat
 import com.kavita.reader.domain.model.PublicationStatus
@@ -96,13 +98,13 @@ fun SeriesDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
+    val showToast = rememberToast()
     val copiedMessage = stringResource(R.string.series_title_copied)
 
-    // Errors used to be written into `state.message` and never shown anywhere, so a failed
-    // mark-read looked like a no-op. One host shows both those failures and the "copied"
-    // confirmation.
+    // Failures from mark-read/unread are written into `state.message` and were never displayed, so
+    // a rejected write looked like a no-op. Only *errors* go through the snackbar: a snackbar is
+    // for something the user may need to act on.
     LaunchedEffect(state.message) {
         val message = state.message ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(message)
@@ -145,14 +147,20 @@ fun SeriesDetailScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        KavitaPullToRefreshBox(
+            refreshing = state.refreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> com.kavita.reader.ui.common.KavitaErrorState(
-                    error = state.error!!,
-                    onRetry = viewModel::load,
-                )
+                state.error != null -> RefreshablePlaceholder {
+                    com.kavita.reader.ui.common.KavitaErrorState(
+                        error = state.error!!,
+                        onRetry = viewModel::load,
+                    )
+                }
 
                 state.detail != null -> {
                     val detail = state.detail!!
@@ -176,7 +184,7 @@ fun SeriesDetailScreen(
                                 onToggleWantToRead = viewModel::toggleWantToRead,
                                 onCopyTitle = {
                                     clipboard.setText(AnnotatedString(detail.name))
-                                    scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+                                    showToast(copiedMessage)
                                 },
                             )
                         }

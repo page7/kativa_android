@@ -59,6 +59,8 @@ data class HomeLibraryFolder(
 
 data class HomeUiState(
     val loading: Boolean = true,
+    /** Pull-to-refresh in flight; the streams stay visible instead of being replaced. */
+    val refreshing: Boolean = false,
     val privacyMode: Boolean = false,
     val streams: List<HomeStream> = emptyList(),
     val folders: List<HomeLibraryFolder> = emptyList(),
@@ -98,8 +100,8 @@ class HomeViewModel @Inject constructor(
         _state.update { it.copy(privacyMode = enabled) }
     }
 
-    fun load() {
-        _state.update { it.copy(loading = true, error = null) }
+    fun load(showSpinner: Boolean = true) {
+        _state.update { it.copy(loading = showSpinner, error = null) }
 
         viewModelScope.launch {
             coroutineScope {
@@ -170,6 +172,7 @@ class HomeViewModel @Inject constructor(
                 _state.update {
                     it.copy(
                         loading = false,
+                        refreshing = false,
                         streams = streams,
                         folders = folders,
                         // Only report an error when there is nothing at all to show.
@@ -184,6 +187,19 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Pull-to-refresh.
+     *
+     * Keeps [HomeUiState.loading] false: the whole point is to refresh in place, so replacing the
+     * streams with a centred spinner would throw away the user's scroll position and make the pull
+     * feel like a page reload.
+     */
+    fun refresh() {
+        if (_state.value.refreshing || _state.value.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        load(showSpinner = false)
     }
 
     /**

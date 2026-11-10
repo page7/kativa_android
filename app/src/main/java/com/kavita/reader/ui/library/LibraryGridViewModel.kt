@@ -26,6 +26,8 @@ data class LibraryGridItem(
 data class LibraryGridUiState(
     val loading: Boolean = true,
     val loadingMore: Boolean = false,
+    /** Pull-to-refresh in flight. Distinct from [loading] so content stays on screen. */
+    val refreshing: Boolean = false,
     val items: List<LibraryGridItem> = emptyList(),
     val page: Int = 1,
     val endReached: Boolean = false,
@@ -76,14 +78,14 @@ class LibraryGridViewModel @Inject constructor(
         _state.update { it.copy(privacyMode = enabled) }
     }
 
-    fun load(reset: Boolean = false) {
+    fun load(reset: Boolean = false, showSpinner: Boolean = reset, forceRefresh: Boolean = false) {
         val current = _state.value
         val nextPage = if (reset) 1 else current.page + 1
         val request = ++requestId
         _state.update {
             it.copy(
-                loading = reset,
-                loadingMore = !reset,
+                loading = showSpinner,
+                loadingMore = !reset && showSpinner,
                 error = null,
                 page = nextPage,
             )
@@ -96,6 +98,7 @@ class LibraryGridViewModel @Inject constructor(
                     page = nextPage,
                     pageSize = PAGE_SIZE,
                     filter = current.filter,
+                    forceRefresh = forceRefresh,
                 )
             ) {
                 is Outcome.Success -> {
@@ -113,6 +116,7 @@ class LibraryGridViewModel @Inject constructor(
                         it.copy(
                             loading = false,
                             loadingMore = false,
+                            refreshing = false,
                             items = merged,
                             endReached = isLastPage(nextPage, page),
                         )
@@ -125,12 +129,30 @@ class LibraryGridViewModel @Inject constructor(
                         it.copy(
                             loading = false,
                             loadingMore = false,
+                            refreshing = false,
                             error = outcome.failure.error,
                         )
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Pull-to-refresh.
+     *
+     * Deliberately does not raise [LibraryGridUiState.loading]: the spinner belongs to the pull
+     * gesture, so the current grid stays on screen while the request is in flight. Raising the
+     * full-screen spinner here made every pull blank the page and lose the scroll position.
+     *
+     * [forceRefresh] bypasses the page cache, otherwise the pull would spin and hand back the same
+     * rows.
+     */
+    fun refresh() {
+        val s = _state.value
+        if (s.refreshing || s.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        load(reset = true, showSpinner = false, forceRefresh = true)
     }
 
     fun loadMore() {
@@ -143,7 +165,9 @@ class LibraryGridViewModel @Inject constructor(
 
     fun applyFilter(filter: SeriesFilter) {
         _state.update { it.copy(filter = filter) }
-        load(reset = true)
+        // Filter changes must not come from cache: the signature includes the filter, so a cached
+        // page would be a *previous* run of the same filter, not the live data.
+        load(reset = true, forceRefresh = true)
     }
 
     fun clearFilter() {

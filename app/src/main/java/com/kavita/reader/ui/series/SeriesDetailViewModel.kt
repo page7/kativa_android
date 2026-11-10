@@ -18,6 +18,8 @@ import kotlinx.coroutines.launch
 
 data class SeriesUiState(
     val loading: Boolean = true,
+    /** Pull-to-refresh in flight; the hero and volume list stay visible. */
+    val refreshing: Boolean = false,
     val detail: SeriesDetail? = null,
     val coverUrl: String? = null,
     val error: KavitaError? = null,
@@ -49,8 +51,8 @@ class SeriesDetailViewModel @Inject constructor(
         load()
     }
 
-    fun load() {
-        _state.update { it.copy(loading = true, error = null) }
+    fun load(showSpinner: Boolean = true) {
+        _state.update { it.copy(loading = showSpinner, error = null) }
         viewModelScope.launch {
             when (val outcome = libraryRepository.seriesDetail(seriesId)) {
                 is Outcome.Success -> {
@@ -72,6 +74,7 @@ class SeriesDetailViewModel @Inject constructor(
                     _state.update {
                         it.copy(
                             loading = false,
+                            refreshing = false,
                             detail = detail,
                             coverUrl = libraryRepository.coverUrl(seriesId),
                             // Newest volume expanded by default; keeps long series scannable.
@@ -86,10 +89,23 @@ class SeriesDetailViewModel @Inject constructor(
                 }
 
                 is Outcome.Failure -> _state.update {
-                    it.copy(loading = false, error = outcome.failure.error)
+                    it.copy(loading = false, refreshing = false, error = outcome.failure.error)
                 }
             }
         }
+    }
+
+    /**
+     * Pull-to-refresh.
+     *
+     * Refreshes progress and Want To Read membership as well as the volume list, which is the
+     * common case: the user read a chapter elsewhere and pulled to see the new continue point.
+     * The expanded-volume set is preserved so the pull does not collapse the sections.
+     */
+    fun refresh() {
+        if (_state.value.refreshing || _state.value.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        load(showSpinner = false)
     }
 
     fun toggleVolume(volumeId: Int) {

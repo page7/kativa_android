@@ -38,7 +38,9 @@ import com.kavita.reader.R
 import com.kavita.reader.core.designsystem.CoverImage
 import com.kavita.reader.core.designsystem.EmptyState
 import com.kavita.reader.core.designsystem.KavitaDimens
+import com.kavita.reader.core.designsystem.KavitaPullToRefreshBox
 import com.kavita.reader.core.designsystem.KavitaTopAppBar
+import com.kavita.reader.core.designsystem.RefreshablePlaceholder
 import com.kavita.reader.ui.common.PrivacyToggle
 
 /** P04 锟?library list. */
@@ -63,22 +65,30 @@ fun LibraryScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        KavitaPullToRefreshBox(
+            refreshing = state.refreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> com.kavita.reader.ui.common.KavitaErrorState(
-                    error = state.error!!,
-                    onRetry = viewModel::load,
-                )
+                state.error != null -> RefreshablePlaceholder {
+                    com.kavita.reader.ui.common.KavitaErrorState(
+                        error = state.error!!,
+                        onRetry = viewModel::load,
+                    )
+                }
 
-                state.isEmpty -> EmptyState(
-                    title = stringResource(R.string.home_empty_title),
-                    body = stringResource(R.string.home_empty_body),
-                    actionLabel = stringResource(R.string.common_retry),
-                    onAction = viewModel::load,
-                    illustration = R.drawable.empty_shelf,
-                )
+                state.isEmpty -> RefreshablePlaceholder {
+                    EmptyState(
+                        title = stringResource(R.string.home_empty_title),
+                        body = stringResource(R.string.home_empty_body),
+                        actionLabel = stringResource(R.string.common_retry),
+                        onAction = viewModel::load,
+                        illustration = R.drawable.empty_shelf,
+                    )
+                }
 
                 else -> LazyColumn(
                     contentPadding = PaddingValues(16.dp),

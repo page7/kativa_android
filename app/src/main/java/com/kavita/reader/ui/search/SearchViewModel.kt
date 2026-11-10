@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 data class SearchUiState(
     val query: String = "",
     val loading: Boolean = false,
+    /** Pull-to-refresh in flight; the current results stay visible. */
+    val refreshing: Boolean = false,
     val results: SearchResults? = null,
     val error: KavitaError? = null,
     /** True once a query of sufficient length has actually been executed. */
@@ -86,9 +88,28 @@ class SearchViewModel @Inject constructor(
 
     fun retry() = submit()
 
-    private suspend fun execute(rawQuery: String) {
+    /**
+     * Pull-to-refresh on the results list.
+     *
+     * Re-runs the current query without a debounce and without raising [SearchUiState.loading], so
+     * the results stay on screen. A no-op when there is no executed query (history / empty states
+     * have nothing to refresh).
+     */
+    fun refresh() {
+        val query = _state.value.query
+        if (query.isBlank() || query.trim().length < SearchRepository.MIN_QUERY_LENGTH) return
+        if (_state.value.refreshing || _state.value.loading) return
+        _state.update { it.copy(refreshing = true, error = null) }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            execute(query, showSpinner = false)
+            _state.update { it.copy(refreshing = false) }
+        }
+    }
+
+    private suspend fun execute(rawQuery: String, showSpinner: Boolean = true) {
         val query = rawQuery.trim()
-        _state.update { it.copy(loading = true, error = null) }
+        _state.update { it.copy(loading = showSpinner, error = null) }
 
         when (val outcome = searchRepository.search(query)) {
             is Outcome.Success -> {

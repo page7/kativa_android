@@ -1,7 +1,6 @@
 package com.kavita.reader.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -39,6 +38,8 @@ import com.kavita.reader.core.designsystem.KavitaIcon
 import com.kavita.reader.core.designsystem.KavitaIcons
 import com.kavita.reader.core.designsystem.KavitaTopAppBar
 import com.kavita.reader.core.designsystem.EmptyState
+import com.kavita.reader.core.designsystem.KavitaPullToRefreshBox
+import com.kavita.reader.core.designsystem.RefreshablePlaceholder
 import com.kavita.reader.core.designsystem.SectionHeader
 import com.kavita.reader.core.designsystem.SeriesPosterCard
 import com.kavita.reader.ui.common.PrivacyToggle
@@ -88,22 +89,30 @@ fun HomeScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        KavitaPullToRefreshBox(
+            refreshing = state.refreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> com.kavita.reader.ui.common.KavitaErrorState(
-                    error = state.error!!,
-                    onRetry = viewModel::load,
-                )
+                state.error != null -> RefreshablePlaceholder {
+                    com.kavita.reader.ui.common.KavitaErrorState(
+                        error = state.error!!,
+                        onRetry = viewModel::load,
+                    )
+                }
 
-                state.isEmpty -> EmptyState(
-                    title = stringResource(R.string.home_empty_title),
-                    body = stringResource(R.string.home_empty_body),
-                    actionLabel = stringResource(R.string.common_retry),
-                    onAction = viewModel::load,
-                    illustration = R.drawable.empty_shelf,
-                )
+                state.isEmpty -> RefreshablePlaceholder {
+                    EmptyState(
+                        title = stringResource(R.string.home_empty_title),
+                        body = stringResource(R.string.home_empty_body),
+                        actionLabel = stringResource(R.string.common_retry),
+                        onAction = viewModel::load,
+                        illustration = R.drawable.empty_shelf,
+                    )
+                }
 
                 else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(2),

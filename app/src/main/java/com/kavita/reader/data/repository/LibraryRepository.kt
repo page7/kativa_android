@@ -133,7 +133,12 @@ class LibraryRepository @Inject constructor(
         is Outcome.Failure -> outcome
     }
 
-    /** All series across libraries, honouring the same filter model (used by smart views). */
+    /**
+     * All series across libraries, honouring the same filter model (used by smart views).
+     *
+     * Always goes to the network — it is not backed by [seriesCache], so there is no stale-page
+     * problem to solve and no `forceRefresh` knob to offer.
+     */
     suspend fun allSeries(
         page: Int = 1,
         pageSize: Int = 40,

@@ -44,8 +44,10 @@ import com.kavita.reader.core.designsystem.CoverImage
 import com.kavita.reader.core.designsystem.EmptyState
 import com.kavita.reader.core.designsystem.KavitaIcon
 import com.kavita.reader.core.designsystem.KavitaIcons
+import com.kavita.reader.core.designsystem.KavitaPullToRefreshBox
 import com.kavita.reader.core.designsystem.KavitaTopAppBar
 import com.kavita.reader.core.designsystem.KavitaUnderlineField
+import com.kavita.reader.core.designsystem.RefreshablePlaceholder
 import com.kavita.reader.core.designsystem.SectionHeader
 import com.kavita.reader.core.designsystem.SeriesPosterCard
 import com.kavita.reader.data.repository.SearchHit
@@ -107,28 +109,41 @@ fun SearchScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        KavitaPullToRefreshBox(
+            refreshing = state.refreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> com.kavita.reader.ui.common.KavitaErrorState(
-                    error = state.error!!,
-                    onRetry = viewModel::retry,
-                )
+                state.error != null -> RefreshablePlaceholder {
+                    com.kavita.reader.ui.common.KavitaErrorState(
+                        error = state.error!!,
+                        onRetry = viewModel::retry,
+                    )
+                }
 
-                state.isEmptyResult -> EmptyState(
-                    title = stringResource(R.string.search_empty_title, state.query.trim()),
-                    body = stringResource(R.string.search_empty_body, state.query.trim()),
-                    illustration = R.drawable.empty_search,
-                )
+                state.isEmptyResult -> RefreshablePlaceholder {
+                    EmptyState(
+                        title = stringResource(R.string.search_empty_title, state.query.trim()),
+                        body = stringResource(R.string.search_empty_body, state.query.trim()),
+                        illustration = R.drawable.empty_search,
+                    )
+                }
 
-                state.belowMinLength -> EmptyState(
-                    title = stringResource(
-                        R.string.search_min_length,
-                        SearchRepository.MIN_QUERY_LENGTH,
-                    ),
-                )
+                state.belowMinLength -> RefreshablePlaceholder {
+                    EmptyState(
+                        title = stringResource(
+                            R.string.search_min_length,
+                            SearchRepository.MIN_QUERY_LENGTH,
+                        ),
+                    )
+                }
 
+                // Nothing has been searched yet: history is a static list, and pulling it to
+                // "refresh" would mean something different from re-running a query, so this state
+                // is intentionally not refreshable.
                 state.results == null -> SearchHistory(
                     history = history,
                     onSelect = viewModel::selectHistory,

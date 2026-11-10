@@ -41,7 +41,9 @@ import com.kavita.reader.core.designsystem.EmptyState
 import com.kavita.reader.core.designsystem.KavitaColors
 import com.kavita.reader.core.designsystem.KavitaIcon
 import com.kavita.reader.core.designsystem.KavitaIcons
+import com.kavita.reader.core.designsystem.KavitaPullToRefreshBox
 import com.kavita.reader.core.designsystem.KavitaTopAppBar
+import com.kavita.reader.core.designsystem.RefreshablePlaceholder
 import com.kavita.reader.core.designsystem.SeriesPosterCard
 import com.kavita.reader.data.repository.ShelfCollection
 import com.kavita.reader.ui.common.PrivacyToggle
@@ -97,26 +99,34 @@ fun ShelfScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        KavitaPullToRefreshBox(
+            refreshing = state.refreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier.fillMaxSize().padding(padding),
+        ) {
             when {
                 state.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                state.error != null -> com.kavita.reader.ui.common.KavitaErrorState(
-                    error = state.error!!,
-                    onRetry = viewModel::load,
-                )
+                state.error != null -> RefreshablePlaceholder {
+                    com.kavita.reader.ui.common.KavitaErrorState(
+                        error = state.error!!,
+                        onRetry = viewModel::load,
+                    )
+                }
 
-                state.isEmpty -> EmptyState(
-                    title = when (viewModel.shelfKind) {
-                        ShelfKind.WantToRead -> stringResource(R.string.shelf_want_to_read_empty)
-                        ShelfKind.ReadingLists -> stringResource(R.string.shelf_lists_empty)
-                        else -> stringResource(R.string.shelf_collections_empty)
-                    },
-                    body = stringResource(R.string.shelf_empty_body),
-                    actionLabel = stringResource(R.string.common_retry),
-                    onAction = viewModel::load,
-                    illustration = R.drawable.empty_shelf,
-                )
+                state.isEmpty -> RefreshablePlaceholder {
+                    EmptyState(
+                        title = when (viewModel.shelfKind) {
+                            ShelfKind.WantToRead -> stringResource(R.string.shelf_want_to_read_empty)
+                            ShelfKind.ReadingLists -> stringResource(R.string.shelf_lists_empty)
+                            else -> stringResource(R.string.shelf_collections_empty)
+                        },
+                        body = stringResource(R.string.shelf_empty_body),
+                        actionLabel = stringResource(R.string.common_retry),
+                        onAction = viewModel::load,
+                        illustration = R.drawable.empty_shelf,
+                    )
+                }
 
                 // Series mode: collection contents or the Want To Read list.
                 state.series.isNotEmpty() -> LazyVerticalGrid(
