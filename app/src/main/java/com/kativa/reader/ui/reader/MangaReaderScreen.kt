@@ -735,8 +735,29 @@ private fun ReaderControls(
                             WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
                         ),
                     )
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
             ) {
+                var dragValue by remember { mutableStateOf<Float?>(null) }
+
+                // Page counter on its own text-only line. It used to share a `Row` with the
+                // chapter arrows, so it inherited their 48dp touch-target height; that plus the
+                // slider's old 22dp bubble row is what opened the huge gap above the track.
+                // While dragging it reports the page under the thumb, which is also why the
+                // floating bubble is gone: the counter already does that job, one line up.
+                Text(
+                    text = stringResource(
+                        R.string.reader_page,
+                        dragValue?.roundToInt()?.plus(1) ?: state.displayPage,
+                        state.totalPages,
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 2.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onPrevChapter, enabled = true) {
                         KativaIcon(
@@ -745,12 +766,20 @@ private fun ReaderControls(
                             tint = Color.White,
                         )
                     }
-                    Text(
-                        text = stringResource(R.string.reader_page, state.displayPage, state.totalPages),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White,
+                    KativaSlider(
+                        value = dragValue ?: state.pageIndex.toFloat(),
+                        // While dragging only the local state moves: driving the pager from every
+                        // frame made the pages jitter and restarted the 800ms progress debounce
+                        // continuously. The jump happens once, on release.
+                        onValueChange = { dragValue = it },
+                        onValueChangeFinished = {
+                            dragValue?.let { onSeek(it.roundToInt()) }
+                            dragValue = null
+                        },
+                        valueRange = 0f..((state.totalPages - 1).coerceAtLeast(0)).toFloat(),
+                        activeColor = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.22f),
                         modifier = Modifier.weight(1f),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
                     IconButton(onClick = onNextChapter) {
                         KativaIcon(
@@ -760,29 +789,6 @@ private fun ReaderControls(
                         )
                     }
                 }
-                var dragValue by remember { mutableStateOf<Float?>(null) }
-
-                KativaSlider(
-                    value = dragValue ?: state.pageIndex.toFloat(),
-                    // While dragging only the local state moves: driving the pager from every
-                    // frame made the pages jitter and restarted the 800ms progress debounce
-                    // continuously. The jump happens once, on release.
-                    onValueChange = { dragValue = it },
-                    onValueChangeFinished = {
-                        dragValue?.let { onSeek(it.roundToInt()) }
-                        dragValue = null
-                    },
-                    valueRange = 0f..((state.totalPages - 1).coerceAtLeast(0)).toFloat(),
-                    activeColor = Color.White,
-                    trackColor = Color.White.copy(alpha = 0.22f),
-                    valueLabel = { value ->
-                        stringResource(
-                            R.string.reader_page,
-                            value.roundToInt() + 1,
-                            state.totalPages,
-                        )
-                    },
-                )
             }
         }
     }

@@ -3,38 +3,22 @@ package com.kativa.reader.core.designsystem
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderState
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 
 /**
  * Kativa slider (AGENTS.md §6: screens must not style Material components themselves).
@@ -46,8 +30,12 @@ import kotlin.math.roundToInt
  * semantics, and only replaces the visuals:
  *
  *  - 4dp fully rounded track, no gap and no stop dot;
- *  - 14dp round thumb;
- *  - optional floating value bubble while dragging (reader progress bar).
+ *  - 14dp round thumb.
+ *
+ * The slider deliberately has **no drag bubble**. It used to reserve a 22dp strip above the track
+ * for one, which added a whole extra row of layout height to the reader's bottom bar on top of the
+ * page counter line. The counter already sits one line above the track, so it reports the page
+ * under the thumb while dragging instead — no overlay, no reserved space, nothing lost.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,79 +51,18 @@ fun KativaSlider(
     thumbColor: Color = activeColor,
     /** Called once the finger lifts, after the drag ends. */
     onValueChangeFinished: (() -> Unit)? = null,
-    /** When non-null a bubble follows the thumb while dragging, showing this label. */
-    valueLabel: (@Composable (Float) -> String)? = null,
 ) {
-    var dragging by remember { mutableStateOf(false) }
-
-    Column(modifier.fillMaxWidth()) {
-        if (valueLabel != null) {
-            // Space is reserved unconditionally: growing the column mid-drag would push the
-            // track away from the finger.
-            ValueBubble(
-                text = valueLabel(value),
-                fraction = fractionOf(value, valueRange),
-                visible = dragging,
-            )
-        }
-        Slider(
-            value = value,
-            onValueChange = {
-                dragging = true
-                onValueChange(it)
-            },
-            onValueChangeFinished = {
-                dragging = false
-                onValueChangeFinished?.invoke()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = enabled,
-            valueRange = valueRange,
-            steps = steps,
-            track = { state -> KativaTrack(state, activeColor, trackColor) },
-            thumb = { KativaThumb(thumbColor) },
-        )
-    }
-}
-
-/**
- * Value bubble that floats above the thumb.
- *
- * The surface is always composed (alpha 0 when idle) so its width can be measured before the
- * first visible frame; otherwise the bubble would flash at the wrong offset for one frame.
- */
-@Composable
-private fun ValueBubble(
-    text: String,
-    fraction: Float,
-    visible: Boolean,
-) {
-    var bubbleWidth by remember { mutableIntStateOf(0) }
-    val thumbPx = with(LocalDensity.current) { ThumbSize.toPx() }
-
-    BoxWithConstraints(Modifier.fillMaxWidth().height(BubbleSlotHeight)) {
-        val fullWidth = constraints.maxWidth.toFloat()
-        val center = thumbPx + (fullWidth - thumbPx * 2f).coerceAtLeast(0f) * fraction
-        val maxX = (fullWidth - bubbleWidth).coerceAtLeast(0f)
-        val x = (center - bubbleWidth / 2f).coerceIn(0f, maxX)
-
-        Surface(
-            color = Color.White,
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier
-                .onSizeChanged { bubbleWidth = it.width }
-                .offset { IntOffset(x.roundToInt(), 0) }
-                .alpha(if (visible && bubbleWidth > 0) 1f else 0f),
-        ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color(0xFF101014),
-                maxLines = 1,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            )
-        }
-    }
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        onValueChangeFinished = onValueChangeFinished ?: {},
+        modifier = modifier.fillMaxWidth(),
+        enabled = enabled,
+        valueRange = valueRange,
+        steps = steps,
+        track = { state -> KativaTrack(state, activeColor, trackColor) },
+        thumb = { KativaThumb(thumbColor) },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -190,6 +117,3 @@ private val ThumbSize: Dp = 14.dp
  * the difference to sit on the track's centre line.
  */
 private val ThumbSlotHeight: Dp = 16.dp
-
-/** Reserved strip above the track so the bubble never resizes the layout. */
-private val BubbleSlotHeight: Dp = 22.dp

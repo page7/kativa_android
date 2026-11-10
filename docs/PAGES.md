@@ -154,7 +154,7 @@
   1. **内容层**：`HorizontalPager`（单页/双页）或 `LazyColumn`（Webtoon/上下）。
   2. **覆盖层**（点击中部显现）：顶部栏（返回、系列名、页码 `12 / 180`、书签、设置）、底部栏（上一章、进度滑块、下一章）。
   3. **手势层**：`pointerInput` 处理点击分区/滑动/双击/长按；与 pager 的滑动仲裁。
-- **组件**：`ReaderPage`、`ReaderTopBar`、`ReaderBottomBar`、`PageSlider`（`KativaSlider` + 拖动气泡）、`ReaderSettingsSheet`、`ChapterTransitionBar`、`PageErrorPlaceholder`。
+- **组件**：`ReaderPage`、`ReaderTopBar`、`ReaderBottomBar`、`PageSlider`（`KativaSlider`；拖动时页码行实时显示目标页）、`ReaderSettingsSheet`、`ChapterTransitionBar`、`PageErrorPlaceholder`。
 - **状态**：`Preparing`（黑屏 + 章节名 + 进度）/ `Ready` / `PageError` / `ChapterEnd` / `NoNetwork`。
 - **交互**
   - 单页 LTR/RTL、双页（按 `PageSplitOption`/`doublePairs` 配对，宽页独占）。
@@ -284,7 +284,7 @@
 | `SeriesPosterCard` | 2:3 封面卡（标题、进度、未读点；隐私模式下封面为占位图） |
 | `SeriesListRow` | 列表视图的行 |
 | `ProgressRing` / `KativaProgressBar` | 进度（`KativaProgressBar` 用 Canvas 自绘，避免 M3 1.3 的轨道间隙与末端圆点） |
-| `KativaSlider` | 统一滑块（4dp 细轨 + 14dp 圆点；可选拖动气泡） |
+| `KativaSlider` | 统一滑块（4dp 细轨 + 14dp 圆点，无拖动气泡：不加高布局） |
 | `SectionHeader` | 区块标题 + 「查看全部」 |
 | `KativaPrimaryButton` / `SecondaryButton` | 主/次行动 |
 | `TypePill` / `MetaChip` | 类型/元数据标签 |
