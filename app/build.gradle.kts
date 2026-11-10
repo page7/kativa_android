@@ -34,8 +34,11 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            // No `applicationIdSuffix`/"-debug" suffix: release artifacts are published as
+            // pre-releases straight from the debug build (there is no signing config yet), and the
+            // package name must match the release notes. Consequence: an APK built here replaces a
+            // `com.kativa.reader.debug` install rather than coexisting with it, so uninstall the old
+            // one before upgrading.
             isMinifyEnabled = false
         }
         release {
@@ -73,11 +76,15 @@ android {
 }
 
 /**
- * Publishes the debug APK to `dist/` using a name derived from the build's own `versionName`.
+ * Publishes the APK to `dist/` using a name derived from the build's own `versionName`.
  *
  * Why this exists: release artifacts were previously copied by hand into `dist/` with invented
  * names (`Kativa-v0.3.10-M2-debug.apk`) while `versionName` still said `0.1.0`. Nothing tied the
  * two together, so the file name drifted from the version the app actually reported.
+ *
+ * The artifact is named `Kativa-v<versionName>.apk` with no variant suffix, because the build is
+ * shipped as-is to GitHub pre-releases (see `docs/RELEASE_NOTES.md`). There is no signing config
+ * yet, so the shipped APK is still the debug-signed build.
  *
  * Run: `./gradlew :app:packageDebugApk`
  */
@@ -90,7 +97,7 @@ tasks.register<Copy>("packageDebugApk") {
     val variant = "debug"
     val appVersionName = android.defaultConfig.versionName ?: "0.0.0"
     val appVersionCode = android.defaultConfig.versionCode ?: 0
-    val artifactName = "Kativa-v$appVersionName-$variant.apk"
+    val artifactName = "Kativa-v$appVersionName.apk"
     val apkDir = layout.buildDirectory.dir("outputs/apk/$variant")
     val distDir = rootProject.layout.projectDirectory.dir("dist").asFile
 

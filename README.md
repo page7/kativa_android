@@ -16,6 +16,7 @@ Kavita 自建阅读服务器的 **Android 原生客户端**（第三方，非官
 | [`docs/FEATURES.md`](docs/FEATURES.md) | 功能规划：优先级、里程碑、验收标准、不做清单 |
 | [`docs/API.md`](docs/API.md) | 接口清单：端点、字段、枚举对照表、对接陷阱 |
 | [`docs/ASSETS.md`](docs/ASSETS.md) | 素材清单：SVG→PNG 占位与正式素材替换追踪 |
+| [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) | 发布说明：各版本 GitHub Release 正文（当前均标记 Pre-release） |
 
 ## 技术栈
 
@@ -48,10 +49,10 @@ Kotlin · Jetpack Compose · Material 3 · Hilt · Retrofit/OkHttp · kotlinx.se
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb logcat -c
-adb shell am force-stop com.kativa.reader.debug
-adb shell am start -n com.kativa.reader.debug/com.kativa.reader.MainActivity
+adb shell am force-stop com.kativa.reader
+adb shell am start -n com.kativa.reader/com.kativa.reader.MainActivity
 sleep 8
-adb shell pidof com.kativa.reader.debug          # 必须非空
+adb shell pidof com.kativa.reader          # 必须非空
 adb logcat -d | grep "FATAL EXCEPTION"           # 必须为空
 ```
 

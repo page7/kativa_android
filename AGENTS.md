@@ -303,10 +303,10 @@ adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
 # 3. 装 + 冷启动 + 看是否存活
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb logcat -c
-adb shell am force-stop com.kativa.reader.debug
-adb shell am start -n com.kativa.reader.debug/com.kativa.reader.MainActivity
+adb shell am force-stop com.kativa.reader
+adb shell am start -n com.kativa.reader/com.kativa.reader.MainActivity
 sleep 8
-adb shell pidof com.kativa.reader.debug        # 必须非空
+adb shell pidof com.kativa.reader        # 必须非空
 adb logcat -d | grep "FATAL EXCEPTION"         # 必须为空
 
 # 4. 校验首屏真的渲染了
@@ -340,7 +340,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 ```bash
 # 需要 JDK 17；本机路径：D:\tools\jdk-17.0.21+9
 ./gradlew :app:assembleDebug          # 构建
-./gradlew :app:packageDebugApk        # 构建并输出到 dist/Kativa-v<versionName>-debug.apk
+./gradlew :app:packageDebugApk        # 构建并输出到 dist/Kativa-v<versionName>.apk
 ./gradlew :app:testDebugUnitTest      # 单测
 ./gradlew :app:generateAssets         # 从 assets/manifest.json 生成全部 PNG 素材
 ./gradlew :app:checkAssetsRegistered  # 校验 res/ 下没有未登记素材
@@ -359,6 +359,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 - PR 必须包含：改动动机、截图/录屏（UI）、测试说明、`docs/` 是否需同步。
 - `local.properties`、签名文件、任何服务器地址/token **不得入库**。
 - Release 构建：混淆 + 资源压缩；崩溃日志仅本地可选导出，不上传。
+- **发布命名**：APK 统一为 `Kativa-v<versionName>.apk`（不带变体后缀），包名统一 `com.kativa.reader`（debug 不再加 `.debug`）；发布正文见 `docs/RELEASE_NOTES.md`。当前无签名配置，发布物即为 debug 签名构建。
 
 ---
 
@@ -508,7 +509,7 @@ adb shell uiautomator dump /sdcard/ui.xml && adb shell cat /sdcard/ui.xml | head
 ### M0 落地记录（供后续参考）
 
 - JDK：本机无 JDK 17，已安装到 `D:\tools\jdk-17.0.21+9`；`local.properties` 指向 `D:\Program\Android SDK`。
-- `applicationId = com.kativa.reader`，debug 后缀 `.debug`；`minSdk 26 / target 35 / compile 35`。
+- `applicationId = com.kativa.reader`（**debug 变体不再加 `.debug` 后缀**，见 §9 与 1.1.0 发布说明）；`minSdk 26 / target 35 / compile 35`。
 - 已实现：`ServerRepository`（多服务器 + 自动登录单选）、`SessionStore`（按 serverId 隔离）、`ActiveServerStore`、
   `StartupRouter`、`ApiFactory`（按 baseUrl 缓存 Retrofit）、`AuthInterceptor`、`CleartextGateInterceptor`、
   `PaginationInterceptor`、`ErrorMapper`、`CoverUrlBuilder`、`PrivacyModeState`、四语言资源、`Splash/Welcome/
